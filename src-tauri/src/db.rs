@@ -1,0 +1,185 @@
+//! Leest de lokale index die de CLI bouwt (`media index`, datacontract sectie 7):
+//! tabel `items` met één regel per bestand uit de manifesten. Alleen lezen; de CLI schrijft.
+
+use rusqlite::{Connection, OpenFlags};
+use serde::Serialize;
+use std::path::Path;
+use std::time::Duration;
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct MonthSummary {
+    /// `2026/07`, of de mapnaam als het manifest geen maand heeft (`2012/scans Peter`).
+    pub month: String,
+    pub photos: i64,
+    pub videos: i64,
+    /// Hoeveel van die foto's en video's een preview hebben op deze laptop.
+    pub previews: i64,
+    /// Hoeveel originelen lokaal staan.
+    pub local: i64,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Item {
+    pub path: String,
+    pub folder: String,
+    pub kind: String,
+    pub taken: Option<String>,
+    pub taken_from: Option<String>,
+    pub source: Option<String>,
+    pub size: i64,
+    pub hash: String,
+    pub local: bool,
+    pub preview: bool,
+}
+
+#[derive(Debug)]
+pub struct Db {
+    conn: Connection,
+}
+
+impl Db {
+    pub fn open(path: &Path) -> Result<Db, String> {
+        if !path.is_file() {
+            return Err(format!(
+                "geen index gevonden: {}\nmaak ze met `./media index` (of `./media pull`)",
+                path.display()
+            ));
+        }
+        let conn = Connection::open_with_flags(
+            path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .map_err(|e| format!("index openen mislukt: {e}"))?;
+        // de CLI kan de index net aan het herbouwen zijn
+        conn.busy_timeout(Duration::from_secs(3)).map_err(|e| e.to_string())?;
+        Ok(Db { conn })
+    }
+
+    /// Alle maanden (nieuwste eerst) met tellingen; alleen foto's en video's tellen mee.
+    pub fn months(&self) -> Result<Vec<MonthSummary>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT coalesce(month, folder) AS m,
+                        sum(kind = 'photo'), sum(kind = 'video'), sum(preview), sum(local)
+                 FROM items WHERE kind IN ('photo', 'video')
+                 GROUP BY m ORDER BY m DESC",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok(MonthSummary {
+                    month: r.get(0)?,
+                    photos: r.get(1)?,
+                    videos: r.get(2)?,
+                    previews: r.get(3)?,
+                    local: r.get(4)?,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
+    /// De foto's en video's van één maand, op opnametijd.
+    pub fn items(&self, month: &str) -> Result<Vec<Item>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT path, folder, kind, taken, taken_from, source, size, hash, local, preview
+                 FROM items WHERE kind IN ('photo', 'video') AND coalesce(month, folder) = ?1
+                 ORDER BY taken, path",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([month], |r| {
+                Ok(Item {
+                    path: r.get(0)?,
+                    folder: r.get(1)?,
+                    kind: r.get(2)?,
+                    taken: r.get(3)?,
+                    taken_from: r.get(4)?,
+                    source: r.get(5)?,
+                    size: r.get(6)?,
+                    hash: r.get(7)?,
+                    local: r.get::<_, i64>(8)? != 0,
+                    preview: r.get::<_, i64>(9)? != 0,
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Zelfde schema als `media index` in de CLI.
+    fn fixture() -> (tempfile::TempDir, std::path::PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("index.sqlite");
+        let c = Connection::open(&path).unwrap();
+        c.execute_batch(
+            "CREATE TABLE folders (folder TEXT PRIMARY KEY, month TEXT, contract_version TEXT,
+                generated_at TEXT, generated_by TEXT, n_files INTEGER);
+             CREATE TABLE items (path TEXT PRIMARY KEY, folder TEXT, month TEXT, size INTEGER,
+                hash TEXT, taken TEXT, taken_from TEXT, kind TEXT, source TEXT, sidecars TEXT,
+                local INTEGER, preview INTEGER);",
+        )
+        .unwrap();
+        let rows = [
+            ("2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3", "2026/07", "2026/07", "photo", "EOSR", "2026-07-30T10:00:00+02:00", 1, 1),
+            ("2026/07/EOSR/videos/2026-07-30/CO7A9140.MP4", "2026/07", "2026/07", "video", "EOSR", "2026-07-30T10:05:00+02:00", 0, 1),
+            ("2026/07/iPhone-photos-Lynn/IMG_0812.JPG", "2026/07", "2026/07", "photo", "iPhone-photos-Lynn", "2026-07-02T09:00:00+02:00", 1, 0),
+            ("2026/07/EOSR/photos/2026-07-30/CO7A9123.xmp", "2026/07", "2026/07", "sidecar", "EOSR", "2026-07-30T10:00:00+02:00", 1, 0),
+            ("2007/02.Sevilla/IMG_1.jpg", "2007/02.Sevilla", "2007/02", "photo", "", "2007-02-10T12:00:00+01:00", 0, 1),
+            ("2012/scans Peter/scan1.tif", "2012/scans Peter", "", "photo", "", "2012-01-01T00:00:00+01:00", 0, 0),
+        ];
+        for (path, folder, month, kind, source, taken, local, preview) in rows {
+            c.execute(
+                "INSERT INTO items VALUES (?1, ?2, ?3, 100, 'sha256:x', ?4, 'exif', ?5, ?6, '[]', ?7, ?8)",
+                rusqlite::params![
+                    path,
+                    folder,
+                    if month.is_empty() { None } else { Some(month) },
+                    taken,
+                    kind,
+                    if source.is_empty() { None } else { Some(source) },
+                    local,
+                    preview
+                ],
+            )
+            .unwrap();
+        }
+        (dir, path)
+    }
+
+    #[test]
+    fn months_count_photos_videos_previews_and_group_month_null_by_folder() {
+        let (_d, p) = fixture();
+        let m = Db::open(&p).unwrap().months().unwrap();
+        assert_eq!(m.iter().map(|x| x.month.as_str()).collect::<Vec<_>>(), ["2026/07", "2012/scans Peter", "2007/02"]);
+        assert_eq!(m[0], MonthSummary { month: "2026/07".into(), photos: 2, videos: 1, previews: 2, local: 2 });
+        assert_eq!(m[2].photos, 1);
+    }
+
+    #[test]
+    fn items_are_sorted_by_taken_and_skip_sidecars() {
+        let (_d, p) = fixture();
+        let items = Db::open(&p).unwrap().items("2026/07").unwrap();
+        assert_eq!(items.len(), 3);
+        assert!(items[0].path.ends_with("IMG_0812.JPG"));
+        assert_eq!(items[1].kind, "photo");
+        assert!(items[1].local && items[1].preview);
+        assert_eq!(items[2].kind, "video");
+        assert!(!items[2].local);
+        assert_eq!(items[0].source.as_deref(), Some("iPhone-photos-Lynn"));
+        assert!(Db::open(&p).unwrap().items("1999/01").unwrap().is_empty());
+    }
+
+    #[test]
+    fn missing_index_gives_a_helpful_error() {
+        let err = Db::open(Path::new("/nope/index.sqlite")).unwrap_err();
+        assert!(err.contains("media index"));
+    }
+}
