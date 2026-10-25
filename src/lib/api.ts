@@ -56,3 +56,18 @@ export const config = {
   device: () => invoke<DeviceState>("device"),
   createDevice: (name: string, owner: string) => invoke<Device>("create_device", { name, owner }),
 };
+
+export type Mount = { mount_point: string; fs_type: string; server: string; user: string | null; chosen: boolean };
+export type NasMounts = Record<keyof Shares, Mount[]>;
+
+export const nas = {
+  mounts: () => invoke<NasMounts>("nas_mounts"),
+};
+
+/** "/Volumes/Library · AFP" for the mount the app uses, or null when the share isn't mounted. */
+export function mountLabel(list: Mount[]): string | null {
+  const m = list.find((x) => x.chosen);
+  if (!m) return null;
+  const kind = m.fs_type === "smbfs" ? "SMB" : m.fs_type === "afpfs" ? "AFP" : m.fs_type;
+  return `${m.mount_point} · ${kind}`;
+}

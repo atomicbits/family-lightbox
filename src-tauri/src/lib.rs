@@ -3,6 +3,7 @@
 
 mod config;
 mod db;
+mod mounts;
 
 use config::{Device, Settings};
 use db::{Db, Item, MonthSummary};
@@ -106,6 +107,12 @@ fn create_device(name: String, owner: String, paths: State<Paths>) -> Result<Dev
 }
 
 #[tauri::command]
+fn nas_mounts(paths: State<Paths>) -> mounts::NasMounts {
+    let (settings, _) = config::load_settings(&paths.config);
+    mounts::find_shares(&mounts::system_mounts(), &settings)
+}
+
+#[tauri::command]
 fn months(paths: State<Paths>) -> Result<Vec<MonthSummary>, String> {
     Db::open(&paths.index())?.months()
 }
@@ -175,7 +182,8 @@ pub fn run() {
             preview_response(&previews_root, request.uri().path())
         })
         .invoke_handler(tauri::generate_handler![
-            status, months, items, reveal, open_original, settings, save_settings, device, create_device
+            status, months, items, reveal, open_original, settings, save_settings, device, create_device,
+            nas_mounts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

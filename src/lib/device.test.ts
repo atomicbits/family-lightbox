@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { mountLabel } from "./api";
 import { deviceNameProblem, hostProblem, ownerProblem, proposeDeviceName, shareProblem } from "./device";
 
 describe("device identity", () => {
@@ -28,5 +29,14 @@ describe("settings", () => {
     expect(shareProblem("Library")).toBeNull();
     expect(shareProblem("")).not.toBeNull();
     expect(shareProblem("Lists/sub")).not.toBeNull();
+  });
+});
+
+describe("mounts", () => {
+  it("labels the chosen mount, or null when there is none", () => {
+    const m = (fs_type: string, mount_point: string, chosen: boolean) => ({ mount_point, fs_type, server: "raven", user: "peter", chosen });
+    expect(mountLabel([m("afpfs", "/Volumes/Library", false), m("smbfs", "/Volumes/Library-1", true)])).toBe("/Volumes/Library-1 · SMB");
+    expect(mountLabel([m("afpfs", "/Volumes/Library", true)])).toBe("/Volumes/Library · AFP");
+    expect(mountLabel([])).toBeNull();
   });
 });

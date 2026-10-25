@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { config, type DeviceState, type Settings as S, type SettingsState, type Shares } from "../lib/api";
+import { config, mountLabel, nas, type DeviceState, type NasMounts, type Settings as S, type SettingsState, type Shares } from "../lib/api";
 import { hostProblem, shareProblem } from "../lib/device";
 
 type Props = { device: DeviceState | null; onClose: () => void };
@@ -16,9 +16,10 @@ export default function Settings({ device, onClose }: Props) {
   const [state, setState] = useState<SettingsState | null>(null);
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [mounts, setMounts] = useState<NasMounts | null>(null);
 
   const load = () =>
-    config.settings().then((s) => { setState(s); setDraft(s.settings); });
+    config.settings().then((s) => { setState(s); setDraft(s.settings); return nas.mounts().then(setMounts); });
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
@@ -89,6 +90,23 @@ export default function Settings({ device, onClose }: Props) {
             ))}
           </div>
           {problems.map((p) => <div key={p} className="text-amber-600">{p}</div>)}
+          {mounts && (
+            <div className="space-y-0.5">
+              <div className="text-neutral-500">Gevonden op deze Mac</div>
+              {SHARE_LABELS.map(([k, label]) => {
+                const where = mountLabel(mounts[k]);
+                return (
+                  <div key={k} className="flex gap-2">
+                    <span className="w-24 shrink-0">{label}</span>
+                    <span className={where ? "font-mono text-xs leading-5" : "text-neutral-400"}>
+                      {where ?? "niet verbonden"}
+                      {mounts[k].length > 1 && ` (+${mounts[k].length - 1})`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="text-xs text-neutral-400 font-mono">{state.path}</div>
         </section>
 

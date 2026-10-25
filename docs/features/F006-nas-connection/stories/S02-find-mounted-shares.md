@@ -1,7 +1,7 @@
 # Story S02: Find mounted shares by server and share name
 
 **Feature:** `F006-nas-connection`
-**Status:** Planned
+**Status:** In progress: built and tested, recognition checked against this Mac's real mounts; settings panel not yet looked at in the running app
 **Depends on:** S01
 
 ## Goal
@@ -81,3 +81,16 @@ what S03 needs to decide what to connect, and what S04 needs to check access.
 ## Progress log
 
 ### [2026-10-25] Written
+
+### [2026-10-25] Built
+
+- `src-tauri/src/mounts.rs`: `system_mounts` via `libc::getmntinfo(MNT_NOWAIT)` (macOS; empty
+  elsewhere), pure `parse_source`, `same_server`, `find_shares`; SMB chosen over AFP when both are
+  mounted. Command `nas_mounts` in `lib.rs`; `libc` added to `Cargo.toml`.
+- Settings panel: "Gevonden op deze Mac" with the chosen mount per share, or "niet verbonden",
+  and `(+n)` when a share is mounted more than once. `mountLabel` in `api.ts`.
+- Checked against the real mounts on Peter's Mac with a throwaway example (removed afterwards):
+  `Library` found at `/Volumes/Library` over AFP and chosen; `Datasets` and `TimeMachinePeter` on
+  the same NAS left out; `Previews`, `Lists`, `Exports` not mounted.
+- `cargo test` 19 passed (5 new, one of them against the real `getmntinfo`), `pnpm test` 8 passed
+  (1 new), `pnpm build` and `cargo clippy --all-targets` clean.
