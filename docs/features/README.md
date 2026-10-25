@@ -1,0 +1,139 @@
+# Features and stories
+
+The working index for FamilyLightbox: which features exist, which stories belong to them and how
+far along they are. The *why* and the overall design of the photo workflow live outside this repo,
+in the `media` CLI's documentation (in Dutch): `~/Pictures/LibraryLocal/docs/`
+(`requirements-gewenste-situatie.md`, `architectuur-voorstel.md`, and the data contract
+`datacontract.md` that this app reads against).
+
+## The model in one line
+
+**A feature describes _what_ the app does; a story describes _how_ that is (or was) realized.**
+Changing or extending a feature means adding a new story that describes how the change will be
+built. Code is never silently changed against a design that isn't written down.
+
+**This is a hard rule: before any non-trivial code is written or changed, there is a story under
+the right feature describing how.** Write the story first, then implement against it. Exceptions
+are listed at the bottom.
+
+## Language
+
+Everything in this repo is written in **English**: README, `CLAUDE.md`, features, stories, commit
+messages and code comments. (The `media` CLI and its docs in `~/Pictures/LibraryLocal` are in
+Dutch and follow the same process there.)
+
+## Layout and naming
+
+```
+docs/features/
+  README.md                         this file: process and index
+  F001-<slug>/
+    plan.md                         goal, scope, acceptance criteria, list of stories
+    stories/
+      S01-<slug>.md                 one file per story
+```
+
+- **Feature folder**: `F<NNN>-<slug>`, e.g. `F001-browse-months`. Numbers are stable and never
+  reused; a dropped feature keeps its number and the next one gets a new number.
+- **Story file**: `S<NN>-<slug>.md`. IDs are stable within a feature; stories are not renumbered
+  when one is dropped.
+- **A feature folder is not a dumping ground.** If something is too small for a story, fold it
+  into an existing story or just do it.
+- **Needs from the CLI.** When a story needs a change to the `media` CLI or the data contract,
+  that change gets its own story in `~/Pictures/LibraryLocal/docs/features/` (in Dutch); the
+  story here links to it and depends on it.
+
+## Status
+
+| Status | Meaning |
+|---|---|
+| **Planned** | described, not started |
+| **In design** | feature folder exists, `plan.md` being written |
+| **In progress** | being built |
+| **Done** | built, tested, meets its acceptance criteria |
+| **Blocked** | waiting on something else (say what) |
+| **Deferred** | deliberately later |
+| **Dropped** | no longer needed (say why) |
+
+**Status lives in three places (the story, `plan.md`, the table below), and the code is the only
+source of truth.** A status line is a *claim* about the code. When it disagrees with the code,
+believe the code and fix the line before continuing. Prefer recording what is genuinely still
+open over a bare **Done**: "built and unit-tested, not yet checked in the running app" is worth
+more than a tick.
+
+## Process
+
+1. Pick the next feature from the table below, or add a new row.
+2. **Verify the status** in the story and in the code it names. Statuses drift.
+3. If the feature folder doesn't exist yet, create it and write `plan.md` first. Get Peter's
+   review before writing out the stories.
+4. Write the story (template below) **before** implementing it.
+5. Implement one story at a time. If something fits no existing story, propose a new one rather
+   than quietly widening the one in progress.
+6. Keep the documents current while working: the progress log in the story; on completion the
+   status in the story, in `plan.md` and in the table below, and the README if usage changed.
+
+### When the work doesn't fit this structure
+
+Small bug fixes, doc tweaks and throwaway experiments don't need a feature or story. Rule of
+thumb: under an hour and no change to the architecture or to what the app reads or writes, just
+do it. If it's bigger or changes the shape of the system, put it in the right document first.
+
+## Template `plan.md`
+
+```markdown
+# Feature NNN: <title>
+
+**Status:** In design
+**Depends on:** —
+**Folder:** `FNNN-<slug>`
+
+## Goal
+What Peter or Lynn can do afterwards that they can't today.
+
+## Scope
+### In scope
+### Out of scope
+
+## Acceptance criteria
+Concrete and checkable.
+
+## Stories
+| ID | Title | Status | Depends on |
+|---|---|---|---|
+```
+
+## Template story
+
+```markdown
+# Story SNN: <title>
+
+**Feature:** `FNNN-<slug>`
+**Status:** Planned
+**Depends on:** —
+
+## Goal
+
+## Acceptance criteria
+- concrete, checkable (a test, a command, an observable result)
+
+## How
+The approach: which modules, which rules from the data contract, what is deliberately not done.
+
+## Files affected
+- `src-tauri/src/…` — …
+- `src/…` — …
+
+## Progress log
+### [YYYY-MM-DD] …
+```
+
+## Index
+
+The first version (months and sources from the local index, a grid of previews, one photo large,
+reveal or open the original) was built before this process and has no stories. New work starts
+here.
+
+| # | Feature | Status | Depends on |
+|---|---|---|---|
+| | *none yet* | | |
