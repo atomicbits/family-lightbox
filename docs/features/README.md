@@ -130,10 +130,14 @@ The approach: which modules, which rules from the data contract, what is deliber
 
 ## Index
 
-The first version (months and sources from the local index, a grid of previews, one photo large,
-reveal or open the original) was built before this process and has no stories. New work starts
-here.
+Feature 1 was built before this process. Its `plan.md` was written afterwards for completeness and
+has no stories; any change to it starts with a new story. Rows without a link are planned and have
+no folder yet.
 
 | # | Feature | Status | Depends on |
 |---|---|---|---|
-| | *none yet* | | |
+| 1 | [Browse the library](F001-browse-library/plan.md) | Done | CLI `index`, `previews` |
+| 2 | Filter by source (camera, Peter's or Lynn's iPhone) | Planned | 1 |
+| 3 | Lists: select photos together, as in data contract section 5 | Planned | 1; CLI lists (LibraryLocal F009) |
+| 4 | CI and signed releases for macOS and Windows | Planned | 1 |
+| 5 | Start imports from the app, via the CLI's `--json` output | Planned | 1; CLI change |
