@@ -138,6 +138,10 @@ natively in Rust first; then Peter's workflow moves over from the `media` CLI pa
 is removed from the CLI once the app does it on real data. What runs on the NAS itself
 (`media-drive-push.py`, `media-manifest-nas.py`) stays there.
 
+Lynn uses macOS, so the native features are built for macOS first; Windows follows. The data
+contract moves into this repo, in English, with feature 7; until then it lives in Dutch in
+`~/Pictures/LibraryLocal/docs/datacontract.md`. LibraryLocal stays for Peter's manual CLI work.
+
 ## Index
 
 Feature 1 was built before this process. Its `plan.md` was written afterwards for completeness and
@@ -151,7 +155,7 @@ no folder yet.
 | 3 | Lists: create and fill lists together, native (data contract section 5) | Planned | 6 |
 | 4 | CI and signed releases for macOS and Windows | Planned | 1 |
 | 5 | Start imports from the app via the CLI's `--json` output | Dropped: imports move into the app natively (D13), see 10 | — |
-| 6 | Connect to the NAS over SMB: find or mount the shares on macOS and Windows, register the device in `Lists/devices.json` | Planned | 1 |
+| 6 | [Connect to the NAS](F006-nas-connection/plan.md): find or mount the shares (macOS first), register the device | In design | 1 |
 | 7 | Native sync from the NAS: manifests and previews, originals on demand (replaces `media pull`) | Planned | 6 |
 | 8 | Native index: build `index.sqlite` from the manifests (replaces `media index`) | Planned | 7 |
 | 9 | Open originals that are not on this laptop, from the NAS | Planned | 6 |
