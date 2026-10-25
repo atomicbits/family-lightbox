@@ -5,6 +5,7 @@ mod config;
 mod connect;
 mod db;
 mod mounts;
+mod nas;
 
 use config::{Device, Settings};
 use db::{Db, Item, MonthSummary};
@@ -142,6 +143,53 @@ async fn connect_nas(paths: State<'_, Paths>) -> Result<ConnectResult, String> {
     .map_err(|e| e.to_string())?
 }
 
+#[derive(serde::Serialize)]
+pub struct NasCheck {
+    pub library: nas::Access,
+    pub previews: nas::Access,
+    pub lists: nas::Access,
+    pub exports: nas::Access,
+    pub registration: nas::Registration,
+}
+
+/// Access per connected share, then registering this device once `Lists` is writable. On a
+/// blocking thread, because a slow NAS can take a while to answer.
+#[tauri::command]
+async fn nas_check(paths: State<'_, Paths>) -> Result<NasCheck, String> {
+    let config = paths.config.clone();
+    tauri::async_runtime::spawn_blocking(move || check_nas(&config)).await.map_err(|e| e.to_string())
+}
+
+pub fn check_nas(config: &Path) -> NasCheck {
+    let (settings, _) = config::load_settings(config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let device = config::load_device(config).ok().flatten();
+    let check = |list: &[mounts::Mount], write: bool| match mounts::NasMounts::chosen(list) {
+        None => nas::Access::default(),
+        Some(m) => nas::check_share(
+            Path::new(&m.mount_point),
+            write.then(|| device.as_ref().map_or("nodevice", |d| d.name.as_str())),
+        ),
+    };
+    let lists = check(&found.lists, true);
+    let registration = match (&device, lists.writable) {
+        (None, _) => nas::Registration::NotTried("dit toestel heeft nog geen naam".into()),
+        (_, None) => nas::Registration::NotTried("Lijsten is niet verbonden".into()),
+        (_, Some(false)) => nas::Registration::NotTried("Lijsten is niet schrijfbaar".into()),
+        (Some(d), Some(true)) => {
+            let dir = mounts::NasMounts::chosen(&found.lists).map(|m| m.mount_point.clone()).unwrap_or_default();
+            nas::register(Path::new(&dir), &nas::entry_for(d), &|| {})
+        }
+    };
+    NasCheck {
+        library: check(&found.library, false),
+        previews: check(&found.previews, false),
+        exports: check(&found.exports, false),
+        lists,
+        registration,
+    }
+}
+
 #[tauri::command]
 fn months(paths: State<Paths>) -> Result<Vec<MonthSummary>, String> {
     Db::open(&paths.index())?.months()
@@ -213,7 +261,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
-            nas_mounts, connect_nas,
+            nas_mounts, connect_nas, nas_check,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

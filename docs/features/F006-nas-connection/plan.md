@@ -1,6 +1,6 @@
 # Feature 6: Connect to the NAS
 
-**Status:** In progress (S01–S03 built; checks in the running app and on Lynn's Mac owed)
+**Status:** In progress (S01–S04 built; checks in the running app and on Lynn's Mac owed)
 **Depends on:** Feature 1
 **Folder:** `F006-nas-connection`
 
@@ -88,7 +88,7 @@ registered device to write as. Without the NAS the app keeps working on what is 
 | [S01](stories/S01-settings-and-device-identity.md) | Settings and device identity (`familylightbox.json`, `device.json`, first-start question) | In progress: built and tested, in-app check owed | — |
 | [S02](stories/S02-find-mounted-shares.md) | Find mounted shares by server and share name (`getmntinfo`, SMB and AFP) | In progress: built and tested, in-app check owed | S01 |
 | [S03](stories/S03-connect-missing-shares.md) | Connect missing shares with NetFS and the macOS sign-in dialog | In progress: works on Peter's Mac; Lynn's Mac and NAS-offline owed | S02 |
-| [S04](stories/S04-check-access-and-register-device.md) | Check access per share and register the device in `Lists/devices.json` | Planned | S02 |
+| [S04](stories/S04-check-access-and-register-device.md) | Check access per share and register the device in `Lists/devices.json` | In progress: works on Peter's Mac; Lynn's Mac owed | S02 |
 | S05 | Connection indicator and *Connect* in the UI | Planned | S03, S04 |
 
 ## Contract changes

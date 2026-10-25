@@ -66,7 +66,32 @@ export type ConnectResult = { attempts: Attempt[]; mounts: NasMounts };
 export const nas = {
   mounts: () => invoke<NasMounts>("nas_mounts"),
   connect: () => invoke<ConnectResult>("connect_nas"),
+  check: () => invoke<NasCheck>("nas_check"),
 };
+
+export type Access = { mounted: boolean; readable: boolean; writable: boolean | null; problem: string | null };
+export type Registration = {
+  kind: "registered" | "already_registered" | "refused" | "failed" | "not_tried";
+  message?: string;
+};
+export type NasCheck = Record<keyof Shares, Access> & { registration: Registration };
+
+/** "leesbaar", "leesbaar en schrijfbaar", the problem, or null when not mounted. */
+export function accessLabel(a: Access): string | null {
+  if (!a.mounted) return null;
+  if (a.problem) return a.problem;
+  return a.writable ? "leesbaar en schrijfbaar" : "leesbaar";
+}
+
+export function registrationLabel(r: Registration): string {
+  switch (r.kind) {
+    case "registered": return "nu geregistreerd op de NAS";
+    case "already_registered": return "geregistreerd op de NAS";
+    case "refused": return `niet geregistreerd: ${r.message}`;
+    case "failed": return `registreren mislukt: ${r.message}`;
+    case "not_tried": return `nog niet geregistreerd: ${r.message}`;
+  }
+}
 
 /** True when at least one share has no mount. */
 export function anyMissing(m: NasMounts): boolean {

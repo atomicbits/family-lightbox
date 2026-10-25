@@ -1,7 +1,7 @@
 # Story S04: Check access per share and register the device in `Lists/devices.json`
 
 **Feature:** `F006-nas-connection`
-**Status:** Planned
+**Status:** In progress: built and tested; registration done on Peter's Mac against the real NAS; Lynn's Mac and the panel in the running app still to check
 **Depends on:** S01, S02 (S03 for connecting first, but S04 also works on shares mounted by hand)
 
 ## Goal
@@ -111,3 +111,33 @@ NAS. It writes exactly two things: a test file in `Lists` that it removes again 
 ## Progress log
 
 ### [2026-10-25] Written
+
+### [2026-10-25] Built
+
+- `src-tauri/src/nas.rs`: `check_share` (list the root; a write test only in `Lists`, after
+  clearing this device's test files older than an hour), `merge_device` (pure, on the JSON as it
+  is, with `preserve_order`), `register` (read, merge, temporary file, check that
+  `devices.json` didn't change meanwhile, rename, read back, at most three tries),
+  `local_label` (`gethostname`), `now_local` (`chrono`, local offset).
+- Different from the story: the concurrency check happens **before** the rename (re-read and
+  compare with what was merged), not only afterwards. A read-back only proves this device's
+  entry is there. It can't see that a competitor's entry was overwritten, so the competitor
+  covers that with its own read-back. The remaining window between that re-read and the rename
+  is milliseconds.
+- `lib.rs`: `check_nas(config)` (also usable outside the app) and the async command `nas_check`.
+  Dependencies: `chrono` (`clock` only) and `serde_json` with `preserve_order`.
+- Panel: access per share after the mount point; the registration under *Dit toestel*; the
+  check runs when the panel opens and after *Verbinden*.
+- `cargo test` 30 passed (6 new; the permission test only on Unix), `pnpm test` 10 passed (1 new),
+  `pnpm build` and `cargo clippy --all-targets` clean.
+- **By hand on Peter's Mac**, with a throwaway example calling `check_nas` (removed afterwards):
+  - all four shares readable (`Library` over AFP, the rest over SMB), `Lists` writable, and no
+    test file left behind;
+  - `Lists/devices.json` created with `mbp-peter`/`peter`, label `MBP-Peter-Si`, since
+    `2026-10-25T22:33:24+01:00`; a second run gave `already_registered` and wrote nothing;
+  - on the NAS the file is `peter:users` with the share's ACL (`rwxrwxrwx+`), so `lynn` can read
+    it;
+  - the CLI's list reading (`list_hashes`, which `thin` uses) still works with `devices.json`
+    present: no events, no error. A full `thin` dry run was not done (it hashes everything).
+- Data contract 5.1 updated in LibraryLocal.
+- Still to do by hand: Lynn's Mac (adds `mbp-lynn`, keeps `mbp-peter`) and the panel in the running app.

@@ -105,7 +105,6 @@ pub struct NasMounts {
 
 impl NasMounts {
     /// The mount point the app uses for a share, if it is mounted.
-    #[allow(dead_code)] // used from S03/S04 on
     pub fn chosen(list: &[Mount]) -> Option<&Mount> {
         list.iter().find(|m| m.chosen)
     }

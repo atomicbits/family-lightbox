@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { anyMissing, config, mountLabel, nas, type Attempt, type DeviceState, type NasMounts, type Settings as S, type SettingsState, type Shares } from "../lib/api";
+import { accessLabel, anyMissing, config, mountLabel, nas, registrationLabel, type Attempt, type NasCheck, type DeviceState, type NasMounts, type Settings as S, type SettingsState, type Shares } from "../lib/api";
 import { hostProblem, shareProblem } from "../lib/device";
 
 type Props = { device: DeviceState | null; onClose: () => void };
@@ -19,9 +19,14 @@ export default function Settings({ device, onClose }: Props) {
   const [mounts, setMounts] = useState<NasMounts | null>(null);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [connecting, setConnecting] = useState(false);
+  const [check, setCheck] = useState<NasCheck | null>(null);
 
   const load = () =>
-    config.settings().then((s) => { setState(s); setDraft(s.settings); return nas.mounts().then(setMounts); });
+    config.settings().then((s) => {
+      setState(s);
+      setDraft(s.settings);
+      return nas.mounts().then(setMounts).then(() => nas.check().then(setCheck));
+    });
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
@@ -48,7 +53,7 @@ export default function Settings({ device, onClose }: Props) {
     setAttempts([]);
     nas
       .connect()
-      .then((r) => { setMounts(r.mounts); setAttempts(r.attempts); })
+      .then((r) => { setMounts(r.mounts); setAttempts(r.attempts); return nas.check().then(setCheck); })
       .catch((e) => setMessage(String(e)))
       .finally(() => setConnecting(false));
   };
@@ -74,6 +79,11 @@ export default function Settings({ device, onClose }: Props) {
             <div className="text-neutral-500">nog geen naam</div>
           )}
           {device?.error && <div className="text-red-600 whitespace-pre-wrap">{device.error}</div>}
+          {check && device?.device && (
+            <div className={check.registration.kind.endsWith("registered") ? "text-neutral-500" : "text-amber-600"}>
+              {registrationLabel(check.registration)}
+            </div>
+          )}
           {device && <div className="text-xs text-neutral-400 font-mono">{device.path}</div>}
         </section>
 
@@ -119,6 +129,7 @@ export default function Settings({ device, onClose }: Props) {
               {SHARE_LABELS.map(([k, label]) => {
                 const where = mountLabel(mounts[k]);
                 const attempt = attempts.find((a) => a.share === k);
+                const access = check ? accessLabel(check[k]) : null;
                 return (
                   <div key={k} className="flex gap-2">
                     <span className="w-24 shrink-0">{label}</span>
@@ -126,6 +137,9 @@ export default function Settings({ device, onClose }: Props) {
                       {where ?? "niet verbonden"}
                       {mounts[k].length > 1 && ` (+${mounts[k].length - 1})`}
                     </span>
+                    {access && (
+                      <span className={check![k].problem ? "text-amber-600" : "text-neutral-500"}>{access}</span>
+                    )}
                     {attempt && attempt.outcome.kind !== "mounted" && (
                       <span className={attempt.outcome.kind === "already_mounted" ? "text-neutral-500" : "text-amber-600"}>
                         {attempt.message}

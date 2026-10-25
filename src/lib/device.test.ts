@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anyMissing, mountLabel } from "./api";
+import { accessLabel, anyMissing, mountLabel, registrationLabel } from "./api";
 import { deviceNameProblem, hostProblem, ownerProblem, proposeDeviceName, shareProblem } from "./device";
 
 describe("device identity", () => {
@@ -46,5 +46,16 @@ describe("connect", () => {
     const m = { mount_point: "/Volumes/X", fs_type: "smbfs", server: "raven", user: null, chosen: true };
     expect(anyMissing({ library: [m], previews: [m], lists: [m], exports: [m] })).toBe(false);
     expect(anyMissing({ library: [m], previews: [], lists: [m], exports: [m] })).toBe(true);
+  });
+});
+
+describe("access and registration", () => {
+  it("labels access per share and the registration outcome", () => {
+    expect(accessLabel({ mounted: false, readable: false, writable: null, problem: null })).toBeNull();
+    expect(accessLabel({ mounted: true, readable: true, writable: null, problem: null })).toBe("leesbaar");
+    expect(accessLabel({ mounted: true, readable: true, writable: true, problem: null })).toBe("leesbaar en schrijfbaar");
+    expect(accessLabel({ mounted: true, readable: true, writable: false, problem: "niet schrijfbaar: x" })).toBe("niet schrijfbaar: x");
+    expect(registrationLabel({ kind: "already_registered" })).toBe("geregistreerd op de NAS");
+    expect(registrationLabel({ kind: "refused", message: "toestelnaam 'mbp-lynn' is al van karel" })).toContain("al van karel");
   });
 });
