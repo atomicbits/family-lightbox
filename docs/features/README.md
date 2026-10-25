@@ -128,6 +128,16 @@ The approach: which modules, which rules from the data contract, what is deliber
 ### [YYYY-MM-DD] …
 ```
 
+## Direction
+
+Architecture decision D13 (2026-10-25, in `~/Pictures/LibraryLocal/docs/architectuur-voorstel.md`):
+**everything evolves into this app, and on Lynn's laptop the app is the only thing that runs.** No
+scripts, Python, exiftool, ffmpeg or rsync there. What Lynn needs (features 3 and 6–9) is built
+natively in Rust first; then Peter's workflow moves over from the `media` CLI part by part
+(feature 10). The CLI and the app follow the same data contract during the transition; a part
+is removed from the CLI once the app does it on real data. What runs on the NAS itself
+(`media-drive-push.py`, `media-manifest-nas.py`) stays there.
+
 ## Index
 
 Feature 1 was built before this process. Its `plan.md` was written afterwards for completeness and
@@ -138,6 +148,11 @@ no folder yet.
 |---|---|---|---|
 | 1 | [Browse the library](F001-browse-library/plan.md) | Done | CLI `index`, `previews` |
 | 2 | Filter by source (camera, Peter's or Lynn's iPhone) | Planned | 1 |
-| 3 | Lists: select photos together, as in data contract section 5 | Planned | 1; CLI lists (LibraryLocal F009) |
+| 3 | Lists: create and fill lists together, native (data contract section 5) | Planned | 6 |
 | 4 | CI and signed releases for macOS and Windows | Planned | 1 |
-| 5 | Start imports from the app, via the CLI's `--json` output | Planned | 1; CLI change |
+| 5 | Start imports from the app via the CLI's `--json` output | Dropped: imports move into the app natively (D13), see 10 | — |
+| 6 | Connect to the NAS over SMB: find or mount the shares on macOS and Windows, register the device in `Lists/devices.json` | Planned | 1 |
+| 7 | Native sync from the NAS: manifests and previews, originals on demand (replaces `media pull`) | Planned | 6 |
+| 8 | Native index: build `index.sqlite` from the manifests (replaces `media index`) | Planned | 7 |
+| 9 | Open originals that are not on this laptop, from the NAS | Planned | 6 |
+| 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |

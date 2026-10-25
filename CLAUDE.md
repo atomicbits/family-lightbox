@@ -4,6 +4,14 @@ Desktop app (Tauri 2 + React, macOS and Windows) for browsing and selecting phot
 photo library. It is a view on the files the `media` CLI manages (manifests, previews, lists, as
 defined in the data contract) and holds no truth of its own.
 
+## Direction
+
+Everything evolves into this app (architecture decision D13, 2026-10-25). On Lynn's laptop the app
+is the only thing that runs, so whatever she needs is built natively in Rust, with no external
+tools (no Python, exiftool, ffmpeg or rsync). Peter's workflow then moves over from the `media`
+CLI part by part. Until a part has moved, the CLI and the app must both follow the data contract.
+See [`docs/features/README.md`](docs/features/README.md#direction).
+
 ## Language
 
 Everything in this repo is in **English**: README, this file, `docs/`, features and stories,
