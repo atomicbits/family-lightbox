@@ -1,7 +1,7 @@
 # Story S03: Connect missing shares with NetFS and the macOS sign-in dialog
 
 **Feature:** `F006-nas-connection`
-**Status:** Planned
+**Status:** In progress: built and tested; connecting checked on Peter's Mac; Lynn's Mac, an unreachable NAS and the button in the running app still to check
 **Depends on:** S02
 
 ## Goal
@@ -100,3 +100,28 @@ asks for, sees or stores a password.
 ## Progress log
 
 ### [2026-10-25] Written
+
+### [2026-10-25] Built
+
+- `src-tauri/src/connect.rs`: `share_url`, `to_connect` (`Lists` first), `outcome` for the NetFS
+  return codes, `connect_all` with the stop rules, and `NetFsMounter`. That one calls
+  `NetFSMountURLSync` with `UIOption = AllowUI` and `SoftMount = true` and a null mount path, user
+  and password, and links the NetFS framework directly. The return codes are written out as
+  Darwin values in the module, so it also compiles where `libc` has other numbers.
+- `lib.rs`: async command `connect_nas`, which runs on a blocking thread and repeats the S02
+  lookup afterwards. `libc` and `core-foundation` are now macOS-only dependencies.
+- Settings panel: *Verbinden* next to "Gevonden op deze Mac". It is disabled while busy, while all
+  shares are mounted, or while there are unsaved settings. Each share shows its outcome when it
+  isn't plain "verbonden".
+- `cargo test` 24 passed (5 new), `pnpm test` 9 passed (1 new), `pnpm build` and `cargo clippy
+  --all-targets` clean.
+- **By hand on Peter's Mac**, with a throwaway example running the same code (removed
+  afterwards):
+  - `Lists`, `Previews` and `Exports` were mounted over SMB 3.1.1 at `/Volumes/<share>`, without a
+    dialog, because the Keychain already had the account;
+  - `Library` stayed on AFP;
+  - a second run found nothing to connect.
+- Not verified: whether `SoftMount` took effect. Neither `mount` nor `smbutil statshares` shows it.
+  The unreachable-NAS test will show it.
+- Still to do by hand: Lynn's Mac with her DSM account (dialog once?), the NAS unreachable, and
+  the button in the running app.

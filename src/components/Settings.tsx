@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { config, mountLabel, nas, type DeviceState, type NasMounts, type Settings as S, type SettingsState, type Shares } from "../lib/api";
+import { anyMissing, config, mountLabel, nas, type Attempt, type DeviceState, type NasMounts, type Settings as S, type SettingsState, type Shares } from "../lib/api";
 import { hostProblem, shareProblem } from "../lib/device";
 
 type Props = { device: DeviceState | null; onClose: () => void };
@@ -17,6 +17,8 @@ export default function Settings({ device, onClose }: Props) {
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [mounts, setMounts] = useState<NasMounts | null>(null);
+  const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [connecting, setConnecting] = useState(false);
 
   const load = () =>
     config.settings().then((s) => { setState(s); setDraft(s.settings); return nas.mounts().then(setMounts); });
@@ -40,6 +42,16 @@ export default function Settings({ device, onClose }: Props) {
       .saveSettings(draft)
       .then(() => { setMessage("bewaard"); return load(); })
       .catch((e) => setMessage(String(e)));
+
+  const connect = () => {
+    setConnecting(true);
+    setAttempts([]);
+    nas
+      .connect()
+      .then((r) => { setMounts(r.mounts); setAttempts(r.attempts); })
+      .catch((e) => setMessage(String(e)))
+      .finally(() => setConnecting(false));
+  };
 
   const input = "w-full px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent";
 
@@ -92,9 +104,21 @@ export default function Settings({ device, onClose }: Props) {
           {problems.map((p) => <div key={p} className="text-amber-600">{p}</div>)}
           {mounts && (
             <div className="space-y-0.5">
-              <div className="text-neutral-500">Gevonden op deze Mac</div>
+              <div className="flex items-center gap-2">
+                <span className="text-neutral-500">Gevonden op deze Mac</span>
+                <span className="flex-1" />
+                <button
+                  className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
+                  disabled={connecting || changed || !anyMissing(mounts)}
+                  title={changed ? "bewaar eerst de instellingen" : "verbind de gedeelde mappen die nog ontbreken"}
+                  onClick={connect}
+                >
+                  {connecting ? "Verbinden…" : "Verbinden"}
+                </button>
+              </div>
               {SHARE_LABELS.map(([k, label]) => {
                 const where = mountLabel(mounts[k]);
+                const attempt = attempts.find((a) => a.share === k);
                 return (
                   <div key={k} className="flex gap-2">
                     <span className="w-24 shrink-0">{label}</span>
@@ -102,6 +126,11 @@ export default function Settings({ device, onClose }: Props) {
                       {where ?? "niet verbonden"}
                       {mounts[k].length > 1 && ` (+${mounts[k].length - 1})`}
                     </span>
+                    {attempt && attempt.outcome.kind !== "mounted" && (
+                      <span className={attempt.outcome.kind === "already_mounted" ? "text-neutral-500" : "text-amber-600"}>
+                        {attempt.message}
+                      </span>
+                    )}
                   </div>
                 );
               })}

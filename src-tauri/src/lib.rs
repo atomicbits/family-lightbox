@@ -2,6 +2,7 @@
 //! serveert previews via het `preview://`-protocol en opent originelen.
 
 mod config;
+mod connect;
 mod db;
 mod mounts;
 
@@ -112,6 +113,35 @@ fn nas_mounts(paths: State<Paths>) -> mounts::NasMounts {
     mounts::find_shares(&mounts::system_mounts(), &settings)
 }
 
+#[derive(serde::Serialize)]
+pub struct ConnectResult {
+    pub attempts: Vec<connect::Attempt>,
+    pub mounts: mounts::NasMounts,
+}
+
+/// Connects the shares that aren't mounted. Blocks while the macOS sign-in dialog is open, so it
+/// runs on a blocking thread.
+#[tauri::command]
+async fn connect_nas(paths: State<'_, Paths>) -> Result<ConnectResult, String> {
+    let config = paths.config.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (settings, _) = config::load_settings(&config);
+        let before = mounts::find_shares(&mounts::system_mounts(), &settings);
+        let todo = connect::to_connect(&before, &settings);
+        #[cfg(target_os = "macos")]
+        let attempts = connect::connect_all(&connect::NetFsMounter, &settings.nas_host, &todo);
+        #[cfg(not(target_os = "macos"))]
+        let attempts = if todo.is_empty() {
+            Vec::new()
+        } else {
+            return Err("verbinden met de NAS kan nog alleen op macOS".to_string());
+        };
+        Ok(ConnectResult { attempts, mounts: mounts::find_shares(&mounts::system_mounts(), &settings) })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 fn months(paths: State<Paths>) -> Result<Vec<MonthSummary>, String> {
     Db::open(&paths.index())?.months()
@@ -183,7 +213,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
-            nas_mounts,
+            nas_mounts, connect_nas,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -60,9 +60,18 @@ export const config = {
 export type Mount = { mount_point: string; fs_type: string; server: string; user: string | null; chosen: boolean };
 export type NasMounts = Record<keyof Shares, Mount[]>;
 
+export type Attempt = { share: keyof Shares; name: string; outcome: { kind: string; code?: number }; message: string };
+export type ConnectResult = { attempts: Attempt[]; mounts: NasMounts };
+
 export const nas = {
   mounts: () => invoke<NasMounts>("nas_mounts"),
+  connect: () => invoke<ConnectResult>("connect_nas"),
 };
+
+/** True when at least one share has no mount. */
+export function anyMissing(m: NasMounts): boolean {
+  return Object.values(m).some((list) => list.length === 0);
+}
 
 /** "/Volumes/Library · AFP" for the mount the app uses, or null when the share isn't mounted. */
 export function mountLabel(list: Mount[]): string | null {

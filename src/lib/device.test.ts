@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mountLabel } from "./api";
+import { anyMissing, mountLabel } from "./api";
 import { deviceNameProblem, hostProblem, ownerProblem, proposeDeviceName, shareProblem } from "./device";
 
 describe("device identity", () => {
@@ -38,5 +38,13 @@ describe("mounts", () => {
     expect(mountLabel([m("afpfs", "/Volumes/Library", false), m("smbfs", "/Volumes/Library-1", true)])).toBe("/Volumes/Library-1 · SMB");
     expect(mountLabel([m("afpfs", "/Volumes/Library", true)])).toBe("/Volumes/Library · AFP");
     expect(mountLabel([])).toBeNull();
+  });
+});
+
+describe("connect", () => {
+  it("knows when something is still missing", () => {
+    const m = { mount_point: "/Volumes/X", fs_type: "smbfs", server: "raven", user: null, chosen: true };
+    expect(anyMissing({ library: [m], previews: [m], lists: [m], exports: [m] })).toBe(false);
+    expect(anyMissing({ library: [m], previews: [], lists: [m], exports: [m] })).toBe(true);
   });
 });
