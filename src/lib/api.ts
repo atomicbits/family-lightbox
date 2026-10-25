@@ -43,3 +43,16 @@ export const api = {
 export function previewUrl(path: string, thumb: boolean): string {
   return convertFileSrc(path + (thumb ? ".t.jpg" : ".jpg"), "preview");
 }
+
+export type Shares = { library: string; previews: string; lists: string; exports: string };
+export type Settings = { nas_host: string; shares: Shares };
+export type SettingsState = { settings: Settings; error: string | null; path: string };
+export type Device = { name: string; owner: string };
+export type DeviceState = { device: Device | null; error: string | null; path: string };
+
+export const config = {
+  settings: () => invoke<SettingsState>("settings"),
+  saveSettings: (settings: Settings) => invoke<void>("save_settings", { settings }),
+  device: () => invoke<DeviceState>("device"),
+  createDevice: (name: string, owner: string) => invoke<Device>("create_device", { name, owner }),
+};

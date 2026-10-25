@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type Item, type MonthSummary, type Status } from "./lib/api";
+import { api, config, type DeviceState, type Item, type MonthSummary, type Status } from "./lib/api";
 import { monthLabel, yearOf } from "./lib/months";
 import MonthList from "./components/MonthList";
 import Grid from "./components/Grid";
 import Lightbox from "./components/Lightbox";
+import DeviceSetup from "./components/DeviceSetup";
+import Settings from "./components/Settings";
 
 export default function App() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -13,8 +15,11 @@ export default function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [device, setDevice] = useState<DeviceState | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
+    config.device().then(setDevice);
     api.status().then(setStatus);
     api
       .months()
@@ -44,21 +49,23 @@ export default function App() {
   );
 
   // toetsenbord op het raster: pijltjes, spatie/enter opent, Esc sluit
+  const dialog = showSettings || (device !== null && device.device === null && device.error === null);
   useEffect(() => {
-    if (open) return;
+    if (open || dialog) return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
       if (e.key === "ArrowRight") step(1);
       else if (e.key === "ArrowLeft") step(-1);
       else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, selected, step]);
+  }, [open, dialog, selected, step]);
 
   const current = selected !== null ? items[selected] : undefined;
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
+    <div className="relative h-full flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       <header className="flex items-center gap-3 px-4 h-10 border-b border-neutral-200 dark:border-neutral-800 text-sm">
         <span className="font-semibold">
           {month ? `${monthLabel(month)} ${yearOf(month)}` : "FamilyLightbox"}
@@ -73,6 +80,18 @@ export default function App() {
         {status && !status.index_exists && (
           <span className="text-amber-600">geen index: draai ./media index</span>
         )}
+        {device?.error && (
+          <button className="text-red-600" onClick={() => setShowSettings(true)}>
+            device.json klopt niet: zie instellingen
+          </button>
+        )}
+        <button
+          className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
+          title="Instellingen"
+          onClick={() => setShowSettings(true)}
+        >
+          ⚙
+        </button>
       </header>
       {error ? (
         <div className="flex-1 grid place-items-center p-8 text-center whitespace-pre-wrap text-neutral-500">
@@ -102,6 +121,10 @@ export default function App() {
           )}
         </div>
       )}
+      {device && device.device === null && device.error === null && (
+        <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />
+      )}
+      {showSettings && <Settings device={device} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

@@ -1,8 +1,10 @@
 //! Tauri-kern: leest de lokale index en previews van de CLI (datacontract sectie 4 en 7),
 //! serveert previews via het `preview://`-protocol en opent originelen.
 
+mod config;
 mod db;
 
+use config::{Device, Settings};
 use db::{Db, Item, MonthSummary};
 use percent_encoding::percent_decode_str;
 use std::path::{Component, Path, PathBuf};
@@ -62,6 +64,45 @@ fn status(paths: State<Paths>) -> Status {
         library: paths.library.display().to_string(),
         library_exists: paths.library.is_dir(),
     }
+}
+
+#[derive(serde::Serialize)]
+pub struct SettingsState {
+    pub settings: Settings,
+    pub error: Option<String>,
+    pub path: String,
+}
+
+#[tauri::command]
+fn settings(paths: State<Paths>) -> SettingsState {
+    let (settings, error) = config::load_settings(&paths.config);
+    SettingsState { settings, error, path: paths.config.join(config::SETTINGS_FILE).display().to_string() }
+}
+
+#[tauri::command]
+fn save_settings(settings: Settings, paths: State<Paths>) -> Result<(), String> {
+    config::save_settings(&paths.config, &settings)
+}
+
+#[derive(serde::Serialize)]
+pub struct DeviceState {
+    pub device: Option<Device>,
+    pub error: Option<String>,
+    pub path: String,
+}
+
+#[tauri::command]
+fn device(paths: State<Paths>) -> DeviceState {
+    let path = paths.config.join(config::DEVICE_FILE).display().to_string();
+    match config::load_device(&paths.config) {
+        Ok(device) => DeviceState { device, error: None, path },
+        Err(e) => DeviceState { device: None, error: Some(e), path },
+    }
+}
+
+#[tauri::command]
+fn create_device(name: String, owner: String, paths: State<Paths>) -> Result<Device, String> {
+    config::create_device(&paths.config, &name, &owner)
 }
 
 #[tauri::command]
@@ -133,7 +174,9 @@ pub fn run() {
         .register_uri_scheme_protocol("preview", move |_ctx, request| {
             preview_response(&previews_root, request.uri().path())
         })
-        .invoke_handler(tauri::generate_handler![status, months, items, reveal, open_original])
+        .invoke_handler(tauri::generate_handler![
+            status, months, items, reveal, open_original, settings, save_settings, device, create_device
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

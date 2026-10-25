@@ -1,7 +1,7 @@
 # Story S01: Settings and device identity
 
 **Feature:** `F006-nas-connection`
-**Status:** Planned
+**Status:** In progress: built and tested (cargo, vitest, build, clippy clean); not yet checked in the running app
 **Depends on:** —
 
 ## Goal
@@ -96,3 +96,21 @@ Peter's Mac it picks up the existing `mbp-peter` without touching it.
 ### [2026-10-25] Written
 
 - Story written after Peter approved the feature 6 plan.
+
+### [2026-10-25] Built
+
+- `src-tauri/src/config.rs`: settings with per-field defaults, load that reports a broken file
+  instead of failing, atomic save with validation; device identity read without re-serialising,
+  created with `create_new` only. Hand-written name rules, no regex crate.
+- `lib.rs`: commands `settings`, `save_settings`, `device`, `create_device`.
+- Frontend: `lib/device.ts` (same rules for live feedback), `DeviceSetup.tsx` (first start, can't
+  be dismissed), `Settings.tsx` (gear in the header; *Bewaar* is also enabled when the file is
+  broken, so it can be repaired with the defaults), a header hint when `device.json` is invalid.
+  The grid's keyboard shortcuts are off while a dialog is open or an input has focus, so typing a
+  space in a name field doesn't open a photo.
+- Data contract section 7 (in LibraryLocal): `familylightbox.json` listed; `device.json` is created
+  once and never rewritten.
+- `cargo test` 14 passed (9 new), `pnpm test` 7 passed (4 new), `pnpm build` and `cargo clippy
+  --all-targets` clean.
+- Open: a look in the running app (first-start dialog with an empty `MEDIA_CONFIG`; the panel on
+  Peter's Mac, where `device.json` must stay byte-identical).
