@@ -89,7 +89,7 @@ registered device to write as. Without the NAS the app keeps working on what is 
 | [S02](stories/S02-find-mounted-shares.md) | Find mounted shares by server and share name (`getmntinfo`, SMB and AFP) | In progress: built and tested, in-app check owed | S01 |
 | [S03](stories/S03-connect-missing-shares.md) | Connect missing shares with NetFS and the macOS sign-in dialog | In progress: works on Peter's Mac; Lynn's Mac and NAS-offline owed | S02 |
 | [S04](stories/S04-check-access-and-register-device.md) | Check access per share and register the device in `Lists/devices.json` | In progress: works on Peter's Mac; Lynn's Mac owed | S02 |
-| S05 | Connection indicator and *Connect* in the UI | Planned | S03, S04 |
+| [S05](stories/S05-connection-indicator.md) | Connection indicator and *Verbinden* in the UI | Planned | S03, S04 |
 
 ## Contract changes
 
