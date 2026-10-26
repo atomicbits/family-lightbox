@@ -9,10 +9,13 @@ type Props = {
   count: number;
   onClose: () => void;
   onStep: (delta: number) => void;
+  /** Whether stepping back or forward is possible; it can cross into the month above or below. */
+  canPrev: boolean;
+  canNext: boolean;
 };
 
 /** Eén foto groot (de 2048 px-preview), met pijltjes, en knoppen naar het origineel. */
-export default function Lightbox({ item, index, count, onClose, onStep }: Props) {
+export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep }: Props) {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,9 +55,9 @@ export default function Lightbox({ item, index, count, onClose, onStep }: Props)
         className="flex items-center gap-4 px-4 py-2 text-sm bg-black/60"
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="px-2 py-1 rounded hover:bg-white/10" onClick={() => onStep(-1)} disabled={index === 0}>◀</button>
+        <button className="px-2 py-1 rounded hover:bg-white/10" onClick={() => onStep(-1)} disabled={!canPrev}>◀</button>
         <span className="tabular-nums text-neutral-400">{index + 1} / {count}</span>
-        <button className="px-2 py-1 rounded hover:bg-white/10" onClick={() => onStep(1)} disabled={index === count - 1}>▶</button>
+        <button className="px-2 py-1 rounded hover:bg-white/10" onClick={() => onStep(1)} disabled={!canNext}>▶</button>
         <span className="font-medium">{fileName(item.path)}</span>
         <span className="text-neutral-400">{takenLabel(item.taken)}</span>
         {item.source && <span className="text-neutral-400">{item.source}</span>}

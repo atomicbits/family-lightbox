@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MonthSummary } from "../lib/api";
 import { groupByYear, monthLabel } from "../lib/months";
 
@@ -12,6 +12,9 @@ type Props = {
 export default function MonthList({ months, selected, onSelect }: Props) {
   const groups = groupByYear(months);
   const [closed, setClosed] = useState<Set<string>>(new Set());
+  // The highlighted month follows the grid's scrolling; keep it visible in the list.
+  const activeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => activeRef.current?.scrollIntoView({ block: "nearest" }), [selected]);
   const toggle = (year: string) =>
     setClosed((s) => {
       const n = new Set(s);
@@ -39,6 +42,7 @@ export default function MonthList({ months, selected, onSelect }: Props) {
               return (
                 <button
                   key={m.month}
+                  ref={active ? activeRef : undefined}
                   onClick={() => onSelect(m.month)}
                   className={
                     "w-full flex items-center justify-between pl-9 pr-3 py-1 text-left " +

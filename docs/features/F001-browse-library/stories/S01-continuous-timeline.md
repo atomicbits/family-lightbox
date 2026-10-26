@@ -1,7 +1,7 @@
 # Story S01: One continuous grid across months and years
 
 **Feature:** `F001-browse-library`
-**Status:** Planned
+**Status:** In progress: built and unit-tested; not yet checked in the running app
 **Depends on:** —
 
 ## Goal
@@ -97,3 +97,28 @@ the left becomes a way to jump, and it follows along while scrolling.
 ## Progress log
 
 ### [2026-10-26] Written
+
+### [2026-10-26] Built
+
+- `src/lib/timeline.ts`: `buildLayout`, `rowOf`, `sectionsInRange` and `moveAcross`, which builds
+  on `moveInGrid` for moves within a month. 11 tests in `timeline.test.ts`.
+- `Grid.tsx`:
+  - virtualizes header rows (36 px) and tile rows for the whole library;
+  - shows empty tiles of the right size until a month is loaded;
+  - reports the months in view plus an overscan of 6 rows (`onNeed`), and the month at the top
+    (`onTopSection`);
+  - scrolls a month's header to the top on a jump from the month list.
+- `App.tsx`:
+  - sections from `months()` counts;
+  - a cache per month with an in-flight set, so each month is fetched once;
+  - the selection as `{section, index}`, with the arrow keys and the lightbox going through
+    `moveAcross`;
+  - the title from the top month, with "n / count" when the selection is in it;
+  - a "laden…" overlay when the lightbox steps into a month that isn't loaded yet.
+- `Lightbox.tsx`: `canPrev` and `canNext` instead of the month's own first and last.
+- `MonthList.tsx`: the highlighted month follows the top of the grid and is scrolled into view
+  in the list.
+- `pnpm test` 33 passed (11 new), `tsc` and `pnpm build` clean. No Rust changes.
+- Still to do by hand: everything under "By hand" in the acceptance criteria (scrolling across
+  months, the headers, the month list following and jumping, arrows and lightbox over a
+  boundary, smoothness when scrolling quickly through years).

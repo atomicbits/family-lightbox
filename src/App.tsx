@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, config, type DeviceState, type Item, type MonthSummary, type Status } from "./lib/api";
 import { monthLabel, yearOf } from "./lib/months";
 import MonthList from "./components/MonthList";
@@ -8,16 +8,17 @@ import DeviceSetup from "./components/DeviceSetup";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
 import { useNas } from "./lib/nas";
-import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, moveInGrid, saveTile } from "./lib/grid";
+import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
+import { moveAcross, type Sel } from "./lib/timeline";
 
 export default function App() {
   const [status, setStatus] = useState<Status | null>(null);
   const [months, setMonths] = useState<MonthSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [month, setMonth] = useState<string | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Sel | null>(null);
   const [open, setOpen] = useState(false);
+  const [top, setTop] = useState(0);
+  const [jump, setJump] = useState<{ section: number; nonce: number } | null>(null);
   const [device, setDevice] = useState<DeviceState | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const nas = useNas();
@@ -50,31 +51,39 @@ export default function App() {
   useEffect(() => {
     config.device().then(setDevice);
     api.status().then(setStatus);
-    api
-      .months()
-      .then((m) => {
-        setMonths(m);
-        if (m.length && !month) setMonth(m[0].month);
-      })
-      .catch((e) => setError(String(e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    api.months().then(setMonths).catch((e) => setError(String(e)));
   }, []);
 
-  useEffect(() => {
-    if (!month) return;
-    setSelected(null);
-    setOpen(false);
-    api.items(month).then(setItems).catch((e) => setError(String(e)));
-  }, [month]);
+  // The library as sections, newest month first, with their counts from the index.
+  const sections = useMemo(() => months.map((m) => ({ month: m.month, count: m.photos + m.videos })), [months]);
+  const counts = useMemo(() => sections.map((s) => s.count), [sections]);
 
-  const step = useCallback(
-    (delta: number) =>
-      setSelected((s) => {
-        if (items.length === 0) return null;
-        const n = (s ?? -1) + delta;
-        return Math.min(items.length - 1, Math.max(0, n));
-      }),
-    [items.length],
+  // Items per month, fetched once when a month comes (nearly) into view.
+  const cache = useRef(new Map<string, Item[]>());
+  const inFlight = useRef(new Set<string>());
+  const [, setLoaded] = useState(0);
+  const need = useCallback(
+    (wanted: number[]) => {
+      for (const s of wanted) {
+        const month = sections[s]?.month;
+        if (!month || cache.current.has(month) || inFlight.current.has(month)) continue;
+        inFlight.current.add(month);
+        api
+          .items(month)
+          .then((items) => { cache.current.set(month, items); setLoaded((n) => n + 1); })
+          .catch((e) => setError(String(e)))
+          .finally(() => inFlight.current.delete(month));
+      }
+    },
+    [sections],
+  );
+  const itemsOf = (month: string) => cache.current.get(month);
+
+  useEffect(() => { if (selected) need([selected.section]); }, [selected, need]);
+
+  const move = useCallback(
+    (m: "left" | "right" | "up" | "down") => setSelected((s) => moveAcross(s, m, cols, counts)),
+    [cols, counts],
   );
 
   // toetsenbord op het raster: pijltjes, spatie/enter opent, Esc sluit
@@ -83,28 +92,30 @@ export default function App() {
     if (open || dialog) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
-      const move = ARROWS[e.key];
-      if (move) {
+      const m = ARROWS[e.key];
+      if (m) {
         e.preventDefault(); // otherwise up/down scroll the grid instead of moving the selection
-        setSelected((s) => moveInGrid(s, move, cols, items.length));
+        move(m);
       } else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, dialog, selected, cols, items.length]);
+  }, [open, dialog, selected, move]);
 
-  const current = selected !== null ? items[selected] : undefined;
+  const current = selected ? itemsOf(sections[selected.section].month)?.[selected.index] : undefined;
+  const topSection = sections[top];
+  const lastSection = sections.length - 1;
 
   return (
     <div className="relative h-full flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       <header className="flex items-center gap-3 px-4 h-10 border-b border-neutral-200 dark:border-neutral-800 text-sm">
         <span className="font-semibold">
-          {month ? `${monthLabel(month)} ${yearOf(month)}` : "FamilyLightbox"}
+          {topSection ? `${monthLabel(topSection.month)} ${yearOf(topSection.month)}` : "FamilyLightbox"}
         </span>
-        {month && (
+        {topSection && (
           <span className="text-neutral-400">
-            {items.length} {items.length === 1 ? "item" : "items"}
-            {current && ` · ${selected! + 1} gekozen`}
+            {topSection.count} {topSection.count === 1 ? "item" : "items"}
+            {selected?.section === top && ` · ${selected.index + 1} / ${topSection.count}`}
           </span>
         )}
         <span className="flex-1" />
@@ -147,27 +158,41 @@ export default function App() {
       ) : (
         <div className="flex-1 min-h-0 flex relative">
           <div className="w-56 shrink-0">
-            <MonthList months={months} selected={month} onSelect={setMonth} />
+            <MonthList
+              months={months}
+              selected={topSection?.month ?? null}
+              onSelect={(m) => setJump({ section: sections.findIndex((s) => s.month === m), nonce: Date.now() })}
+            />
           </div>
           <main className="flex-1 min-w-0">
             <Grid
-              items={items}
+              sections={sections}
+              itemsOf={itemsOf}
               selected={selected}
               onSelect={setSelected}
-              onOpen={(i) => { setSelected(i); setOpen(true); }}
+              onOpen={(s) => { setSelected(s); setOpen(true); }}
               onColumns={setCols}
+              onNeed={need}
+              onTopSection={setTop}
+              jump={jump}
               tile={tile}
             />
           </main>
-          {open && current && (
+          {open && selected && (current ? (
             <Lightbox
               item={current}
-              index={selected!}
-              count={items.length}
+              index={selected.index}
+              count={sections[selected.section].count}
+              canPrev={selected.section > 0 || selected.index > 0}
+              canNext={selected.section < lastSection || selected.index < sections[selected.section].count - 1}
               onClose={() => setOpen(false)}
-              onStep={step}
+              onStep={(d) => move(d > 0 ? "right" : "left")}
             />
-          )}
+          ) : (
+            <div className="absolute inset-0 z-20 bg-black/95 grid place-items-center text-neutral-400" onClick={() => setOpen(false)}>
+              laden…
+            </div>
+          ))}
         </div>
       )}
       {device && device.device === null && device.error === null && (

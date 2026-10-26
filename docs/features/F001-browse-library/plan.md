@@ -55,4 +55,4 @@ The first version was built before this process and has no stories. Changes sinc
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-continuous-timeline.md) | One continuous grid across months and years | Planned | — |
+| [S01](stories/S01-continuous-timeline.md) | One continuous grid across months and years | In progress: built and unit-tested, in-app check owed | — |
