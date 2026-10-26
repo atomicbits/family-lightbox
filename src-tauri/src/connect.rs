@@ -127,7 +127,15 @@ pub fn connect_all(m: &dyn Mounter, host: &str, list: &[(ShareKey, String)]) -> 
 }
 
 #[cfg(target_os = "macos")]
-pub struct NetFsMounter;
+pub struct NetFsMounter {
+    /// `false` at app start: connect only when the Keychain has the account, never show a dialog.
+    pub allow_ui: bool,
+}
+
+/// The value for NetFS's `UIOption` (`kNAUIOptionAllowUI` / `kNAUIOptionNoUI`).
+pub fn ui_option(allow_ui: bool) -> &'static str {
+    if allow_ui { "AllowUI" } else { "NoUI" }
+}
 
 #[cfg(target_os = "macos")]
 mod netfs {
@@ -167,9 +175,9 @@ impl Mounter for NetFsMounter {
         }
         let url = unsafe { CFURL::wrap_under_create_rule(raw) };
 
-        // Keys and values as in NetFS.h: kNAUIOptionKey / kNAUIOptionAllowUI, kNetFSSoftMountKey.
+        // Keys and values as in NetFS.h: kNAUIOptionKey, kNetFSSoftMountKey.
         let mut open: CFMutableDictionary<CFString, CFType> = CFMutableDictionary::new();
-        open.add(&CFString::new("UIOption"), &CFString::new("AllowUI").as_CFType());
+        open.add(&CFString::new("UIOption"), &CFString::new(ui_option(self.allow_ui)).as_CFType());
         let mut mount: CFMutableDictionary<CFString, CFType> = CFMutableDictionary::new();
         mount.add(&CFString::new("SoftMount"), &CFBoolean::true_value().as_CFType());
 
@@ -200,6 +208,12 @@ mod tests {
     use super::*;
     use crate::mounts::Mount;
     use std::cell::RefCell;
+
+    #[test]
+    fn ui_option_follows_allow_ui() {
+        assert_eq!(ui_option(true), "AllowUI");
+        assert_eq!(ui_option(false), "NoUI");
+    }
 
     #[test]
     fn builds_smb_urls() {

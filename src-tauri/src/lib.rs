@@ -123,14 +123,16 @@ pub struct ConnectResult {
 /// Connects the shares that aren't mounted. Blocks while the macOS sign-in dialog is open, so it
 /// runs on a blocking thread.
 #[tauri::command]
-async fn connect_nas(paths: State<'_, Paths>) -> Result<ConnectResult, String> {
+async fn connect_nas(allow_ui: bool, paths: State<'_, Paths>) -> Result<ConnectResult, String> {
     let config = paths.config.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (settings, _) = config::load_settings(&config);
         let before = mounts::find_shares(&mounts::system_mounts(), &settings);
         let todo = connect::to_connect(&before, &settings);
         #[cfg(target_os = "macos")]
-        let attempts = connect::connect_all(&connect::NetFsMounter, &settings.nas_host, &todo);
+        let attempts = connect::connect_all(&connect::NetFsMounter { allow_ui }, &settings.nas_host, &todo);
+        #[cfg(not(target_os = "macos"))]
+        let _ = allow_ui;
         #[cfg(not(target_os = "macos"))]
         let attempts = if todo.is_empty() {
             Vec::new()

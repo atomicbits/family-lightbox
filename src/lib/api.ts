@@ -65,7 +65,7 @@ export type ConnectResult = { attempts: Attempt[]; mounts: NasMounts };
 
 export const nas = {
   mounts: () => invoke<NasMounts>("nas_mounts"),
-  connect: () => invoke<ConnectResult>("connect_nas"),
+  connect: (allowUi: boolean) => invoke<ConnectResult>("connect_nas", { allowUi }),
   check: () => invoke<NasCheck>("nas_check"),
 };
 

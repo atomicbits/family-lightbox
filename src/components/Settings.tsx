@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { accessLabel, anyMissing, config, mountLabel, nas, registrationLabel, type Attempt, type NasCheck, type DeviceState, type NasMounts, type Settings as S, type SettingsState, type Shares } from "../lib/api";
+import { accessLabel, anyMissing, config, mountLabel, registrationLabel, type DeviceState, type Settings as S, type SettingsState, type Shares } from "../lib/api";
+import type { Nas } from "../lib/nas";
 import { hostProblem, shareProblem } from "../lib/device";
 
-type Props = { device: DeviceState | null; onClose: () => void };
+type Props = { device: DeviceState | null; nas: Nas; onClose: () => void };
 
 const SHARE_LABELS: [keyof Shares, string][] = [
   ["library", "Originelen"],
@@ -12,22 +13,14 @@ const SHARE_LABELS: [keyof Shares, string][] = [
 ];
 
 /** Settings panel: the device (read-only) and the NAS host and share names (editable). */
-export default function Settings({ device, onClose }: Props) {
+export default function Settings({ device, nas, onClose }: Props) {
   const [state, setState] = useState<SettingsState | null>(null);
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [mounts, setMounts] = useState<NasMounts | null>(null);
-  const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [connecting, setConnecting] = useState(false);
-  const [check, setCheck] = useState<NasCheck | null>(null);
+  const { mounts, attempts, check, busy: connecting } = nas;
 
-  const load = () =>
-    config.settings().then((s) => {
-      setState(s);
-      setDraft(s.settings);
-      return nas.mounts().then(setMounts).then(() => nas.check().then(setCheck));
-    });
-  useEffect(() => { load(); }, []);
+  const load = () => config.settings().then((s) => { setState(s); setDraft(s.settings); });
+  useEffect(() => { load(); nas.refresh(); }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -45,18 +38,10 @@ export default function Settings({ device, onClose }: Props) {
   const save = () =>
     config
       .saveSettings(draft)
-      .then(() => { setMessage("bewaard"); return load(); })
+      .then(() => { setMessage("bewaard"); return load().then(nas.refresh); })
       .catch((e) => setMessage(String(e)));
 
-  const connect = () => {
-    setConnecting(true);
-    setAttempts([]);
-    nas
-      .connect()
-      .then((r) => { setMounts(r.mounts); setAttempts(r.attempts); return nas.check().then(setCheck); })
-      .catch((e) => setMessage(String(e)))
-      .finally(() => setConnecting(false));
-  };
+  const connect = () => nas.connect(true);
 
   const input = "w-full px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent";
 
@@ -112,6 +97,7 @@ export default function Settings({ device, onClose }: Props) {
             ))}
           </div>
           {problems.map((p) => <div key={p} className="text-amber-600">{p}</div>)}
+          {nas.error && <div className="text-red-600 whitespace-pre-wrap">{nas.error}</div>}
           {mounts && (
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">

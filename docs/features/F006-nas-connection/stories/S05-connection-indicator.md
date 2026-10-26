@@ -1,7 +1,7 @@
 # Story S05: Connection indicator and *Verbinden* in the UI
 
 **Feature:** `F006-nas-connection`
-**Status:** Planned
+**Status:** In progress: built and tested; the quiet connect at start checked on Peter's Mac; the indicator in the running app and Lynn's Mac still to check
 **Depends on:** S03, S04
 
 ## Goal
@@ -94,3 +94,24 @@ is there.
 ## Progress log
 
 ### [2026-10-26] Written
+
+### [2026-10-26] Built
+
+- `connect.rs`: `NetFsMounter { allow_ui }` and `ui_option` (`AllowUI` / `NoUI`). `connect_nas`
+  takes `allow_ui`.
+- `src/lib/nas.ts`: pure `nasSummary` and the `useNas()` hook (`refresh`, `connect`, `start`),
+  with one shared busy guard so a second click while busy does nothing. A refresh that finds
+  everything mounted clears a stale "unreachable".
+- `NasIndicator.tsx` in the header (dot, label that opens the panel, *Verbinden* / *Opnieuw*).
+  `App.tsx`: the start sequence once the device exists, and a focus listener with a 30 s
+  throttle. The settings panel now uses the hook, refreshes when it opens, and refreshes again
+  when it closes or after *Bewaar*.
+- `cargo test` 31 passed (1 new), `pnpm test` 15 passed (5 new), `tsc`, `pnpm build` and
+  `cargo clippy --all-targets` clean.
+- **By hand on Peter's Mac**, with a throwaway example calling the mounter with
+  `allow_ui: false` (removed afterwards):
+  - overnight `Lists` and `Previews` had been unmounted (likely sleep); the quiet connect
+    mounted both again without any dialog, from the Keychain;
+  - with host `raven-bestaat-niet`: `Lists` unreachable, and the rest skipped right away.
+- Still to do by hand: the indicator and focus refresh in the running app, Lynn's first start
+  (no sign-in dialog on its own), and the NAS really switched off.

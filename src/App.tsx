@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, config, type DeviceState, type Item, type MonthSummary, type Status } from "./lib/api";
 import { monthLabel, yearOf } from "./lib/months";
 import MonthList from "./components/MonthList";
@@ -6,6 +6,8 @@ import Grid from "./components/Grid";
 import Lightbox from "./components/Lightbox";
 import DeviceSetup from "./components/DeviceSetup";
 import Settings from "./components/Settings";
+import NasIndicator from "./components/NasIndicator";
+import { useNas } from "./lib/nas";
 
 export default function App() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -17,6 +19,29 @@ export default function App() {
   const [open, setOpen] = useState(false);
   const [device, setDevice] = useState<DeviceState | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const nas = useNas();
+  const lastRefresh = useRef(0);
+
+  // NAS at start, once the device is known: quiet connect without a dialog, then the check.
+  const hasDevice = device?.device != null;
+  useEffect(() => {
+    if (!hasDevice) return;
+    lastRefresh.current = Date.now();
+    nas.start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDevice]);
+
+  // Back in the app: look again (at most every 30 s), so a share ejected in the Finder shows up.
+  useEffect(() => {
+    if (!hasDevice) return;
+    const onFocus = () => {
+      if (Date.now() - lastRefresh.current < 30_000) return;
+      lastRefresh.current = Date.now();
+      nas.refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [hasDevice, nas.refresh]);
 
   useEffect(() => {
     config.device().then(setDevice);
@@ -85,6 +110,7 @@ export default function App() {
             device.json klopt niet: zie instellingen
           </button>
         )}
+        {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
         <button
           className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
           title="Instellingen"
@@ -124,7 +150,9 @@ export default function App() {
       {device && device.device === null && device.error === null && (
         <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />
       )}
-      {showSettings && <Settings device={device} onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <Settings device={device} nas={nas} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+      )}
     </div>
   );
 }
