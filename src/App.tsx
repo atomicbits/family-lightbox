@@ -8,6 +8,9 @@ import DeviceSetup from "./components/DeviceSetup";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
 import { useNas } from "./lib/nas";
+import { useSync } from "./lib/sync";
+import SyncLine from "./components/SyncLine";
+import ConfirmPreviews from "./components/ConfirmPreviews";
 import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
 import { moveAcross, type Sel } from "./lib/timeline";
 
@@ -22,6 +25,8 @@ export default function App() {
   const [device, setDevice] = useState<DeviceState | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const nas = useNas();
+  const sync = useSync();
+  const [confirming, setConfirming] = useState(false);
   const [cols, setCols] = useState(1);
   const [tile, setTile] = useState(loadTile);
   const changeTile = (n: number) => { const t = clampTile(n); setTile(t); saveTile(t); };
@@ -32,7 +37,10 @@ export default function App() {
   useEffect(() => {
     if (!hasDevice) return;
     lastRefresh.current = Date.now();
-    nas.start();
+    // Then sync from the NAS in the background, once Library is connected (F007/S05).
+    nas.start().then((m) => {
+      if (m?.library.some((x) => x.chosen)) sync.start("all", false).catch(() => {});
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice]);
 
@@ -87,7 +95,7 @@ export default function App() {
   );
 
   // toetsenbord op het raster: pijltjes, spatie/enter opent, Esc sluit
-  const dialog = showSettings || (device !== null && device.device === null && device.error === null);
+  const dialog = showSettings || confirming || (device !== null && device.device === null && device.error === null);
   useEffect(() => {
     if (open || dialog) return;
     const onKey = (e: KeyboardEvent) => {
@@ -142,6 +150,7 @@ export default function App() {
             device.json klopt niet: zie instellingen
           </button>
         )}
+        {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
         {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
         <button
           className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
@@ -199,7 +208,14 @@ export default function App() {
         <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />
       )}
       {showSettings && (
-        <Settings device={device} nas={nas} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+        <Settings device={device} nas={nas} sync={sync} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+      )}
+      {confirming && sync.state?.summary && (
+        <ConfirmPreviews
+          summary={sync.state.summary}
+          onYes={() => { setConfirming(false); sync.start("previews", true).catch(() => {}); }}
+          onLater={() => setConfirming(false)}
+        />
       )}
     </div>
   );

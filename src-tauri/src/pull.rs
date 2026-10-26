@@ -2,7 +2,7 @@
 //! previews pass (S04). Built on the sync engine in `sync.rs`.
 
 use crate::config::{self, Settings};
-use crate::mounts::{self, NasMounts};
+use crate::mounts::NasMounts;
 use crate::sync::{self, Job, Progress};
 use serde::Serialize;
 use std::fs;
@@ -95,16 +95,6 @@ pub fn run_manifests(job: &Job, progress: &mut dyn FnMut(&Progress), cancel: &At
     out
 }
 
-/// The manifests pass for the app: settings and mounts from feature 6, into the working copy.
-pub fn sync_manifests(config_dir: &Path, working_copy: &Path, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool) -> ManifestsOutcome {
-    let (settings, _) = config::load_settings(config_dir);
-    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
-    match manifests_job(&settings, &found, working_copy) {
-        Ok(job) => run_manifests(&job, progress, cancel),
-        Err(e) => ManifestsOutcome { error: Some(e), ..ManifestsOutcome::default() },
-    }
-}
-
 // ── Previews pass (F007/S04) ────────────────────────────────────────────────────────────────
 
 /// At least this much must stay free after the previews pass (data contract 8).
@@ -164,7 +154,7 @@ pub fn space_check(copy_bytes: u64, free: Option<u64>) -> Result<(), String> {
     Err(format!("nodig {} GB, vrij {} GB, reserve {} GB: {} GB tekort", gb(copy_bytes), gb(free), gb(RESERVE), gb(short)))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PreviewsSummary {
     pub copy_files: u64,
     pub copy_bytes: u64,

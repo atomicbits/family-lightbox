@@ -7,6 +7,7 @@ mod db;
 mod mounts;
 mod nas;
 mod pull;
+mod runner;
 mod sync;
 
 use config::{Device, Settings};
@@ -14,7 +15,7 @@ use db::{Db, Item, MonthSummary};
 use percent_encoding::percent_decode_str;
 use std::path::{Component, Path, PathBuf};
 use tauri::http::{header, Response, StatusCode};
-use tauri::State;
+use tauri::{Emitter, State};
 
 /// Waar de CLI haar spullen zet (datacontract 7). Overschrijfbaar met MEDIA_CONFIG, MEDIA_PREVIEWS, MEDIA_LIBRARY.
 pub struct Paths {
@@ -194,76 +195,50 @@ pub fn check_nas(config: &Path) -> NasCheck {
     }
 }
 
-/// Manifests from the NAS into the working copy (F007/S03). On a blocking thread: it walks the
-/// `Library` share two levels deep over the network.
-#[tauri::command]
-async fn sync_manifests(paths: State<'_, Paths>) -> Result<pull::ManifestsOutcome, String> {
-    let (config, library) = (paths.config.clone(), paths.library.clone());
-    tauri::async_runtime::spawn_blocking(move || {
-        pull::sync_manifests(&config, &library, &mut |_| {}, &std::sync::atomic::AtomicBool::new(false))
-    })
-    .await
-    .map_err(|e| e.to_string())
+/// Sends the runner's progress to the window as Tauri events (F007/S05).
+struct EventSink(tauri::AppHandle);
+
+impl runner::Sink for EventSink {
+    fn progress(&self, state: &runner::SyncState) {
+        let _ = self.0.emit("sync-progress", state);
+    }
+    fn done(&self, state: &runner::SyncState) {
+        let _ = self.0.emit("sync-done", state);
+    }
 }
 
-/// A counted previews plan, kept so the minutes of listing over the network aren't repeated
-/// between counting and copying (F007/S04).
-pub struct StoredPlan {
-    at: std::time::Instant,
-    job: sync::Job,
-    plan: sync::Plan,
+/// The two sync jobs for the current settings and mounts.
+fn sync_jobs(paths: &Paths) -> runner::Jobs {
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    runner::Jobs {
+        manifests: pull::manifests_job(&settings, &found, &paths.library),
+        previews: pull::previews_job(&settings, &found, &paths.previews),
+        config_dir: paths.config.clone(),
+        free: pull::free_bytes,
+    }
 }
 
-#[derive(Default)]
-pub struct PreviewsPlan(std::sync::Arc<std::sync::Mutex<Option<StoredPlan>>>);
-
-/// Count what the previews pass would copy, and keep that plan for `run_previews`.
+/// Start a sync in the background: `kind` is "all" (manifests, then previews) or "previews"
+/// (after the confirmation dialog). Progress arrives as `sync-progress`, the end as `sync-done`.
 #[tauri::command]
-async fn plan_previews(paths: State<'_, Paths>, store: State<'_, PreviewsPlan>) -> Result<pull::PreviewsSummary, String> {
-    let (config, previews, slot) = (paths.config.clone(), paths.previews.clone(), store.0.clone());
-    tauri::async_runtime::spawn_blocking(move || {
-        let (settings, _) = config::load_settings(&config);
-        let found = mounts::find_shares(&mounts::system_mounts(), &settings);
-        let job = pull::previews_job(&settings, &found, &previews)?;
-        let plan = match sync::plan(&job, &mut |_| {}, &std::sync::atomic::AtomicBool::new(false)) {
-            Ok(p) => p,
-            Err(sync::Stop::Cancelled) => return Err("geannuleerd".to_string()),
-            Err(sync::Stop::Failed(e)) => return Err(e),
-        };
-        let summary = pull::summarize(&plan, pull::free_bytes(&previews), &config::load_state(&config));
-        *slot.lock().map_err(|e| e.to_string())? = Some(StoredPlan { at: std::time::Instant::now(), job, plan });
-        Ok(summary)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+fn sync_start(kind: String, confirmed: bool, app: tauri::AppHandle, paths: State<Paths>, runner: State<runner::SyncRunner>) -> Result<(), String> {
+    let kind = match kind.as_str() {
+        "all" => runner::Kind::All,
+        "previews" => runner::Kind::Previews,
+        other => return Err(format!("onbekende synchronisatie: {other}")),
+    };
+    runner.start(kind, confirmed, sync_jobs(&paths), std::sync::Arc::new(EventSink(app))).map(|_| ())
 }
 
-/// Copy the plan counted by `plan_previews`. `confirmed` is the user's yes for a first full pass.
 #[tauri::command]
-async fn run_previews(confirmed: bool, paths: State<'_, Paths>, store: State<'_, PreviewsPlan>) -> Result<pull::PreviewsOutcome, String> {
-    let (config, previews, slot) = (paths.config.clone(), paths.previews.clone(), store.0.clone());
-    tauri::async_runtime::spawn_blocking(move || {
-        let stored = slot.lock().map_err(|e| e.to_string())?.take();
-        let Some(stored) = stored.filter(|s| pull::plan_is_fresh(s.at, std::time::Instant::now())) else {
-            return Err("tel opnieuw: er is geen recente telling".to_string());
-        };
-        let result = pull::run_previews(
-            &stored.job,
-            &stored.plan,
-            confirmed,
-            &config,
-            pull::free_bytes(&previews),
-            &mut |_| {},
-            &std::sync::atomic::AtomicBool::new(false),
-        );
-        if result.is_err() {
-            // a refusal (no confirmation, no space) keeps the counted plan for a second try
-            *slot.lock().map_err(|e| e.to_string())? = Some(stored);
-        }
-        result
-    })
-    .await
-    .map_err(|e| e.to_string())?
+fn sync_cancel(runner: State<runner::SyncRunner>) {
+    runner.cancel();
+}
+
+#[tauri::command]
+fn sync_status(runner: State<runner::SyncRunner>) -> runner::SyncState {
+    runner.status()
 }
 
 #[tauri::command]
@@ -332,13 +307,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(paths())
-        .manage(PreviewsPlan::default())
+        .manage(runner::SyncRunner::default())
         .register_uri_scheme_protocol("preview", move |_ctx, request| {
             preview_response(&previews_root, request.uri().path())
         })
         .invoke_handler(tauri::generate_handler![
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
-            nas_mounts, connect_nas, nas_check, sync_manifests, plan_previews, run_previews,
+            nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

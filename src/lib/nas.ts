@@ -41,8 +41,9 @@ export type Nas = {
   refresh: () => Promise<void>;
   /** Connect what is missing (with the macOS dialog when allowUi), then check. */
   connect: (allowUi: boolean) => Promise<void>;
-  /** App start: connect quietly without a dialog if something is missing, then check. */
-  start: () => Promise<void>;
+  /** App start: connect quietly without a dialog if something is missing, then check. Resolves to
+   * the mounts found, or null when it didn't run (already busy) or failed. */
+  start: () => Promise<NasMounts | null>;
 };
 
 export function useNas(): Nas {
@@ -98,19 +99,20 @@ export function useNas(): Nas {
     [run],
   );
 
-  const start = useCallback(
-    () =>
-      run(async () => {
-        let m = await nas.mounts();
-        if (anyMissing(m)) {
-          // Without UI: succeeds when the Keychain has the account, fails quietly otherwise.
-          m = (await nas.connect(false)).mounts;
-        }
-        setMounts(m);
-        await checkNow();
-      }),
-    [run],
-  );
+  const start = useCallback(async () => {
+    let found: NasMounts | null = null;
+    await run(async () => {
+      let m = await nas.mounts();
+      if (anyMissing(m)) {
+        // Without UI: succeeds when the Keychain has the account, fails quietly otherwise.
+        m = (await nas.connect(false)).mounts;
+      }
+      setMounts(m);
+      await checkNow();
+      found = m;
+    });
+    return found;
+  }, [run]);
 
   return { mounts, check, attempts, busy, error, refresh, connect, start };
 }

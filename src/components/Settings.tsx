@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { accessLabel, anyMissing, config, mountLabel, registrationLabel, type DeviceState, type Settings as S, type SettingsState, type Shares } from "../lib/api";
 import type { Nas } from "../lib/nas";
+import type { Sync } from "../lib/sync";
 import { hostProblem, shareProblem } from "../lib/device";
 
-type Props = { device: DeviceState | null; nas: Nas; onClose: () => void };
+type Props = { device: DeviceState | null; nas: Nas; sync: Sync; onClose: () => void };
 
 const SHARE_LABELS: [keyof Shares, string][] = [
   ["library", "Originelen"],
@@ -13,7 +14,7 @@ const SHARE_LABELS: [keyof Shares, string][] = [
 ];
 
 /** Settings panel: the device (read-only) and the NAS host and share names (editable). */
-export default function Settings({ device, nas, onClose }: Props) {
+export default function Settings({ device, nas, sync, onClose }: Props) {
   const [state, setState] = useState<SettingsState | null>(null);
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -110,6 +111,14 @@ export default function Settings({ device, nas, onClose }: Props) {
                   onClick={connect}
                 >
                   {connecting ? "Verbinden…" : "Verbinden"}
+                </button>
+                <button
+                  className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
+                  disabled={sync.state?.running || !mounts.library.some((m) => m.chosen)}
+                  title="manifesten en previews van de NAS ophalen"
+                  onClick={() => sync.start("all", false).catch(() => {})}
+                >
+                  {sync.state?.running ? "Synchroniseren…" : "Synchroniseren"}
                 </button>
               </div>
               {SHARE_LABELS.map(([k, label]) => {

@@ -1,7 +1,7 @@
 # Story S05: Running in the background: progress, cancel, when it runs, the line in the header
 
 **Feature:** `F007-sync-from-nas`
-**Status:** Planned
+**Status:** In progress: built and tested, runner checked on real data; the line, the dialog and Synchroniseren in the running app still to check
 **Depends on:** S03, S04
 
 ## Goal
@@ -111,3 +111,37 @@ very first full previews pass asks once, with the size and an estimate of the ti
 ## Progress log
 
 ### [2026-10-26] Written
+
+### [2026-10-26] Built
+
+- `src-tauri/src/runner.rs`:
+  - `SyncRunner`, with its state, the cancel flag and the counted plan for the dialog, behind an
+    `Arc<Mutex>`. It runs one sync at a time on its own thread;
+  - `Sink`, with `EventSink` in `lib.rs` emitting `sync-progress` and `sync-done`;
+  - `Throttle` (200 ms, or a phase change);
+  - `decide_after_count`. A space problem wins over asking, because there is nothing to ask.
+  Without a `Previews` mount, only the manifests run.
+- `lib.rs`: `sync_start(kind, confirmed)`, `sync_cancel` and `sync_status`. The S03 and S04
+  commands are gone, and `pull::sync_manifests` with them.
+- Frontend:
+  - `lib/sync.ts`: `useSync`, and the pure `syncLine`, `confirmText`, `estimate` (6 MB/s), `count`
+    and `gb`. A "done" or "cancelled" line fades after 8 s; a failure and the confirmation stay;
+  - `SyncLine.tsx` in the header, left of the NAS indicator;
+  - `ConfirmPreviews.tsx`;
+  - `useNas().start()` now resolves to the mounts it found. `App.tsx` starts `sync_start("all")`
+    when `Library` is among them;
+  - *Synchroniseren* in the settings panel, next to *Verbinden*;
+  - the grid's keys are off while the dialog is open.
+- `cargo test` 59 passed (5 new), `pnpm test` 37 passed (12 new), `tsc`, `pnpm build` and `cargo
+  clippy --all-targets` clean.
+- Different from the story: the dialog's estimate uses 6 MB/s, so 29,1 GB reads "ongeveer 81
+  minuten". The story's example said 77, which came from the measured 6.3 MB/s.
+- **On real data**, with a throwaway example on Peter's folders and mounts (removed afterwards):
+  - a second start while running was refused ("er loopt al een synchronisatie");
+  - manifests ran first (nothing to copy), and counting the previews began after about 22 s;
+  - a cancel 10 s into the count stopped the thread within 4 ms, and the run ended as
+    `Cancelled`;
+  - 113 events in 33 s, which shows the throttle working;
+  - no `.flb.partial` left in `~/Pictures/Previews`.
+- Still to do by hand in the app: the line during a start, *Synchroniseren* and ✕, and the dialog
+  with empty `MEDIA_PREVIEWS` and `MEDIA_CONFIG`.
