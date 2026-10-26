@@ -1,7 +1,7 @@
 # Story S03: Manifests pass from `Library`
 
 **Feature:** `F007-sync-from-nas`
-**Status:** Planned
+**Status:** In progress: built and tested; the run on Peter's real working copy waits for his go
 **Depends on:** S02
 
 ## Goal
@@ -86,3 +86,22 @@ reads them.
 ## Progress log
 
 ### [2026-10-26] Written
+
+### [2026-10-26] Built
+
+- `sync.rs`: `Job.max_depth`. A folder at level n below the root is walked only when
+  n ≤ `max_depth`. A test shows that an unreadable folder at level 3 is never opened.
+  `Job` derives `Debug`.
+- `src-tauri/src/pull.rs`: `is_manifest`, `manifests_job` (the chosen `Library` mount to the
+  working copy, depth 2), `run_manifests` (plan, copy, then parse every manifest that actually
+  arrived: valid ones go to `changed` as their folder, others to `invalid`, left in place), and
+  `sync_manifests` for the app. `lib.rs`: async command `sync_manifests`.
+- `cargo test` 45 passed (5 new), `cargo clippy --all-targets` clean.
+- **By hand**, with a throwaway example (removed afterwards):
+  - into an empty folder: 364 manifests in 69 s over AFP, with nothing else, nothing skipped and
+    nothing invalid; a second run copied nothing (364 kept);
+  - **plan only** on Peter's real working copy: 2 to copy, 362 kept, none newer locally:
+    - `0000/zonder-datum/.manifest.json` is missing locally (made on the NAS on 2026-10-23);
+    - `2016/12/.manifest.json` is newer on the NAS (4 files added there from the old mirror on
+      2026-10-23).
+  - The real run, followed by `./media status` and `./media push -n`, waits for Peter's go.

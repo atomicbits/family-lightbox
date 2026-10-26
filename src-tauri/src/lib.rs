@@ -6,7 +6,7 @@ mod connect;
 mod db;
 mod mounts;
 mod nas;
-#[allow(dead_code)] // used from F007/S03 on
+mod pull;
 mod sync;
 
 use config::{Device, Settings};
@@ -194,6 +194,18 @@ pub fn check_nas(config: &Path) -> NasCheck {
     }
 }
 
+/// Manifests from the NAS into the working copy (F007/S03). On a blocking thread: it walks the
+/// `Library` share two levels deep over the network.
+#[tauri::command]
+async fn sync_manifests(paths: State<'_, Paths>) -> Result<pull::ManifestsOutcome, String> {
+    let (config, library) = (paths.config.clone(), paths.library.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        pull::sync_manifests(&config, &library, &mut |_| {}, &std::sync::atomic::AtomicBool::new(false))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn months(paths: State<Paths>) -> Result<Vec<MonthSummary>, String> {
     Db::open(&paths.index())?.months()
@@ -265,7 +277,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
-            nas_mounts, connect_nas, nas_check,
+            nas_mounts, connect_nas, nas_check, sync_manifests,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

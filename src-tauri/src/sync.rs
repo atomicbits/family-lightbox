@@ -22,6 +22,7 @@ pub fn excluded(name: &str) -> bool {
         || name.ends_with(".partial")
 }
 
+#[derive(Debug)]
 pub struct Job {
     pub remote: PathBuf,
     pub local: PathBuf,
@@ -29,6 +30,8 @@ pub struct Job {
     pub filter: fn(&str) -> bool,
     /// Only these top-level folders, if given (for example a few years).
     pub only: Option<Vec<String>>,
+    /// How many folder levels below the root are walked (`Some(2)`: years and their subfolders).
+    pub max_depth: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +73,7 @@ pub enum Phase {
     Copying,
 }
 
+#[allow(dead_code)] // read by the progress line in the UI from F007/S05 on
 pub struct Progress<'a> {
     pub phase: Phase,
     pub folder: &'a str,
@@ -168,12 +172,19 @@ pub fn plan(job: &Job, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool)
             Err(e) => return Err(Stop::Failed(format!("{}: {e}", path.display()))),
         };
         if meta.is_dir() {
-            walk(job, &path, &name, &mut p, progress, cancel)?;
+            if within_depth(job, 1) {
+                walk(job, &path, &name, &mut p, progress, cancel)?;
+            }
         } else if meta.is_file() {
             consider(job, &name, &meta, &mut p, progress, cancel)?;
         }
     }
     Ok(p)
+}
+
+/// Whether a folder at `level` below the root (1 = a direct child) is still walked.
+fn within_depth(job: &Job, level: usize) -> bool {
+    job.max_depth.is_none_or(|d| level <= d)
 }
 
 fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool) -> Result<(), Stop> {
@@ -203,7 +214,9 @@ fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut
             continue;
         }
         if ft.is_dir() {
-            walk(job, &e.path(), &child, p, progress, cancel)?;
+            if within_depth(job, child.split('/').count()) {
+                walk(job, &e.path(), &child, p, progress, cancel)?;
+            }
         } else if ft.is_file() {
             let meta = e.metadata().map_err(|err| Stop::Failed(format!("{}: {err}", e.path().display())))?;
             consider(job, &child, &meta, p, progress, cancel)?;
@@ -335,7 +348,7 @@ mod tests {
     }
 
     fn job(remote: &Path, local: &Path) -> Job {
-        Job { remote: remote.into(), local: local.into(), filter: jpg, only: None }
+        Job { remote: remote.into(), local: local.into(), filter: jpg, only: None, max_depth: None }
     }
 
     fn run(j: &Job) -> (Plan, Outcome) {
@@ -491,6 +504,23 @@ mod tests {
         let j = Job { only: Some(vec!["2026".into(), "1999".into()]), ..job(r.path(), l.path()) };
         let (p, _) = run(&j);
         assert_eq!(p.entries.iter().map(|e| e.rel.as_str()).collect::<Vec<_>>(), vec!["2026/01/b.jpg"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn max_depth_stops_the_walk_before_opening_deeper_folders() {
+        use std::os::unix::fs::PermissionsExt;
+        let (r, l) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        put(r.path(), "2026/07/a.jpg", b"a", t(1));
+        put(r.path(), "2026/07/EOSR/b.jpg", b"b", t(1));
+        let deep = r.path().join("2026/07/locked");
+        fs::create_dir_all(&deep).unwrap();
+        fs::set_permissions(&deep, fs::Permissions::from_mode(0o000)).unwrap();
+        let j = Job { max_depth: Some(2), ..job(r.path(), l.path()) };
+        let (p, _) = run(&j);
+        fs::set_permissions(&deep, fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(p.entries.iter().map(|e| e.rel.as_str()).collect::<Vec<_>>(), vec!["2026/07/a.jpg"]);
+        assert!(p.skipped.is_empty(), "the level-3 folder was never opened: {:?}", p.skipped);
     }
 
     #[test]
