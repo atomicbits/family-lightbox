@@ -1,7 +1,7 @@
 # Story S01: Move the data contract into this repo, in English
 
 **Feature:** `F007-sync-from-nas`
-**Status:** Planned
+**Status:** Done
 **Depends on:** —
 
 ## Goal
@@ -78,3 +78,34 @@ pointer.
 ## Progress log
 
 ### [2026-10-26] Written
+
+### [2026-10-26] Done
+
+- `docs/data-contract.md` written: sections 1–12 with the same numbering, MUST/MUST NOT/SHOULD/MAY,
+  and a new first line in the change log for the move. In the change log the 2026-10-20 entry
+  about access now names the mechanism (an ACL denial per year folder) instead of who is denied
+  what.
+- Moved to LibraryLocal `docs/nas-inrichting.md` (private, Dutch), verbatim:
+  - the `~/.ssh/config` block;
+  - the `[private]` command and that `lynn` is denied the years before [private];
+  - the name `[private]` and its Cloud Sync exclusions.
+  Sections 2 and 8 keep the rules and say that the details are in a private note.
+- Different from the story: code blocks with Dutch comments or placeholders (3.1, 4, 6, 7, 11)
+  have their comments and placeholders (`<jaar>` → `<year>`, …) translated. The paths, names
+  and values in them are unchanged. The JSON and JSONL examples (3.5, 5.1, 5.2, 5.4, 6) are
+  byte-identical.
+- Check (a script in the session's scratchpad, not kept), comparing the Dutch file with the
+  English one:
+  - 21 numbered sections in both, none missing or extra;
+  - per section the same number of table rows, except section 12 with the one new line;
+  - every code block present except the SSH block of section 8 (moved);
+  - in all code blocks, every token that is a path, number, hash or JSON value is equal once the
+    placeholders are mapped.
+- LibraryLocal: the old text is kept as `docs/datacontract-nl-2026-10-26.md`, and
+  `docs/datacontract.md` is now a Dutch pointer.
+- References updated:
+  - here: `CLAUDE.md`, `docs/features/README.md`, the F001 plan;
+  - in LibraryLocal: `CLAUDE.md`, `README.md`, `docs/features/README.md`, D13 in
+    `architectuur-voorstel.md`.
+  Historical mentions (progress logs, the decision of 15 October) stay as they were.
+- No corrections to the rules came up while translating.

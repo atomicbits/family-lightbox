@@ -5,7 +5,7 @@
 **Folder:** `F001-browse-library`
 
 Built before the features/stories process; this description was written afterwards for
-completeness. The design it implements is in `~/Pictures/LibraryLocal/docs/datacontract.md`,
+completeness. The design it implements is in the [data contract](../../data-contract.md),
 sections 4 (previews) and 7 (local state on a laptop).
 
 ## Goal

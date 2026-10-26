@@ -1,6 +1,6 @@
 # Feature 7: Sync manifests and previews from the NAS
 
-**Status:** In design (plan approved 2026-10-26; S01 written)
+**Status:** In progress (S01 done)
 **Depends on:** Feature 6 (a connected, readable NAS)
 **Folder:** `F007-sync-from-nas`
 
@@ -105,7 +105,7 @@ moves towards (D13).
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-move-data-contract.md) | Move the data contract into this repo, in English | Planned | — |
+| [S01](stories/S01-move-data-contract.md) | Move the data contract into this repo, in English | Done | — |
 | S02 | Sync engine: plan per folder, atomic copy with the remote time, exclusions, unreadable folders | Planned | — |
 | S03 | Manifests pass from `Library` | Planned | S02 |
 | S04 | Previews pass with size count, 20 GB reserve and confirmation the first time | Planned | S02 |

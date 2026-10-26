@@ -16,7 +16,8 @@ See [`docs/features/README.md`](docs/features/README.md#direction).
 
 Everything in this repo is in **English**: README, this file, `docs/`, features and stories,
 commit messages, code comments. The `media` CLI and its documentation in `~/Pictures/LibraryLocal`
-are in Dutch; that is where the data contract lives (`docs/datacontract.md`).
+are in Dutch. The data contract lives here, in [`docs/data-contract.md`](docs/data-contract.md)
+(moved from LibraryLocal on 2026-10-26); contract changes are made here and the CLI follows.
 
 ## Work process
 
@@ -29,7 +30,7 @@ Read only as deep as the task needs:
 
 1. `~/Pictures/LibraryLocal/docs/requirements-gewenste-situatie.md` and
    `architectuur-voorstel.md`: why the app exists and where it fits (Dutch).
-2. `~/Pictures/LibraryLocal/docs/datacontract.md`: the files the app reads and writes (Dutch).
+2. [`docs/data-contract.md`](docs/data-contract.md): the files the app reads and writes.
 3. `docs/features/F<NNN>-<slug>/plan.md` and `stories/S<NN>-<slug>.md`: the work itself.
 4. [`README.md`](README.md): how to run and develop the app.
 

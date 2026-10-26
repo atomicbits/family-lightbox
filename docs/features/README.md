@@ -3,8 +3,8 @@
 The working index for FamilyLightbox: which features exist, which stories belong to them and how
 far along they are. The *why* and the overall design of the photo workflow live outside this repo,
 in the `media` CLI's documentation (in Dutch): `~/Pictures/LibraryLocal/docs/`
-(`requirements-gewenste-situatie.md`, `architectuur-voorstel.md`, and the data contract
-`datacontract.md` that this app reads against).
+(`requirements-gewenste-situatie.md`, `architectuur-voorstel.md`). The data contract that this app
+and the CLI follow is in this repo: [`../data-contract.md`](../data-contract.md).
 
 ## The model in one line
 
@@ -139,8 +139,8 @@ is removed from the CLI once the app does it on real data. What runs on the NAS 
 (`media-drive-push.py`, `media-manifest-nas.py`) stays there.
 
 Lynn uses macOS, so the native features are built for macOS first; Windows follows. The data
-contract moves into this repo, in English, with feature 7; until then it lives in Dutch in
-`~/Pictures/LibraryLocal/docs/datacontract.md`. LibraryLocal stays for Peter's manual CLI work.
+contract moved into this repo, in English, with feature 7 (2026-10-26):
+[`../data-contract.md`](../data-contract.md). LibraryLocal stays for Peter's manual CLI work.
 
 ## Index
 
@@ -156,7 +156,7 @@ no folder yet.
 | 4 | CI and signed releases for macOS and Windows | Planned | 1 |
 | 5 | Start imports from the app via the CLI's `--json` output | Dropped: imports move into the app natively (D13), see 10 | — |
 | 6 | [Connect to the NAS](F006-nas-connection/plan.md): find or mount the shares (macOS first), register the device | Done on Peter's Mac; Lynn's Mac deferred | 1 |
-| 7 | [Sync manifests and previews from the NAS](F007-sync-from-nas/plan.md) (replaces passes 1–2 of `media pull`; moves the data contract here) | In design | 6 |
+| 7 | [Sync manifests and previews from the NAS](F007-sync-from-nas/plan.md) (replaces passes 1–2 of `media pull`; moves the data contract here) | In progress | 6 |
 | 8 | Native index: build `index.sqlite` from the manifests (replaces `media index`) | Planned | 7 |
 | 9 | Open originals that are not on this laptop, from the NAS | Planned | 6 |
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |
