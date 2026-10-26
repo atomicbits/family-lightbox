@@ -150,7 +150,7 @@ no folder yet.
 
 | # | Feature | Status | Depends on |
 |---|---|---|---|
-| 1 | [Browse the library](F001-browse-library/plan.md) | Done | CLI `index`, `previews` |
+| 1 | [Browse the library](F001-browse-library/plan.md) | In progress (S01: continuous grid) | CLI `index`, `previews` |
 | 2 | Filter by source (camera, Peter's or Lynn's iPhone) | Planned | 1 |
 | 3 | Lists: create and fill lists together, native (data contract section 5) | Planned | 6 |
 | 4 | CI and signed releases for macOS and Windows | Planned | 1 |

@@ -1,6 +1,6 @@
 # Feature 1: Browse the library
 
-**Status:** Done — unit-tested (5 cargo, 3 vitest); not yet used by Lynn, and no signed release yet (see F004)
+**Status:** In progress (S01) — the first version is done and unit-tested; not yet used by Lynn, and no signed release yet (see F004)
 **Depends on:** the `media` CLI's `index` and `previews` (LibraryLocal F006, F007)
 **Folder:** `F001-browse-library`
 
@@ -51,4 +51,8 @@ previews, look at one photo large, and get to the original when they need it.
 
 ## Stories
 
-None: built before this process. Any change to this feature starts with a new story in `stories/`.
+The first version was built before this process and has no stories. Changes since then:
+
+| ID | Title | Status | Depends on |
+|---|---|---|---|
+| [S01](stories/S01-continuous-timeline.md) | One continuous grid across months and years | Planned | — |
