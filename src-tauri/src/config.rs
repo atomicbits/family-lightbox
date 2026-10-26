@@ -100,6 +100,33 @@ pub fn save_settings(dir: &Path, s: &Settings) -> Result<(), String> {
     })
 }
 
+pub const STATE_FILE: &str = "familylightbox-state.json";
+
+/// The app's own state, kept apart from the settings because saving the settings writes that whole
+/// file (F007/S04). Not part of the data contract.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppState {
+    /// When a full previews pass was first confirmed on this Mac.
+    pub previews_confirmed_at: Option<String>,
+}
+
+/// The state, or the default when it is missing or broken (a broken file is left alone).
+pub fn load_state(dir: &Path) -> AppState {
+    fs::read_to_string(dir.join(STATE_FILE)).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+}
+
+pub fn save_state(dir: &Path, state: &AppState) -> Result<(), String> {
+    fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let tmp = dir.join(format!("{STATE_FILE}.tmp"));
+    let body = serde_json::to_string_pretty(state).map_err(|e| e.to_string())? + "\n";
+    fs::write(&tmp, body).map_err(|e| format!("{}: {e}", tmp.display()))?;
+    fs::rename(&tmp, dir.join(STATE_FILE)).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        format!("{}: {e}", dir.join(STATE_FILE).display())
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Device {
     pub name: String,
@@ -236,6 +263,19 @@ mod tests {
         s.shares.lists = "".into();
         assert!(save_settings(dir.path(), &s).is_err());
         assert_eq!(fs::read_to_string(dir.path().join(SETTINGS_FILE)).unwrap(), before);
+    }
+
+    #[test]
+    fn state_file_round_trip_and_broken_file() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(load_state(dir.path()), AppState::default());
+        let st = AppState { previews_confirmed_at: Some("2026-10-26T23:00:00+01:00".into()) };
+        save_state(dir.path(), &st).unwrap();
+        assert_eq!(load_state(dir.path()), st);
+        assert!(!dir.path().join(format!("{STATE_FILE}.tmp")).exists());
+        fs::write(dir.path().join(STATE_FILE), "{ kapot").unwrap();
+        assert_eq!(load_state(dir.path()), AppState::default());
+        assert_eq!(fs::read_to_string(dir.path().join(STATE_FILE)).unwrap(), "{ kapot", "left alone");
     }
 
     #[test]

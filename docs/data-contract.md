@@ -261,6 +261,7 @@ Exports are end products: never rewritten automatically, but pushed and synced t
 ~/.config/media/state.json       last push/pull per month, last merge, NAS address
 ~/.config/media/index.sqlite     derived index of manifests, previews and lists; can be rebuilt with `media index`
 ~/.config/media/familylightbox.json  the app's settings (NAS name, names of the shares); not part of the contract
+~/.config/media/familylightbox-state.json  the app's own state (for example when the first previews pass was confirmed); not part of the contract
 ~/Pictures/LibraryLocal/         working copy of Library (partial)
 ~/Pictures/Previews/             copy of Previews (complete)
 ~/Pictures/Lists/                read copy of Lists; writing happens on the NAS
@@ -325,6 +326,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 
 | Version | Date | What |
 |---|---|---|
+| 1.2 (addition) | 2026-10-26 | Section 7: `familylightbox-state.json`, the app's own state, kept apart from its settings (F007/S04). Not part of the contract. |
 | 1.2 (addition) | 2026-10-26 | Moved into the FamilyLightbox repo and translated into English (F007/S01). Section numbers unchanged. Operational details of the home network moved to a private note in LibraryLocal (`docs/nas-inrichting.md`); the rules they support stay here (sections 2 and 8). Content of the rules unchanged, `contract_version` stays 1.2. |
 | 1.0 | 2026-10-15 | First version. Hash is sha256 (the architecture document said blake2b; changed). |
 | 1.2 (addition) | 2026-10-20 | `pull` made concrete (section 8: three passes, readable years, 18 months, space check) and the CLI's index tables described (section 7). |

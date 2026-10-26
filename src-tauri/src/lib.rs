@@ -206,6 +206,66 @@ async fn sync_manifests(paths: State<'_, Paths>) -> Result<pull::ManifestsOutcom
     .map_err(|e| e.to_string())
 }
 
+/// A counted previews plan, kept so the minutes of listing over the network aren't repeated
+/// between counting and copying (F007/S04).
+pub struct StoredPlan {
+    at: std::time::Instant,
+    job: sync::Job,
+    plan: sync::Plan,
+}
+
+#[derive(Default)]
+pub struct PreviewsPlan(std::sync::Arc<std::sync::Mutex<Option<StoredPlan>>>);
+
+/// Count what the previews pass would copy, and keep that plan for `run_previews`.
+#[tauri::command]
+async fn plan_previews(paths: State<'_, Paths>, store: State<'_, PreviewsPlan>) -> Result<pull::PreviewsSummary, String> {
+    let (config, previews, slot) = (paths.config.clone(), paths.previews.clone(), store.0.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        let (settings, _) = config::load_settings(&config);
+        let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+        let job = pull::previews_job(&settings, &found, &previews)?;
+        let plan = match sync::plan(&job, &mut |_| {}, &std::sync::atomic::AtomicBool::new(false)) {
+            Ok(p) => p,
+            Err(sync::Stop::Cancelled) => return Err("geannuleerd".to_string()),
+            Err(sync::Stop::Failed(e)) => return Err(e),
+        };
+        let summary = pull::summarize(&plan, pull::free_bytes(&previews), &config::load_state(&config));
+        *slot.lock().map_err(|e| e.to_string())? = Some(StoredPlan { at: std::time::Instant::now(), job, plan });
+        Ok(summary)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Copy the plan counted by `plan_previews`. `confirmed` is the user's yes for a first full pass.
+#[tauri::command]
+async fn run_previews(confirmed: bool, paths: State<'_, Paths>, store: State<'_, PreviewsPlan>) -> Result<pull::PreviewsOutcome, String> {
+    let (config, previews, slot) = (paths.config.clone(), paths.previews.clone(), store.0.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        let stored = slot.lock().map_err(|e| e.to_string())?.take();
+        let Some(stored) = stored.filter(|s| pull::plan_is_fresh(s.at, std::time::Instant::now())) else {
+            return Err("tel opnieuw: er is geen recente telling".to_string());
+        };
+        let result = pull::run_previews(
+            &stored.job,
+            &stored.plan,
+            confirmed,
+            &config,
+            pull::free_bytes(&previews),
+            &mut |_| {},
+            &std::sync::atomic::AtomicBool::new(false),
+        );
+        if result.is_err() {
+            // a refusal (no confirmation, no space) keeps the counted plan for a second try
+            *slot.lock().map_err(|e| e.to_string())? = Some(stored);
+        }
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 fn months(paths: State<Paths>) -> Result<Vec<MonthSummary>, String> {
     Db::open(&paths.index())?.months()
@@ -272,12 +332,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(paths())
+        .manage(PreviewsPlan::default())
         .register_uri_scheme_protocol("preview", move |_ctx, request| {
             preview_response(&previews_root, request.uri().path())
         })
         .invoke_handler(tauri::generate_handler![
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
-            nas_mounts, connect_nas, nas_check, sync_manifests,
+            nas_mounts, connect_nas, nas_check, sync_manifests, plan_previews, run_previews,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

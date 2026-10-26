@@ -1,7 +1,7 @@
 # Story S04: Previews pass with size count, 20 GB reserve and confirmation the first time
 
 **Feature:** `F007-sync-from-nas`
-**Status:** Planned
+**Status:** Done
 **Depends on:** S02
 
 ## Goal
@@ -121,3 +121,39 @@ once before it starts.
 ## Progress log
 
 ### [2026-10-26] Written
+
+### [2026-10-26] Built
+
+- `config.rs`: `AppState`, plus `load_state` and `save_state` for `familylightbox-state.json`. They
+  write atomically, and a broken file counts as "not confirmed" and is left alone.
+- `pull.rs`:
+  - `is_preview` and `previews_job`;
+  - `free_bytes` (`libc::statvfs`, walking up to an existing folder);
+  - `space_check` (20 GB reserve; the message uses decimal GB with a comma);
+  - `summarize`, `plan_is_fresh` (30 minutes) and `run_previews`, which refuses without
+    confirmation the first time and when it doesn't fit. Free space is measured again before
+    copying, and the confirmation is recorded before copying starts, never on a refusal.
+- `lib.rs`:
+  - managed state `PreviewsPlan` (an `Arc<Mutex<Option<StoredPlan>>>`);
+  - the commands `plan_previews` and `run_previews(confirmed)`. A refused run puts the counted
+    plan back, so a second try doesn't count again.
+- The data contract, section 7, lists `familylightbox-state.json`, with a line in the change log.
+- `cargo test` 54 passed (9 new), `cargo clippy --all-targets` clean.
+- An unreadable year is covered by the engine's test in `sync.rs`; the previews job adds nothing
+  there.
+- **By hand on Peter's real `~/Pictures/Previews`**: counting took 154 s for 77 396 files over SMB.
+  All were "keep", with nothing to copy, no confirmation needed, and 187 GB free. The run copied 0.
+- **By hand into an empty folder, 2023 only**, with a temporary config folder so Peter's state
+  stays untouched:
+  - counting took 173 s: 13 076 files, 4.99 GB, confirmation needed;
+  - with free space set to 21 GB as a test value: "nodig 5 GB, vrij 21 GB, reserve 20 GB: 4 GB
+    tekort", nothing copied;
+  - without confirmation: "bevestiging nodig", nothing copied, and no confirmation recorded after
+    either refusal;
+  - with confirmation: 13 076 files, 4.99 GB in 793 s (6.3 MB/s), no error, no temporary files
+    left, and the confirmation recorded (`previews_confirmed_at`). A spot check with `cmp` shows
+    identical content;
+  - a second count found nothing to copy (13 076 kept).
+  - The test folder was removed afterwards.
+- At 6.3 MB/s, the full 29 GB is about 77 minutes on Lynn's Mac the first time. Counting alone takes
+  about 2.5 minutes for all years.
