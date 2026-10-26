@@ -1,6 +1,6 @@
 # Feature 7: Sync manifests and previews from the NAS
 
-**Status:** In design (plan awaiting Peter's review)
+**Status:** In design (plan approved 2026-10-26; S01 written)
 **Depends on:** Feature 6 (a connected, readable NAS)
 **Folder:** `F007-sync-from-nas`
 
@@ -105,13 +105,16 @@ moves towards (D13).
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | Move the data contract into this repo, in English | Planned | — |
+| [S01](stories/S01-move-data-contract.md) | Move the data contract into this repo, in English | Planned | — |
 | S02 | Sync engine: plan per folder, atomic copy with the remote time, exclusions, unreadable folders | Planned | — |
 | S03 | Manifests pass from `Library` | Planned | S02 |
 | S04 | Previews pass with size count, 20 GB reserve and confirmation the first time | Planned | S02 |
 | S05 | Running in the background: progress, cancel, when it runs, the line in the header | Planned | S03, S04 |
 
 ## Open points
+
+Peter approved the plan on 2026-10-26, with the proposals for points 1 and 3. Point 2 is checked
+on Lynn's Mac.
 
 1. **Previews for 2008–2021 don't exist yet.** About 85 000 items (the 123 801 in the index
    minus the ~38 700 with a preview) would show as "geen preview" on Lynn's Mac, and on Peter's
