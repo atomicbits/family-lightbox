@@ -106,7 +106,7 @@ moves towards (D13).
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-move-data-contract.md) | Move the data contract into this repo, in English | Done | — |
-| S02 | Sync engine: plan per folder, atomic copy with the remote time, exclusions, unreadable folders | Planned | — |
+| [S02](stories/S02-sync-engine.md) | Sync engine: plan per folder, atomic copy with the remote time, exclusions, unreadable folders | Planned | — |
 | S03 | Manifests pass from `Library` | Planned | S02 |
 | S04 | Previews pass with size count, 20 GB reserve and confirmation the first time | Planned | S02 |
 | S05 | Running in the background: progress, cancel, when it runs, the line in the header | Planned | S03, S04 |
