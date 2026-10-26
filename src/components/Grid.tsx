@@ -9,13 +9,15 @@ type Props = {
   selected: number | null;
   onSelect: (index: number) => void;
   onOpen: (index: number) => void;
+  /** Reports the column count, so the arrow keys can move a row up or down. */
+  onColumns?: (cols: number) => void;
 };
 
 const TILE = 176; // px, miniatuur is 400 px lang, dus scherp op Retina
 const GAP = 8;
 
 /** Het raster: gevirtualiseerd per rij, zodat een maand met duizenden foto's licht blijft. */
-export default function Grid({ items, selected, onSelect, onOpen }: Props) {
+export default function Grid({ items, selected, onSelect, onOpen, onColumns }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [cols, setCols] = useState(6);
 
@@ -28,6 +30,8 @@ export default function Grid({ items, selected, onSelect, onOpen }: Props) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  useEffect(() => onColumns?.(cols), [cols, onColumns]);
 
   const rows = useMemo(() => Math.ceil(items.length / cols), [items.length, cols]);
   const virtualizer = useVirtualizer({

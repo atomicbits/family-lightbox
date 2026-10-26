@@ -8,6 +8,7 @@ import DeviceSetup from "./components/DeviceSetup";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
 import { useNas } from "./lib/nas";
+import { ARROWS, moveInGrid } from "./lib/grid";
 
 export default function App() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -20,6 +21,7 @@ export default function App() {
   const [device, setDevice] = useState<DeviceState | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const nas = useNas();
+  const [cols, setCols] = useState(1);
   const lastRefresh = useRef(0);
 
   // NAS at start, once the device is known: quiet connect without a dialog, then the check.
@@ -79,13 +81,15 @@ export default function App() {
     if (open || dialog) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
-      if (e.key === "ArrowRight") step(1);
-      else if (e.key === "ArrowLeft") step(-1);
-      else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
+      const move = ARROWS[e.key];
+      if (move) {
+        e.preventDefault(); // otherwise up/down scroll the grid instead of moving the selection
+        setSelected((s) => moveInGrid(s, move, cols, items.length));
+      } else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, dialog, selected, step]);
+  }, [open, dialog, selected, cols, items.length]);
 
   const current = selected !== null ? items[selected] : undefined;
 
@@ -134,6 +138,7 @@ export default function App() {
               selected={selected}
               onSelect={setSelected}
               onOpen={(i) => { setSelected(i); setOpen(true); }}
+              onColumns={setCols}
             />
           </main>
           {open && current && (
