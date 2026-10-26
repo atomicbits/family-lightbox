@@ -31,16 +31,21 @@ export default function Lightbox({ item, index, count, onClose, onStep }: Props)
 
   return (
     <div className="absolute inset-0 z-20 bg-black/95 text-white flex flex-col" onClick={onClose}>
-      <div className="flex-1 min-h-0 grid place-items-center p-4" onClick={(e) => e.stopPropagation()}>
+      {/* The image is positioned absolutely in a box with a definite size: in a grid or flex item
+          with an auto height, max-h-full has nothing to resolve against and a tall photo spills
+          out at the bottom. */}
+      <div className="relative flex-1 min-h-0 m-4" onClick={(e) => e.stopPropagation()}>
         {item.preview ? (
           <img
             src={previewUrl(item.path, false)}
-            className="max-w-full max-h-full object-contain"
+            className="absolute inset-0 w-full h-full object-contain"
             draggable={false}
             alt=""
           />
         ) : (
-          <div className="text-neutral-400">geen preview voor {fileName(item.path)}</div>
+          <div className="absolute inset-0 grid place-items-center text-neutral-400">
+            geen preview voor {fileName(item.path)}
+          </div>
         )}
       </div>
       <div
