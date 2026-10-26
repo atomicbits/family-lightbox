@@ -249,6 +249,47 @@ fn consider(job: &Job, rel: &str, meta: &fs::Metadata, p: &mut Plan, progress: &
 
 /// Copies what the plan says to copy, one file at a time, atomically.
 pub fn execute(job: &Job, plan: &Plan, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool) -> Outcome {
+    let mut folders = FolderTimes::default();
+    let out = execute_inner(job, plan, progress, cancel, &mut folders);
+    folders.restore(job);
+    out
+}
+
+/// Writing a file changes its folder's modification time, and the CLI uses folder times to see
+/// which months changed (`library_months`). Like `rsync -a` in `media pull`, folders end with the
+/// time they had: an existing folder gets its old time back, a new one gets the NAS folder's time.
+#[derive(Default)]
+struct FolderTimes {
+    /// Relative folder → its local time before the first copy into it (None: it didn't exist).
+    before: std::collections::BTreeMap<String, Option<SystemTime>>,
+}
+
+impl FolderTimes {
+    fn note(&mut self, job: &Job, rel_file: &str) {
+        let mut rel = rel_file;
+        while let Some((parent, _)) = rel.rsplit_once('/') {
+            if !self.before.contains_key(parent) {
+                let t = fs::metadata(job.local.join(parent)).and_then(|m| m.modified()).ok();
+                self.before.insert(parent.to_string(), t);
+            }
+            rel = parent;
+        }
+    }
+
+    fn restore(&self, job: &Job) {
+        for (rel, before) in &self.before {
+            let time = match before {
+                Some(t) => Some(*t),
+                None => fs::metadata(job.remote.join(rel)).and_then(|m| m.modified()).ok(),
+            };
+            if let Some(t) = time {
+                let _ = File::open(job.local.join(rel)).and_then(|d| d.set_modified(t));
+            }
+        }
+    }
+}
+
+fn execute_inner(job: &Job, plan: &Plan, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool, folders: &mut FolderTimes) -> Outcome {
     let mut out = Outcome { kept: plan.kept, skipped: plan.skipped.clone(), ..Outcome::default() };
     let (mut files_done, mut bytes_done) = (0u64, 0u64);
     for e in plan.entries.iter().filter(|e| e.decision.copies()) {
@@ -267,6 +308,7 @@ pub fn execute(job: &Job, plan: &Plan, progress: &mut dyn FnMut(&Progress), canc
                 bytes_total: plan.copy_bytes,
             })
         };
+        folders.note(job, &e.rel);
         match copy_one(job, e, bytes_done, &mut report, cancel) {
             Ok(n) => {
                 bytes_done += n;
@@ -413,6 +455,29 @@ mod tests {
         assert_eq!(secs(m.modified().unwrap()), secs(t(10)), "remote time kept");
         let again = run(&job(r.path(), l.path()));
         assert_eq!(again.0.copy_files, 0);
+    }
+
+    #[test]
+    fn folder_times_stay_as_they_were_or_follow_the_nas() {
+        let (r, l) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        put(r.path(), "2016/12/a.jpg", b"a", t(1));
+        put(r.path(), "0000/zonder-datum/b.jpg", b"b", t(1));
+        fs::create_dir_all(l.path().join("2016/12")).unwrap();
+        let old = t(500);
+        for d in ["2016/12", "2016"] {
+            File::open(l.path().join(d)).unwrap().set_modified(old).unwrap();
+        }
+        let remote_new = t(900);
+        for d in ["0000/zonder-datum", "0000"] {
+            File::open(r.path().join(d)).unwrap().set_modified(remote_new).unwrap();
+        }
+        let (_, o) = run(&job(r.path(), l.path()));
+        assert_eq!(o.copied_missing, 2);
+        let local_time = |d: &str| secs(fs::metadata(l.path().join(d)).unwrap().modified().unwrap());
+        assert_eq!(local_time("2016/12"), secs(old), "an existing folder keeps its time");
+        assert_eq!(local_time("2016"), secs(old));
+        assert_eq!(local_time("0000/zonder-datum"), secs(remote_new), "a new folder gets the NAS folder's time");
+        assert_eq!(local_time("0000"), secs(remote_new));
     }
 
     #[cfg(unix)]

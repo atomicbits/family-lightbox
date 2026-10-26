@@ -119,3 +119,10 @@ local file other than its own temporary files, and never writes to the NAS.
   F007 plan is corrected (open point 1 is now 2000–2021).
 - The code was committed in `d7bcfd3`. These notes followed in a separate commit, because the
   script that updated them stopped halfway.
+
+### [2026-10-26] Folder times (found in S03)
+
+- Copying into a folder changed that folder's modification time, which `rsync -a` doesn't do,
+  and the CLI reads folder times (`library_months`). `execute` now notes each folder's local time
+  before its first copy and restores it at the end, also after a cancel or an error. A folder the
+  engine created gets the NAS folder's time. Test `folder_times_stay_as_they_were_or_follow_the_nas`.

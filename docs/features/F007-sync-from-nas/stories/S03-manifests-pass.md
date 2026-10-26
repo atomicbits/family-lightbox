@@ -1,7 +1,7 @@
 # Story S03: Manifests pass from `Library`
 
 **Feature:** `F007-sync-from-nas`
-**Status:** In progress: built and tested; the run on Peter's real working copy waits for his go
+**Status:** Done
 **Depends on:** S02
 
 ## Goal
@@ -105,3 +105,23 @@ reads them.
     - `2016/12/.manifest.json` is newer on the NAS (4 files added there from the old mirror on
       2026-10-23).
   - The real run, followed by `./media status` and `./media push -n`, waits for Peter's go.
+
+### [2026-10-26] Real run on Peter's working copy
+
+- With Peter's go:
+  - copied 2, kept 362, nothing skipped or invalid, changed `0000/zonder-datum` and `2016/12`;
+  - both files are byte-identical to the NAS (`md5`), with the NAS modification time;
+  - `./media status` is unchanged.
+- `./media push -n` then listed one month more: 2016/12. That turned up a difference from
+  `rsync -a`. Writing into a folder changes the folder's own modification time, and the CLI's
+  `library_months` takes folder times into account. The engine now gives folders their time back
+  (see S02): an existing folder keeps its old time, and a folder it creates gets the NAS folder's
+  time. There is a new test in `sync.rs`. The three folders touched in this run (`2016/12`,
+  `0000`, `0000/zonder-datum`) were set to their NAS time with `touch -r`, because their old local
+  times were lost.
+- After that `push -n` still lists 2016/12, and that is expected. The CLI's last push was
+  2026-10-17, and the manifest carries its NAS time of 2026-10-23, which is later. `media pull`
+  with `rsync -a` would have done exactly the same. A real `push` of that month would rebuild the
+  manifest from the NAS's own entries (`merge_manifest` keeps every remote entry whose file is
+  there with the right size) plus 0 local files. The content stays the same; only the header
+  (`generated_by`, `generated_at`) changes.
