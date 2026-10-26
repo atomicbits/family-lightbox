@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
-import { columnsFor } from "../lib/grid";
+import { columnsFor, rowWidth } from "../lib/grid";
 import { fileName } from "../lib/months";
 
 type Props = {
@@ -12,13 +12,14 @@ type Props = {
   onOpen: (index: number) => void;
   /** Reports the column count, so the arrow keys can move a row up or down. */
   onColumns?: (cols: number) => void;
+  /** Tile size in CSS pixels (the size slider). */
+  tile: number;
 };
 
-const TILE = 176; // px, miniatuur is 400 px lang, dus scherp op Retina
 const GAP = 8;
 
 /** Het raster: gevirtualiseerd per rij, zodat een maand met duizenden foto's licht blijft. */
-export default function Grid({ items, selected, onSelect, onOpen, onColumns }: Props) {
+export default function Grid({ items, selected, onSelect, onOpen, onColumns, tile }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the month is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure and the grid stayed at its initial 6 columns.
@@ -27,12 +28,12 @@ export default function Grid({ items, selected, onSelect, onOpen, onColumns }: P
 
   useLayoutEffect(() => {
     if (!scrollEl) return;
-    const update = () => setCols(columnsFor(scrollEl.clientWidth, TILE, GAP));
+    const update = () => setCols(columnsFor(scrollEl.clientWidth, tile, GAP));
     update();
     const ro = new ResizeObserver(update);
     ro.observe(scrollEl);
     return () => ro.disconnect();
-  }, [scrollEl]);
+  }, [scrollEl, tile]);
 
   useEffect(() => onColumns?.(cols), [cols, onColumns]);
 
@@ -40,9 +41,12 @@ export default function Grid({ items, selected, onSelect, onOpen, onColumns }: P
   const virtualizer = useVirtualizer({
     count: rows,
     getScrollElement: () => scrollEl,
-    estimateSize: () => TILE + GAP,
+    estimateSize: () => tile + GAP,
     overscan: 4,
   });
+
+  // A new tile size changes every row's height; re-measure so the rows don't overlap.
+  useEffect(() => virtualizer.measure(), [tile, virtualizer]);
 
   // de geselecteerde tegel in beeld houden (pijltjestoetsen)
   useEffect(() => {
@@ -55,12 +59,16 @@ export default function Grid({ items, selected, onSelect, onOpen, onColumns }: P
 
   return (
     <div ref={setScrollEl} className="h-full overflow-y-auto overflow-x-hidden" style={{ padding: GAP }}>
-      <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+      {/* As wide as a full row and centred, so leftover width is split evenly left and right. */}
+      <div
+        className="mx-auto"
+        style={{ height: virtualizer.getTotalSize(), width: rowWidth(cols, tile, GAP), position: "relative" }}
+      >
         {virtualizer.getVirtualItems().map((row) => (
           <div
             key={row.key}
             className="absolute left-0 flex"
-            style={{ top: row.start, height: TILE, gap: GAP }}
+            style={{ top: row.start, height: tile, gap: GAP }}
           >
             {items.slice(row.index * cols, row.index * cols + cols).map((item, i) => {
               const index = row.index * cols + i;
@@ -68,6 +76,7 @@ export default function Grid({ items, selected, onSelect, onOpen, onColumns }: P
                 <Tile
                   key={item.path}
                   item={item}
+                  size={tile}
                   active={index === selected}
                   onClick={() => onSelect(index)}
                   onDoubleClick={() => onOpen(index)}
@@ -81,8 +90,8 @@ export default function Grid({ items, selected, onSelect, onOpen, onColumns }: P
   );
 }
 
-function Tile({ item, active, onClick, onDoubleClick }: {
-  item: Item; active: boolean; onClick: () => void; onDoubleClick: () => void;
+function Tile({ item, size, active, onClick, onDoubleClick }: {
+  item: Item; size: number; active: boolean; onClick: () => void; onDoubleClick: () => void;
 }) {
   return (
     <div
@@ -93,7 +102,7 @@ function Tile({ item, active, onClick, onDoubleClick }: {
         "relative rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
         (active ? "ring-3 ring-blue-500" : "")
       }
-      style={{ width: TILE, height: TILE }}
+      style={{ width: size, height: size }}
     >
       {item.preview ? (
         <img

@@ -8,7 +8,7 @@ import DeviceSetup from "./components/DeviceSetup";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
 import { useNas } from "./lib/nas";
-import { ARROWS, moveInGrid } from "./lib/grid";
+import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, moveInGrid, saveTile } from "./lib/grid";
 
 export default function App() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -22,6 +22,8 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const nas = useNas();
   const [cols, setCols] = useState(1);
+  const [tile, setTile] = useState(loadTile);
+  const changeTile = (n: number) => { const t = clampTile(n); setTile(t); saveTile(t); };
   const lastRefresh = useRef(0);
 
   // NAS at start, once the device is known: quiet connect without a dialog, then the check.
@@ -106,6 +108,21 @@ export default function App() {
           </span>
         )}
         <span className="flex-1" />
+        <label className="flex items-center gap-1.5 text-neutral-400" title="grootte van de miniaturen">
+          <span className="text-xs">▫</span>
+          <input
+            type="range"
+            min={TILE_MIN}
+            max={TILE_MAX}
+            step={8}
+            value={tile}
+            onChange={(e) => changeTile(Number(e.target.value))}
+            // let go of focus after dragging, so the arrow keys move through the photos again
+            onPointerUp={(e) => e.currentTarget.blur()}
+            className="w-28 accent-neutral-500"
+          />
+          <span className="text-base leading-none">□</span>
+        </label>
         {status && !status.index_exists && (
           <span className="text-amber-600">geen index: draai ./media index</span>
         )}
@@ -139,6 +156,7 @@ export default function App() {
               onSelect={setSelected}
               onOpen={(i) => { setSelected(i); setOpen(true); }}
               onColumns={setCols}
+              tile={tile}
             />
           </main>
           {open && current && (

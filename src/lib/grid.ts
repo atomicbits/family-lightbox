@@ -43,3 +43,38 @@ export function columnsFor(clientWidth: number, tile: number, gap: number): numb
   const inner = clientWidth - 2 * gap;
   return Math.max(1, Math.floor((inner + gap) / (tile + gap)));
 }
+
+/** Tile sizes for the size slider, in CSS pixels. Thumbnails are 400 px on their long side, so
+ * they stay sharp up to 200 on a Retina screen and soften a little above that. */
+export const TILE_MIN = 96;
+export const TILE_MAX = 320;
+export const TILE_DEFAULT = 176;
+const TILE_KEY = "familylightbox.tile";
+
+export function clampTile(n: number): number {
+  if (!Number.isFinite(n)) return TILE_DEFAULT;
+  return Math.min(TILE_MAX, Math.max(TILE_MIN, Math.round(n)));
+}
+
+/** The size chosen last time on this Mac; a convenience only, so any storage problem gives the default. */
+export function loadTile(): number {
+  try {
+    const v = localStorage.getItem(TILE_KEY);
+    return v === null ? TILE_DEFAULT : clampTile(Number(v));
+  } catch {
+    return TILE_DEFAULT;
+  }
+}
+
+export function saveTile(n: number): void {
+  try {
+    localStorage.setItem(TILE_KEY, String(clampTile(n)));
+  } catch {
+    // not remembered; the slider still works
+  }
+}
+
+/** Width of a full row of `cols` tiles, so the rows can be centred in the panel. */
+export function rowWidth(cols: number, tile: number, gap: number): number {
+  return cols * tile + (cols - 1) * gap;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { columnsFor, moveInGrid } from "./grid";
+import { TILE_DEFAULT, TILE_MAX, TILE_MIN, clampTile, columnsFor, loadTile, moveInGrid, rowWidth, saveTile } from "./grid";
 
 // 10 items in 4 columns:   0 1 2 3 / 4 5 6 7 / 8 9
 describe("moveInGrid", () => {
@@ -45,5 +45,35 @@ describe("columnsFor", () => {
   it("is at least 1, also for a very narrow or not yet laid out box", () => {
     expect(columnsFor(100, 176, 8)).toBe(1);
     expect(columnsFor(0, 176, 8)).toBe(1);
+  });
+});
+
+describe("tile size", () => {
+  it("clamps to the slider's range and falls back to the default", () => {
+    expect(clampTile(50)).toBe(TILE_MIN);
+    expect(clampTile(1000)).toBe(TILE_MAX);
+    expect(clampTile(200.4)).toBe(200);
+    expect(clampTile(Number.NaN)).toBe(TILE_DEFAULT);
+  });
+
+  it("remembers the size, and survives storage that is missing or broken", () => {
+    const store = new Map<string, string>();
+    globalThis.localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    } as Storage;
+    expect(loadTile()).toBe(TILE_DEFAULT);
+    saveTile(240);
+    expect(loadTile()).toBe(240);
+    store.set("familylightbox.tile", "veel");
+    expect(loadTile()).toBe(TILE_DEFAULT);
+    globalThis.localStorage = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } } as unknown as Storage;
+    expect(loadTile()).toBe(TILE_DEFAULT);
+    expect(() => saveTile(200)).not.toThrow();
+  });
+
+  it("computes the width of a full row for centring", () => {
+    expect(rowWidth(1, 176, 8)).toBe(176);
+    expect(rowWidth(4, 176, 8)).toBe(4 * 176 + 3 * 8);
   });
 });

@@ -24,7 +24,11 @@ previews, look at one photo large, and get to the original when they need it.
 - **Month list** (`MonthList.tsx`): months grouped by year with photo, video and preview counts;
   folders without a month (for example `2012/scans Peter`) are shown by their name.
 - **Grid** (`Grid.tsx`): a virtualized grid of thumbnails (`@tanstack/react-virtual`), sorted by
-  capture time, sidecars left out. Arrow keys move the selection, space or Enter opens it.
+  capture time, sidecars left out. The arrow keys move the selection (up and down by a row,
+  `lib/grid.ts`), and space or Enter opens it. The number of columns follows the window width;
+  rows are centred, and the grid never scrolls sideways. A slider in the header sets the tile size
+  (96–320 px, remembered on this Mac). Thumbnails are 400 px, so above about 200 px they soften a
+  little on a Retina screen.
 - **Lightbox** (`Lightbox.tsx`): one photo large; arrow keys step, Escape or space closes.
 - **Originals**: reveal in the Finder/Explorer, or open with the default application (via
   `tauri-plugin-opener`), when the original is on this laptop.
