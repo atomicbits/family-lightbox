@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveInGrid } from "./grid";
+import { columnsFor, moveInGrid } from "./grid";
 
 // 10 items in 4 columns:   0 1 2 3 / 4 5 6 7 / 8 9
 describe("moveInGrid", () => {
@@ -30,5 +30,20 @@ describe("moveInGrid", () => {
     expect(moveInGrid(null, "down", 4, 10)).toBe(0);
     expect(moveInGrid(null, "left", 4, 10)).toBe(0);
     expect(moveInGrid(3, "down", 4, 0)).toBeNull();
+  });
+});
+
+describe("columnsFor", () => {
+  // tile 176, gap 8: n tiles need n*176 + (n-1)*8, plus 2*8 padding
+  it("fits as many tiles as the width allows, never more", () => {
+    expect(columnsFor(176 + 16, 176, 8)).toBe(1);
+    expect(columnsFor(2 * 176 + 8 + 16, 176, 8)).toBe(2);
+    expect(columnsFor(2 * 176 + 8 + 16 - 1, 176, 8)).toBe(1);
+    expect(columnsFor(10 * 176 + 9 * 8 + 16, 176, 8)).toBe(10);
+  });
+
+  it("is at least 1, also for a very narrow or not yet laid out box", () => {
+    expect(columnsFor(100, 176, 8)).toBe(1);
+    expect(columnsFor(0, 176, 8)).toBe(1);
   });
 });

@@ -33,3 +33,13 @@ export const ARROWS: Record<string, Move> = {
   ArrowUp: "up",
   ArrowDown: "down",
 };
+
+/**
+ * How many tiles fit next to each other in a scroll box of `clientWidth` (which includes the
+ * box's padding of `gap` on both sides, and excludes the scrollbar): n tiles take
+ * n * tile + (n - 1) * gap. At least 1.
+ */
+export function columnsFor(clientWidth: number, tile: number, gap: number): number {
+  const inner = clientWidth - 2 * gap;
+  return Math.max(1, Math.floor((inner + gap) / (tile + gap)));
+}

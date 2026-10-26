@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
+import { columnsFor } from "../lib/grid";
 import { fileName } from "../lib/months";
 
 type Props = {
@@ -18,25 +19,27 @@ const GAP = 8;
 
 /** Het raster: gevirtualiseerd per rij, zodat een maand met duizenden foto's licht blijft. */
 export default function Grid({ items, selected, onSelect, onOpen, onColumns }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [cols, setCols] = useState(6);
+  // A callback ref, so the width is measured as soon as the scroll box exists. On the first
+  // render the month is often still empty and there is no scroll box yet; a ref read once in
+  // an effect would never measure and the grid stayed at its initial 6 columns.
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  const [cols, setCols] = useState(1);
 
   useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const update = () => setCols(Math.max(1, Math.floor((el.clientWidth - GAP) / (TILE + GAP))));
+    if (!scrollEl) return;
+    const update = () => setCols(columnsFor(scrollEl.clientWidth, TILE, GAP));
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
+    ro.observe(scrollEl);
     return () => ro.disconnect();
-  }, []);
+  }, [scrollEl]);
 
   useEffect(() => onColumns?.(cols), [cols, onColumns]);
 
   const rows = useMemo(() => Math.ceil(items.length / cols), [items.length, cols]);
   const virtualizer = useVirtualizer({
     count: rows,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollEl,
     estimateSize: () => TILE + GAP,
     overscan: 4,
   });
@@ -51,7 +54,7 @@ export default function Grid({ items, selected, onSelect, onOpen, onColumns }: P
   }
 
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto" style={{ padding: GAP }}>
+    <div ref={setScrollEl} className="h-full overflow-y-auto overflow-x-hidden" style={{ padding: GAP }}>
       <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
         {virtualizer.getVirtualItems().map((row) => (
           <div
