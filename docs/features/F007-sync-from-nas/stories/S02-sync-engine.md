@@ -1,7 +1,7 @@
 # Story S02: Sync engine
 
 **Feature:** `F007-sync-from-nas`
-**Status:** Planned
+**Status:** Done
 **Depends on:** —
 
 ## Goal
@@ -95,3 +95,27 @@ local file other than its own temporary files, and never writes to the NAS.
 ## Progress log
 
 ### [2026-10-26] Written
+
+### [2026-10-26] Built
+
+- `src-tauri/src/sync.rs`: `excluded`, `decide`, `plan`, `execute`, with an atomic copy through
+  `.<name>.flb.partial` (blocks of 1 MiB, the remote time set, `fsync`, rename), the cancel flag
+  checked between files and blocks, and stale temporary files older than an hour cleared in the
+  local folders it visits. Only `std`, no new dependency.
+- One finding while testing: a top-level folder that disappeared between listing and reading
+  was skipped silently. That is now an error. A top-level folder requested with `only` that
+  doesn't exist is still skipped, because that is a year without files.
+- `cargo test` 40 passed (9 new; the permission and symlink tests only on Unix), `cargo clippy
+  --all-targets` clean.
+- **On real data**, with a throwaway example (removed afterwards):
+  - plan of `/Volumes/Previews/2026` (SMB) against Peter's `~/Pictures/Previews`: 13 702 files,
+    all "keep, same", nothing to copy. It took 21 s the first time and 143 s the second (the
+    speed of listing over SMB varies);
+  - `/Volumes/Previews/2022/02` into an empty folder: 1 072 files, 361 MB in 54 s (about 6.6 MB/s),
+    with no temporary files left. Size and modification time are equal to the NAS, and the content
+    is byte-identical (`cmp`). A second plan: nothing to copy, 1 072 kept;
+  - at that speed the full 29 GB of previews take about 75 minutes the first time.
+- Found: on the NAS the preview folders 2000–2007 are empty. Only 2022–2026 has previews. The
+  F007 plan is corrected (open point 1 is now 2000–2021).
+- The code was committed in `d7bcfd3`. These notes followed in a separate commit, because the
+  script that updated them stopped halfway.

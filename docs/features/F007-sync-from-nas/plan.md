@@ -1,6 +1,6 @@
 # Feature 7: Sync manifests and previews from the NAS
 
-**Status:** In progress (S01 done)
+**Status:** In progress (S01, S02 done)
 **Depends on:** Feature 6 (a connected, readable NAS)
 **Folder:** `F007-sync-from-nas`
 
@@ -29,8 +29,9 @@ moves towards (D13).
 - **Sizes today** (measured 2026-10-26):
   - `Library` has 364 manifests;
   - `Previews` on the NAS is 29 GB with 77 396 files (a preview and a thumbnail for about
-    38 700 items), for 2000–2007 and 2022–2026 only;
-  - the index knows 123 801 items, so **the years 2008–2021 have no previews yet** (see open
+    38 700 items), for 2022–2026 only. The folders 2000–2007 exist but are empty (found in
+    S02; this plan first said 2000–2007 had previews);
+  - the index knows 123 801 items, so **the years 2000–2021 have no previews yet** (see open
     points);
   - Peter's own `~/Pictures/Previews` is 28 GB.
 - **What is read over the network**: everything comes from the mounts of feature 6, over SMB or
@@ -75,7 +76,7 @@ moves towards (D13).
   (feature 9). Keeping the last 18 months of originals locally is part of Peter's workflow in the
   app (feature 10), since his laptop already has them.
 - **Making previews.** This feature only copies what is on the NAS. Making the missing previews
-  for 2008–2021 is a separate decision (open points).
+  for 2000–2021 is a separate decision (open points).
 - **Building the index** (feature 8), **lists** (feature 3), **Windows**.
 - **Pushing anything to the NAS.**
 
@@ -106,7 +107,7 @@ moves towards (D13).
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-move-data-contract.md) | Move the data contract into this repo, in English | Done | — |
-| [S02](stories/S02-sync-engine.md) | Sync engine: plan per folder, atomic copy with the remote time, exclusions, unreadable folders | Planned | — |
+| [S02](stories/S02-sync-engine.md) | Sync engine: plan per folder, atomic copy with the remote time, exclusions, unreadable folders | Done | — |
 | S03 | Manifests pass from `Library` | Planned | S02 |
 | S04 | Previews pass with size count, 20 GB reserve and confirmation the first time | Planned | S02 |
 | S05 | Running in the background: progress, cancel, when it runs, the line in the header | Planned | S03, S04 |
@@ -116,7 +117,7 @@ moves towards (D13).
 Peter approved the plan on 2026-10-26, with the proposals for points 1 and 3. Point 2 is checked
 on Lynn's Mac.
 
-1. **Previews for 2008–2021 don't exist yet.** About 85 000 items (the 123 801 in the index
+1. **Previews for 2000–2021 don't exist yet.** About 85 000 items (the 123 801 in the index
    minus the ~38 700 with a preview) would show as "geen preview" on Lynn's Mac, and on Peter's
    too once his local copies are gone. The originals of those years are only on the NAS.
    Options:
@@ -125,8 +126,9 @@ on Lynn's Mac.
    - (b) the app makes previews natively (part of feature 10), later;
    - (c) the NAS makes them (slow Celeron, D4 rejected this).
    My proposal is (a), as a one-off with the CLI in LibraryLocal, outside this feature. Lynn's
-   account can only see [private], so for her this matters for [private]–2021.
-2. **Disk space on Lynn's Mac**: the previews need 29 GB now, and roughly 60–70 GB once 2008–2021
+   account can only see [private], so for her this matters for [private]–2021; for Peter it is
+   2000–2021.
+2. **Disk space on Lynn's Mac**: the previews need 29 GB now, and roughly 60–70 GB once 2000–2021
    has previews. Is that fine on her laptop, or should the previews pass be limited (for example
    to the years she opens)? The 20 GB reserve protects her either way.
 3. **Whether to sync at every start**: the proposal is manifests at every start (small and fast)
