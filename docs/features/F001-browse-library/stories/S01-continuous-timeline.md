@@ -122,3 +122,9 @@ the left becomes a way to jump, and it follows along while scrolling.
 - Still to do by hand: everything under "By hand" in the acceptance criteria (scrolling across
   months, the headers, the month list following and jumping, arrows and lightbox over a
   boundary, smoothness when scrolling quickly through years).
+
+### [2026-10-26] Clearer month headers
+
+- On Peter's request the header is bigger and has more contrast: 52 px high instead of 36. The
+  month is in `text-base` semibold, the count in `text-sm`, and the line underneath is a step
+  darker. The order stays newest month first (confirmed by Peter).

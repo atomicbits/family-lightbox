@@ -26,7 +26,7 @@ type Props = {
 };
 
 const GAP = 8;
-const HEADER = 36;
+const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
 export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile }: Props) {
@@ -108,10 +108,10 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
             return (
               <div
                 key={v.key}
-                className="absolute left-0 right-0 flex items-end justify-between pb-1.5 text-xs text-neutral-400 dark:text-neutral-500 border-b border-neutral-200 dark:border-neutral-800"
+                className="absolute left-0 right-0 flex items-baseline justify-between pt-4 pb-1.5 text-sm text-neutral-400 dark:text-neutral-500 border-b border-neutral-300 dark:border-neutral-700"
                 style={{ top: v.start, height: HEADER - GAP }}
               >
-                <span className="font-medium text-neutral-500 dark:text-neutral-400">
+                <span className="text-base font-semibold text-neutral-700 dark:text-neutral-200">
                   {monthLabel(section.month)} {yearOf(section.month)}
                 </span>
                 <span className="tabular-nums">{section.count}</span>
