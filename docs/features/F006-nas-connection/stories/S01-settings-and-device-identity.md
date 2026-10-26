@@ -1,7 +1,7 @@
 # Story S01: Settings and device identity
 
 **Feature:** `F006-nas-connection`
-**Status:** In progress: built and tested (cargo, vitest, build, clippy clean); not yet checked in the running app
+**Status:** Done on Peter's Mac; first start on Lynn's Mac deferred
 **Depends on:** —
 
 ## Goal
@@ -114,3 +114,7 @@ Peter's Mac it picks up the existing `mbp-peter` without touching it.
   --all-targets` clean.
 - Open: a look in the running app (first-start dialog with an empty `MEDIA_CONFIG`; the panel on
   Peter's Mac, where `device.json` must stay byte-identical).
+
+### [2026-10-26] Checked in the running app
+
+- Peter looked at the app on his Mac: the NAS indicator shows "NAS verbonden" and the app works as expected. The checks on Lynn's Mac are deferred until she has a build (feature 4).

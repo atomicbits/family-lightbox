@@ -1,7 +1,7 @@
 # Story S03: Connect missing shares with NetFS and the macOS sign-in dialog
 
 **Feature:** `F006-nas-connection`
-**Status:** In progress: built and tested; connecting checked on Peter's Mac; Lynn's Mac, an unreachable NAS and the button in the running app still to check
+**Status:** Done on Peter's Mac; Lynn's Mac (one sign-in) and a NAS that is really off (soft mount) deferred
 **Depends on:** S02
 
 ## Goal
@@ -125,3 +125,7 @@ asks for, sees or stores a password.
   The unreachable-NAS test will show it.
 - Still to do by hand: Lynn's Mac with her DSM account (dialog once?), the NAS unreachable, and
   the button in the running app.
+
+### [2026-10-26] Checked in the running app
+
+- Peter looked at the app on his Mac: the NAS indicator shows "NAS verbonden" and the app works as expected. The checks on Lynn's Mac are deferred until she has a build (feature 4).

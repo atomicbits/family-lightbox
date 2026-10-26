@@ -1,6 +1,6 @@
 # Feature 1: Browse the library
 
-**Status:** In progress (S01) — the first version is done and unit-tested; not yet used by Lynn, and no signed release yet (see F004)
+**Status:** Done — first version plus S01 (continuous grid), checked in the running app on Peter's Mac; not yet used by Lynn, no signed release yet (see F004)
 **Depends on:** the `media` CLI's `index` and `previews` (LibraryLocal F006, F007)
 **Folder:** `F001-browse-library`
 
@@ -55,4 +55,4 @@ The first version was built before this process and has no stories. Changes sinc
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-continuous-timeline.md) | One continuous grid across months and years | In progress: built and unit-tested, in-app check owed | — |
+| [S01](stories/S01-continuous-timeline.md) | One continuous grid across months and years | Done | — |

@@ -1,7 +1,7 @@
 # Story S04: Check access per share and register the device in `Lists/devices.json`
 
 **Feature:** `F006-nas-connection`
-**Status:** In progress: built and tested; registration done on Peter's Mac against the real NAS; Lynn's Mac and the panel in the running app still to check
+**Status:** Done on Peter's Mac (`mbp-peter` registered); Lynn's Mac deferred
 **Depends on:** S01, S02 (S03 for connecting first, but S04 also works on shares mounted by hand)
 
 ## Goal
@@ -141,3 +141,7 @@ NAS. It writes exactly two things: a test file in `Lists` that it removes again 
     present: no events, no error. A full `thin` dry run was not done (it hashes everything).
 - Data contract 5.1 updated in LibraryLocal.
 - Still to do by hand: Lynn's Mac (adds `mbp-lynn`, keeps `mbp-peter`) and the panel in the running app.
+
+### [2026-10-26] Checked in the running app
+
+- Peter looked at the app on his Mac: the NAS indicator shows "NAS verbonden" and the app works as expected. The checks on Lynn's Mac are deferred until she has a build (feature 4).

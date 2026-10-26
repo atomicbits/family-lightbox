@@ -1,7 +1,7 @@
 # Story S01: One continuous grid across months and years
 
 **Feature:** `F001-browse-library`
-**Status:** In progress: built and unit-tested; not yet checked in the running app
+**Status:** Done (checked by Peter in the running app, 2026-10-26)
 **Depends on:** —
 
 ## Goal
@@ -128,3 +128,7 @@ the left becomes a way to jump, and it follows along while scrolling.
 - On Peter's request the header is bigger and has more contrast: 52 px high instead of 36. The
   month is in `text-base` semibold, the count in `text-sm`, and the line underneath is a step
   darker. The order stays newest month first (confirmed by Peter).
+
+### [2026-10-26] Checked in the running app
+
+- Peter: "ziet er goed uit". Newest month first stays.

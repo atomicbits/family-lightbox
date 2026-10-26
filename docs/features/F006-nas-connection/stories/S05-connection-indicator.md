@@ -1,7 +1,7 @@
 # Story S05: Connection indicator and *Verbinden* in the UI
 
 **Feature:** `F006-nas-connection`
-**Status:** In progress: built and tested; the quiet connect at start checked on Peter's Mac; the indicator in the running app and Lynn's Mac still to check
+**Status:** Done on Peter's Mac; Lynn's first start deferred
 **Depends on:** S03, S04
 
 ## Goal
@@ -115,3 +115,7 @@ is there.
   - with host `raven-bestaat-niet`: `Lists` unreachable, and the rest skipped right away.
 - Still to do by hand: the indicator and focus refresh in the running app, Lynn's first start
   (no sign-in dialog on its own), and the NAS really switched off.
+
+### [2026-10-26] Checked in the running app
+
+- Peter looked at the app on his Mac: the NAS indicator shows "NAS verbonden" and the app works as expected. The checks on Lynn's Mac are deferred until she has a build (feature 4).

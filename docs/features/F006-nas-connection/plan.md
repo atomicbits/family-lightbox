@@ -1,6 +1,6 @@
 # Feature 6: Connect to the NAS
 
-**Status:** In progress (S01–S05 built; checks in the running app and on Lynn's Mac owed before Done)
+**Status:** Done on Peter's Mac (2026-10-26); the checks on Lynn's Mac are deferred until she has a build (feature 4)
 **Depends on:** Feature 1
 **Folder:** `F006-nas-connection`
 
@@ -85,11 +85,11 @@ registered device to write as. Without the NAS the app keeps working on what is 
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-settings-and-device-identity.md) | Settings and device identity (`familylightbox.json`, `device.json`, first-start question) | In progress: built and tested, in-app check owed | — |
-| [S02](stories/S02-find-mounted-shares.md) | Find mounted shares by server and share name (`getmntinfo`, SMB and AFP) | In progress: built and tested, in-app check owed | S01 |
-| [S03](stories/S03-connect-missing-shares.md) | Connect missing shares with NetFS and the macOS sign-in dialog | In progress: works on Peter's Mac; Lynn's Mac and NAS-offline owed | S02 |
-| [S04](stories/S04-check-access-and-register-device.md) | Check access per share and register the device in `Lists/devices.json` | In progress: works on Peter's Mac; Lynn's Mac owed | S02 |
-| [S05](stories/S05-connection-indicator.md) | Connection indicator and *Verbinden* in the UI | In progress: built and tested, in-app check owed | S03, S04 |
+| [S01](stories/S01-settings-and-device-identity.md) | Settings and device identity (`familylightbox.json`, `device.json`, first-start question) | Done on Peter's Mac; Lynn's Mac deferred | — |
+| [S02](stories/S02-find-mounted-shares.md) | Find mounted shares by server and share name (`getmntinfo`, SMB and AFP) | Done on Peter's Mac; Lynn's Mac deferred | S01 |
+| [S03](stories/S03-connect-missing-shares.md) | Connect missing shares with NetFS and the macOS sign-in dialog | Done on Peter's Mac; Lynn's Mac deferred | S02 |
+| [S04](stories/S04-check-access-and-register-device.md) | Check access per share and register the device in `Lists/devices.json` | Done on Peter's Mac; Lynn's Mac deferred | S02 |
+| [S05](stories/S05-connection-indicator.md) | Connection indicator and *Verbinden* in the UI | Done on Peter's Mac; Lynn's Mac deferred | S03, S04 |
 
 ## Contract changes
 
