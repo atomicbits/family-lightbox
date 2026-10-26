@@ -6,6 +6,8 @@ mod connect;
 mod db;
 mod mounts;
 mod nas;
+#[allow(dead_code)] // used from F007/S03 on
+mod sync;
 
 use config::{Device, Settings};
 use db::{Db, Item, MonthSummary};
