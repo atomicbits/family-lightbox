@@ -96,3 +96,19 @@ be tested before the first real release.
 - Added a step that notarizes and staples the `.dmg` too, and checks it with `spctl --type open`,
   since Lynn downloads it through a browser and it arrives quarantined. The runbook now names the
   identity as it is in the certificate and explains the 401.
+
+### [2026-10-27] Released v0.1.0
+
+- The dry run with the `.dmg` notarization was green in 3 min 41 s; Apple accepted the `.dmg`. With
+  a quarantine flag set as a browser would, `spctl` accepted both the `.dmg` and the app inside as
+  "Notarized Developer ID", and both tickets were stapled.
+- The CI run on the same commit got no macOS runner within 15 minutes and was cancelled without
+  running a step; its rerun was green.
+- With Peter's go: tag `v0.1.0` on d4c76d7, pushed through the leak check. The release run was
+  green in 4 min 9 s and published https://github.com/atomicbits/family-lightbox/releases/tag/v0.1.0
+  with `FamilyLightbox_0.1.0_aarch64.dmg` (3.0 MB).
+- Downloaded from that public URL without logging in, and quarantined: `spctl` accepts the `.dmg`
+  and the app as notarized, `codesign --verify --deep --strict` passes, the tickets are stapled,
+  the bundle says 0.1.0.
+- Still to do: open it by double-click on a Mac and see no Gatekeeper warning (Peter; on Lynn's Mac
+  in S05).
