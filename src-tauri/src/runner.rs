@@ -48,6 +48,36 @@ pub struct SyncState {
 pub trait Sink: Send + Sync + 'static {
     fn progress(&self, state: &SyncState);
     fn done(&self, state: &SyncState);
+    /// A year folder finished copying previews during a long sync (F008/S03): the app rebuilds
+    /// the index so they show while the rest comes in.
+    fn year_copied(&self) {}
+}
+
+/// During the copy, notices when it moves on to the next year folder. The year before has then
+/// copied all it had (only copies are reported, so a year that shows up copied something). At
+/// most one rebuild every 2 minutes; the one after the sync covers what is left (F008/S03).
+#[derive(Default)]
+pub struct YearWatch {
+    year: Option<String>,
+    last_ask: Option<Instant>,
+}
+
+pub const REBUILD_EVERY: Duration = Duration::from_secs(120);
+
+impl YearWatch {
+    pub fn on_copy(&mut self, now: Instant, folder: &str) -> bool {
+        let year = folder.split('/').next().unwrap_or_default();
+        let moved_on = self.year.as_deref().is_some_and(|y| y != year);
+        if self.year.as_deref() != Some(year) {
+            self.year = Some(year.to_string());
+        }
+        let due = self.last_ask.is_none_or(|t| now.duration_since(t) >= REBUILD_EVERY);
+        if moved_on && due {
+            self.last_ask = Some(now);
+            return true;
+        }
+        false
+    }
 }
 
 /// At most one progress event every 200 ms, but always one when the phase changes.
@@ -170,7 +200,11 @@ impl SyncRunner {
 
     fn run(&self, kind: Kind, confirmed: bool, jobs: Jobs, sink: &dyn Sink) {
         let throttle = Mutex::new(Throttle::new());
+        let years = Mutex::new(YearWatch::default());
         let report = |phase: Phase, p: &sync::Progress| {
+            if phase == Phase::Copying && years.lock().map(|mut y| y.on_copy(Instant::now(), p.folder)).unwrap_or(false) {
+                sink.year_copied();
+            }
             let s = self.update(|s| {
                 s.phase = phase;
                 s.folder = p.folder.to_string();
@@ -289,6 +323,22 @@ mod tests {
         fn done(&self, s: &SyncState) {
             self.events.lock().unwrap().push(("done", s.phase));
         }
+        fn year_copied(&self) {
+            self.events.lock().unwrap().push(("year", Phase::Copying));
+        }
+    }
+
+    #[test]
+    fn a_rebuild_is_asked_when_a_year_is_done_at_most_every_2_minutes() {
+        let mut w = YearWatch::default();
+        let t0 = Instant::now();
+        assert!(!w.on_copy(t0, "2022/01/a"), "the first year is still copying");
+        assert!(!w.on_copy(t0, "2022/12/b"));
+        assert!(w.on_copy(t0 + Duration::from_secs(1), "2023/01"), "2022 is done");
+        assert!(!w.on_copy(t0 + Duration::from_secs(60), "2024/01"), "2023 done, but within 2 minutes");
+        assert!(!w.on_copy(t0 + Duration::from_secs(200), "2024/05"), "same year: nothing finished");
+        assert!(w.on_copy(t0 + Duration::from_secs(201), "2025/01"), "2024 done, 2 minutes passed");
+        assert!(!w.on_copy(t0 + Duration::from_secs(400), "2025/02"));
     }
 
     fn summary(copy_files: u64, problem: Option<&str>, needs_confirmation: bool) -> PreviewsSummary {
@@ -366,6 +416,23 @@ mod tests {
         assert!(ev.iter().any(|e| e.1 == Phase::Copying));
         assert_eq!(ev.last(), Some(&("done", Phase::Done)));
         assert!(config::load_state(cfg).previews_confirmed_at.is_some());
+        assert!(!ev.iter().any(|e| e.0 == "year"), "one year: the rebuild after the sync covers it");
+    }
+
+    #[test]
+    fn a_rebuild_is_asked_while_copying_several_years() {
+        let d: Vec<_> = (0..5).map(|_| tempfile::tempdir().unwrap()).collect();
+        let (lib_r, lib_l, pv_r, pv_l, cfg) = (d[0].path(), d[1].path(), d[2].path(), d[3].path(), d[4].path());
+        for y in ["2022", "2023", "2024"] {
+            put(pv_r, &format!("{y}/07/a.JPG.jpg"), "a");
+        }
+        config::save_state(cfg, &config::AppState { previews_confirmed_at: Some("2026-10-27T08:00:00+01:00".into()) }).unwrap();
+        let rec = Arc::new(Recorder::default());
+        SyncRunner::default().start(Kind::Previews, false, jobs(lib_r, lib_l, pv_r, pv_l, cfg), rec.clone()).unwrap().join().unwrap();
+        let ev = rec.events.lock().unwrap();
+        assert_eq!(ev.last(), Some(&("done", Phase::Done)));
+        // 2022 done when 2023 starts; 2023 done within 2 minutes is left to the rebuild after the sync
+        assert_eq!(ev.iter().filter(|e| e.0 == "year").count(), 1);
     }
 
     #[test]

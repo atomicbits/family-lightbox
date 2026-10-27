@@ -213,9 +213,19 @@ impl runner::Sink for EventSink {
         let _ = self.0.emit("sync-done", state);
         // What came in only shows in the grid once the index has it (F008/S02).
         if state.manifests_copied > 0 || state.previews_copied > 0 {
-            let job = self.0.state::<Paths>().index_job();
-            self.0.state::<index::IndexRunner>().request(job, Arc::new(EventSink(self.0.clone())));
+            self.rebuild_index();
         }
+    }
+    fn year_copied(&self) {
+        // the copy goes on meanwhile; the build runs on its own thread (F008/S03)
+        self.rebuild_index();
+    }
+}
+
+impl EventSink {
+    fn rebuild_index(&self) {
+        let job = self.0.state::<Paths>().index_job();
+        self.0.state::<index::IndexRunner>().request(job, Arc::new(EventSink(self.0.clone())));
     }
 }
 
