@@ -1,6 +1,6 @@
 # Feature 4: CI and signed releases (macOS first)
 
-**Status:** In design (plan reviewed 2026-10-27; S01 written)
+**Status:** In progress (S01 done)
 **Depends on:** Feature 1
 **Folder:** `F004-ci-and-releases`
 
@@ -96,7 +96,7 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-leak-check.md) | Leak check before every push: secrets and private terms, git hook, required for agents, current tree cleaned | Planned | — |
+| [S01](stories/S01-leak-check.md) | Leak check before every push: secrets and private terms, git hook, required for agents, current tree cleaned | Done | — |
 | S02 | CI on every push and pull request (macOS runner), including the leak check | Planned | S01 |
 | S03 | Signed and notarized macOS release on a version tag, with the version script and the runbook | Planned | S02 |
 | S04 | Updates: the Tauri updater with its own key, `latest.json` on GitHub Releases, *Bijwerken* in the app | Planned | S03 |
@@ -114,8 +114,5 @@ Peter's answers on 2026-10-27:
 4. **A separate Tauri update key** for this app, not `wikai`'s.
 5. **Updates are part of this feature** (S04).
 
-Open:
-
-- **Which names are private** (S01). See the story's open point.
-- **Rewriting the public history** to remove what already leaked (S01) is a force push of
-  `main`, and only happens if Peter asks for it.
+Decided with S01 (details in LibraryLocal F010/S01): which names may appear, the author of new
+commits, and rewriting the public history, which was done on 2026-10-27.

@@ -1,7 +1,7 @@
 # Story S01: Leak check before every push
 
 **Feature:** `F004-ci-and-releases`
-**Status:** Planned
+**Status:** Done
 **Depends on:** —
 
 ## Goal
@@ -106,3 +106,34 @@ names and the NAS name stay.
 ## Progress log
 
 ### [2026-10-27] Written
+
+### [2026-10-27] Built
+
+- `scripts/leak-check.py` (Python 3, standard library): the pre-push mode (refs on stdin), `--push`
+  (every local commit on no remote branch), `--tree`, `--history`, and `--agent-hook` for Claude
+  Code. It checks authors, committers, commit messages, file names and added lines against the
+  list, and runs `gitleaks` with `--redact`. Findings name the commit, the file, the line and the
+  rule, or the line number in the terms list, never the matched text.
+- `scripts/test_leak_check.py`: 10 tests on throwaway repos, with made-up terms and fake secrets
+  put together at run time, so the file doesn't trip the check itself.
+- `.githooks/pre-push`, and `scripts/setup-dev.sh`, which sets `core.hooksPath` and says what is
+  missing.
+- The agent hook in `.claude/settings.json`, and the same hook in LibraryLocal's project settings,
+  because that is where Peter's agent sessions run from. It finds the repo of the push (`git -C`
+  or a leading `cd`) and only acts on a repo with `scripts/leak-check.py`. It ignores text in
+  quotes and heredocs, after its first version blocked a commit whose message mentioned a push.
+- `CLAUDE.md` (the rule for agents, and where personal details go instead) and the README.
+- Clean-up: the lines found by `--tree` rewritten in general terms, and `authors` in `Cargo.toml`
+  set to "Atomic Bits". `--tree` finds nothing.
+- New commits use a repo-local author identity that names no person's surname or address.
+- **The history was rewritten**, at Peter's request (LibraryLocal F010/S01): with `git
+  filter-repo`, the private terms in every file version and commit message were replaced, and
+  the author and committer of every commit set to the new identity. The final tree is identical
+  to the one before (same tree hash). `--history` finds nothing, secrets included. A backup of
+  the old history is kept outside every repo, on Peter's Mac. `main` was pushed with
+  `--force-with-lease`; the repo had no forks, stars, watchers or pull requests.
+  - GitHub still serves the old commits to someone who knows their SHA, until GitHub's own clean-up
+    or a request to GitHub Support removes them.
+- **By hand**: a commit with a temporary test term on a throwaway branch was refused by the git
+  hook (called as git calls it) and by the Claude Code hook (on a `git push --dry-run`). The
+  `--no-verify` refusal was seen in this session too. The branch and the test term were removed.
