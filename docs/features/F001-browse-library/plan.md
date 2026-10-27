@@ -56,4 +56,4 @@ The first version was built before this process and has no stories. Changes sinc
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-continuous-timeline.md) | One continuous grid across months and years | Done | — |
-| [S02](stories/S02-window-size.md) | The window opens at the size and place it had, fitted to a smaller screen | In progress | — |
+| [S02](stories/S02-window-size.md) | The window opens at the size and place it had, fitted to a smaller screen | Done | — |

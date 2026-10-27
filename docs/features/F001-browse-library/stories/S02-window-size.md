@@ -1,7 +1,7 @@
 # Story S02: The window opens at the size and place it had
 
 **Feature:** `F001-browse-library`
-**Status:** In progress
+**Status:** Done
 **Depends on:** —
 
 ## Goal
@@ -71,3 +71,10 @@ over its edges.
   (`skip_initial_state`), so the app restores it itself in `setup`.
 - `update_install` saves the state before `restart()`.
 - Clippy clean, 77 cargo tests green. The dev build starts and shows its window.
+
+### [2026-10-27] Checked
+
+- Peter, in the dev build: resized and moved the window, quit with ⌘Q, opened it again; it came
+  back at the same size and place.
+- The smaller screen (a size saved on the external monitor, opened on the laptop alone) is
+  covered by the unit tests of `fit()`; it wasn't tried by hand.
