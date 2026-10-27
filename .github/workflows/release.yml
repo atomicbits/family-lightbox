@@ -171,6 +171,32 @@ jobs:
             || { echo "::error::not accepted as a notarized Developer ID app"; exit 1; }
           xcrun stapler validate "$APP"
 
+      # tauri-action notarizes the .app but only signs the .dmg around it. Lynn downloads the .dmg
+      # through a browser, so it gets quarantined: notarize and staple the outer container too.
+      - name: Notarize and staple the .dmg
+        if: steps.sign.outputs.enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          dmg=$(ls staging/*.dmg)
+          codesign --verify --strict --verbose=2 "$dmg"
+          xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" --wait --timeout 30m --output-format json | tee notary.json
+          status=$(python3 -c 'import json; print(json.load(open("notary.json"))["status"])')
+          if [ "$status" != "Accepted" ]; then
+            echo "::error::notarization of the .dmg: $status (docs/releasing.md, When something fails)"
+            exit 1
+          fi
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+          assessment=$(spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg" 2>&1)
+          echo "$assessment"
+          echo "$assessment" | grep -q "source=Notarized Developer ID" \
+            || { echo "::error::the .dmg isn't accepted as notarized"; exit 1; }
+
       - name: Upload the .dmg as a workflow artifact
         uses: actions/upload-artifact@v4
         with:

@@ -82,3 +82,17 @@ be tested before the first real release.
   Applications link; `spctl` rejects that unsigned app, as it should.
 - Waiting on Peter: the six `APPLE_*` secrets. Then a signed dry run, and with Peter's go the
   first release `v0.1.0`.
+
+### [2026-10-27] Signed dry runs
+
+- Peter set the six `APPLE_*` secrets. The first signed dry run signed the app, then notarization
+  failed with `401 Invalid credentials`: the Apple ID and the app-specific password didn't belong
+  together. With a new app-specific password under the company Apple ID the second run was green
+  in 8 min 39 s.
+- Checked on Peter's Mac: `spctl` accepts the app as "Notarized Developer ID", `codesign --verify
+  --deep --strict` passes, the authority is Atomic BITS bvba's Developer ID with a timestamp, the
+  ticket is stapled, the binary is arm64. But the `.dmg` itself was only signed ("Unnotarized
+  Developer ID"): tauri-action notarizes the app, not the disk image around it.
+- Added a step that notarizes and staples the `.dmg` too, and checks it with `spctl --type open`,
+  since Lynn downloads it through a browser and it arrives quarantined. The runbook now names the
+  identity as it is in the certificate and explains the 401.

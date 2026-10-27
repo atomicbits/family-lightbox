@@ -12,9 +12,9 @@ An agent may not set them; Peter does, with `gh secret set <NAME> -R atomicbits/
 
 | Secret | What | Where it comes from |
 |---|---|---|
-| `APPLE_CERTIFICATE` | base64 of the Developer ID Application `.p12` | the same certificate `wikai` uses; export it again from the Keychain if needed: Keychain Access → "Developer ID Application: Atomic Bits (…)" → Export, then `base64 -i <file>.p12 \| gh secret set APPLE_CERTIFICATE -R atomicbits/family-lightbox` |
+| `APPLE_CERTIFICATE` | base64 of the Developer ID Application `.p12` | the same certificate `wikai` uses; export it again from the Keychain if needed: Keychain Access → "Developer ID Application: Atomic BITS bvba (…)" → Export, then `base64 -i <file>.p12 \| gh secret set APPLE_CERTIFICATE -R atomicbits/family-lightbox` |
 | `APPLE_CERTIFICATE_PASSWORD` | the `.p12`'s export passphrase | chosen at export |
-| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: Atomic Bits (<team id>)`, verbatim | Keychain Access |
+| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: Atomic BITS bvba (<team id>)`, verbatim | Keychain Access |
 | `APPLE_ID` | the company Apple ID | as for `wikai` |
 | `APPLE_PASSWORD` | an app-specific password for `notarytool` | appleid.apple.com → App-Specific Passwords; one per app is clearer than sharing `wikai`'s |
 | `APPLE_TEAM_ID` | the Apple Developer team ID | developer.apple.com → Membership |
@@ -46,7 +46,8 @@ The `build` job checks, before anything is published:
 - the leak check over the whole history;
 - the app: `codesign --verify --deep --strict`, `spctl` accepting it as a notarized Developer ID
   app, and the stapled ticket;
-- exactly one `.dmg`.
+- exactly one `.dmg`, itself notarized and stapled too (`spctl --type open` accepting it as a
+  notarized Developer ID disk image): tauri-action only notarizes the app inside.
 
 The `publish` job then creates the GitHub Release and uploads the `.dmg`.
 
@@ -71,6 +72,11 @@ And open it by double-click: no Gatekeeper warning.
 
 - **Notarization rejected**: the run prints a submission id. `xcrun notarytool log <id> --apple-id
   <Apple ID> --team-id <team id> --password <app-specific password>` gives the reason per file.
+- **`401 Invalid credentials`** at notarization: `APPLE_ID` and `APPLE_PASSWORD` don't belong
+  together. The password must be an app-specific password made under that same Apple ID (the
+  company one, member of the team), not the account password. Test both locally with `xcrun
+  notarytool store-credentials <profile> --apple-id <Apple ID> --team-id <team id>`, which asks
+  for the password and says "Success" when they work; then set both secrets again.
 - **Notarization refused for every submission** while nothing changed: an Apple agreement to accept
   (see above).
 - **The `publish` job failed on the upload**: rerun only that job (`gh run rerun <id> --failed`).
