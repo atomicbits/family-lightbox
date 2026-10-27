@@ -1,6 +1,6 @@
 # Feature 11: Languages: English by default, Dutch for us
 
-**Status:** Planned (plan to review)
+**Status:** Planned (plan accepted 2026-10-27; after feature 4)
 **Depends on:** —
 **Folder:** `F011-languages`
 
@@ -79,7 +79,9 @@ names and list names stay as they are.
 | S03 | Messages from the Rust core: codes with parameters, translated in the UI | Planned | S01 |
 | S04 | The bundle's languages, the docs and the conventions | Planned | S02, S03 |
 
-## Decisions and open points
+## Decisions
+
+Peter accepted all five proposals on 2026-10-27.
 
 1. **How the language is chosen.** Proposal: follow the Mac, with a setting to override. The
    alternative is a setting only, English unless set. Following the Mac means Lynn and Peter see

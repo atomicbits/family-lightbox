@@ -160,4 +160,4 @@ no folder yet.
 | 8 | [Native index](F008-native-index/plan.md): build the app's own index from the manifests (replaces `media index` for the app) | In progress | 7 |
 | 9 | Open originals that are not on this laptop, from the NAS | Planned | 6 |
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |
-| 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (plan to review) | — |
+| 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
