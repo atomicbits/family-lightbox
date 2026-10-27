@@ -65,3 +65,20 @@ be tested before the first real release.
 ## Progress log
 
 ### [2026-10-27] Written
+
+### [2026-10-27] Built
+
+- `.github/workflows/release.yml`: the build job (version check, signing secrets check, leak check,
+  `tauri-action` without upload, the `.dmg`, the signature and notarization checks, the artifact)
+  and the publish job (only for a pushed tag; creates the release or adds to it on a rerun,
+  uploads with up to five tries). Without the `APPLE_*` secrets, the unsigned dry run uses a build
+  step without any signing environment, so empty variables can't confuse the signer.
+- `scripts/bump-version.py`, tested on a throwaway clone: 0.1.0 → 0.1.1 changed exactly
+  `package.json`, `Cargo.toml`, `Cargo.lock` and `tauri.conf.json`, committed "Release v0.1.1" and
+  tagged it; a lower version, the same version and a dirty tree were refused.
+- `docs/releasing.md`; the bundle fields in `tauri.conf.json`; a pointer in the README.
+- **Unsigned dry run** on GitHub: green in 4 min 43 s, the publish job skipped. The artifact
+  `FamilyLightbox_0.1.0_aarch64.dmg` (3.0 MB) mounts, holds `FamilyLightbox.app` (arm64) and the
+  Applications link; `spctl` rejects that unsigned app, as it should.
+- Waiting on Peter: the six `APPLE_*` secrets. Then a signed dry run, and with Peter's go the
+  first release `v0.1.0`.
