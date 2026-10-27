@@ -26,6 +26,11 @@ private term (from a list kept outside the repo, `~/.config/family-lightbox/leak
 `scripts/leak-check.py --tree` and `--history` check the whole tree or history. Never push with
 `--no-verify`.
 
+CI (`.github/workflows/ci.yml`, F004/S02) runs the tests, clippy and the leak check over the whole
+history on every push to `main` and every pull request, on macOS. It gets the list of private
+terms from the repository secret `LEAK_TERMS`; after a change to the list, set it again with
+`gh secret set LEAK_TERMS < ~/.config/family-lightbox/leak-terms.txt`.
+
 ## How work is done
 
 Features and stories live in [`docs/features/`](docs/features/README.md): a story is written

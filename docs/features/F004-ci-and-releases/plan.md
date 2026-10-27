@@ -97,7 +97,7 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-leak-check.md) | Leak check before every push: secrets and private terms, git hook, required for agents, current tree cleaned | Done | — |
-| S02 | CI on every push and pull request (macOS runner), including the leak check | Planned | S01 |
+| [S02](stories/S02-ci.md) | CI on every push and pull request (macOS runner), including the leak check | In progress | S01 |
 | S03 | Signed and notarized macOS release on a version tag, with the version script and the runbook | Planned | S02 |
 | S04 | Updates: the Tauri updater with its own key, `latest.json` on GitHub Releases, *Bijwerken* in the app | Planned | S03 |
 | S05 | First install on Lynn's Mac, and the checks left by features 6–8 | Planned | S03 |

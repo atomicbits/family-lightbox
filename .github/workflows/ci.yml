@@ -1,0 +1,96 @@
+name: ci
+
+# F004/S02: build and test on every push to main and every pull request. The repo is public, so
+# GitHub-hosted runners (macOS included) cost nothing. macOS because the app has macOS-only code.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: tests, clippy and the leak check (macOS)
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Checkout (full history, for the leak check)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Frontend tests
+        run: pnpm test
+
+      # tsc + vite build; the Rust build embeds dist/, so this comes before cargo
+      - name: Frontend build
+        run: pnpm build
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test
+
+      - name: Install gitleaks
+        run: brew install gitleaks
+
+      - name: Leak check tests
+        run: python3 scripts/test_leak_check.py
+
+      # F004/S01: the second line behind the pre-push hook. A pull request from a fork gets no
+      # secrets, so there the check can't run; on main a missing list fails the run.
+      - name: Leak check over the whole history
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          LEAK_TERMS_CONTENT: ${{ secrets.LEAK_TERMS }}
+        run: |
+          set -eu
+          if [ -z "$LEAK_TERMS_CONTENT" ]; then
+            echo "::error::the repository secret LEAK_TERMS is missing (see README, Development)"
+            exit 1
+          fi
+          export LEAK_TERMS="$RUNNER_TEMP/leak-terms.txt"
+          printf '%s\n' "$LEAK_TERMS_CONTENT" > "$LEAK_TERMS"
+          python3 scripts/leak-check.py --history
+
+      - name: Leak check skipped (pull request from a fork)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: echo "::warning::no secrets for a fork's pull request; the leak check runs after the merge"
