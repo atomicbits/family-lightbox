@@ -53,3 +53,16 @@ second line behind the pre-push hook.
 ## Progress log
 
 ### [2026-10-27] Written
+
+### [2026-10-27] Built
+
+- `.github/workflows/ci.yml` as in the story, and the README's development section.
+- First run on `main` (cold cache, 2 min 47 s): every step green up to and including the leak check
+  tests; the leak check itself failed with "the repository secret LEAK_TERMS is missing", as
+  intended while the secret isn't set (fail closed).
+- Setting the secret was refused to the agent by Claude Code's permission check (a write to a
+  secret store), so Peter sets it himself, as the README says.
+- GitHub notes that `actions/checkout@v4`, `actions/setup-node@v4` and `pnpm/action-setup@v4` still
+  ship Node 20 internals; they run forced on Node 24. Harmless; newer majors can follow later.
+- Still to do: a green run once `LEAK_TERMS` is set, and the red run from a failing test on a
+  throwaway pull request.
