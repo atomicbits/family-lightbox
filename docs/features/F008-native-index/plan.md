@@ -1,6 +1,6 @@
 # Feature 8: Native index: build the index from the manifests
 
-**Status:** In progress (S01 being built)
+**Status:** In progress (S01 done)
 **Depends on:** Feature 7 (manifests and previews on this Mac)
 **Folder:** `F008-native-index`
 
@@ -64,7 +64,7 @@ longer depends on the CLI having run `media index` after an import or a `thin`.
   CLI's own tables).
 - On a Mac with only the app (tested with `MEDIA_CONFIG` pointing at an empty folder), the grid
   shows every month after the sync of feature 7, with previews, without the CLI.
-- A rebuild of the full library takes a few seconds at most, and the window stays responsive.
+- A rebuild of the full library takes a few seconds at most (1.3 s measured in S01), and the window stays responsive.
 - A broken manifest is skipped and reported; the rest is indexed. A missing working copy gives a
   clear message, not an empty grid without explanation.
 - An import with the CLI shows up in the app after switching back to it, without a restart.
@@ -76,7 +76,7 @@ longer depends on the CLI having run `media index` after an import or a `thin`.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-index-builder.md) | Index builder: manifests to the app's own index file, atomically, same rows as `media index` | In progress | — |
+| [S01](stories/S01-index-builder.md) | Index builder: manifests to the app's own index file, atomically, same rows as `media index` | Done | — |
 | [S02](stories/S02-app-uses-own-index.md) | The app reads its own index and keeps it current: at start, after a sync, on focus, by hand | Planned | S01 |
 | [S03](stories/S03-previews-during-first-sync.md) | Previews appear during a long sync, folder by folder | Planned | S02 |
 

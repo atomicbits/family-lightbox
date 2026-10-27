@@ -1,7 +1,7 @@
 # Story S01: Index builder: manifests to the app's own index file, atomically, same rows as `media index`
 
 **Feature:** `F008-native-index`
-**Status:** In progress
+**Status:** Done
 **Depends on:** —
 
 ## Goal
@@ -71,3 +71,25 @@ It is the building block for S02, which switches the grid over to it and decides
 ## Progress log
 
 ### [2026-10-27] Written
+
+### [2026-10-27] Built
+
+- `src-tauri/src/index.rs`:
+  - `manifest_paths`: four-digit year folders, then subfolders that aren't excluded, both
+    sorted, with a `.manifest.json`. A year this account can't read is skipped;
+  - `build`: the CLI's schema, one transaction, `INSERT OR REPLACE`, into
+    `familylightbox-index.sqlite.tmp`, then renamed over the old file. A failure removes the
+    temporary file and leaves the old index;
+  - `BuildOutcome`: manifests, rows per kind, local originals and previews, broken manifests with
+    the reason, and the time.
+- `lib.rs`: `mod index`, with `dead_code` allowed until S02 uses it.
+- The data contract, section 7, lists `familylightbox-index.sqlite`, with a line in the change log.
+- `cargo test` 65 passed (6 new), `cargo clippy --all-targets` clean.
+- **On Peter's real working copy**, built into a temporary folder after a fresh `./media index`:
+  - 364 manifests, 124 837 rows (104 751 photos, 19 821 videos, 10 sidecars, 255 other), 30 004
+    originals and 38 698 previews local, no broken manifests: the same numbers as the CLI;
+  - `items` and `folders` compared with `EXCEPT` both ways against the CLI's `index.sqlite`: 0
+    differences, and the same column types;
+  - the build took 1.3 s (release build). The file is 53 MB; the CLI's is 71 MB because it also
+    holds its caches.
+  - The throwaway test and the temporary folder were removed afterwards.

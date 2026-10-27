@@ -4,6 +4,8 @@
 mod config;
 mod connect;
 mod db;
+#[allow(dead_code)] // the commands that use it come with F008/S02
+mod index;
 mod mounts;
 mod nas;
 mod pull;

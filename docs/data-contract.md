@@ -260,6 +260,7 @@ Exports are end products: never rewritten automatically, but pushed and synced t
 ~/.config/media/device.json      {"name": "mbp-peter", "owner": "peter"}  — fixed, independent of the host name
 ~/.config/media/state.json       last push/pull per month, last merge, NAS address
 ~/.config/media/index.sqlite     derived index of manifests, previews and lists; can be rebuilt with `media index`
+~/.config/media/familylightbox-index.sqlite  the app's own index, the same tables as `index.sqlite`; only the app writes it
 ~/.config/media/familylightbox.json  the app's settings (NAS name, names of the shares); not part of the contract
 ~/.config/media/familylightbox-state.json  the app's own state (for example when the first previews pass was confirmed); not part of the contract
 ~/Pictures/LibraryLocal/         working copy of Library (partial)
@@ -271,6 +272,7 @@ Exports are end products: never rewritten automatically, but pushed and synced t
 - The working copy of `Library` follows the same path rules as the NAS; a path means the same file in both places.
 - `index.sqlite` is not part of the contract (each component may build its own index), but MUST be rebuildable from the contract files without loss of information.
   The CLI's index (`media index`) has a table `folders` (folder, month, contract_version, generated_at, generated_by, n_files) and a table `items` (path, folder, month, size, hash, taken, taken_from, kind, source, sidecars as a JSON list, `local` = the original is local, `preview` = the preview is local), with indexes on month, hash and taken. The app may read it; only the CLI writes it.
+  FamilyLightbox builds its own index from the same manifests and files into `familylightbox-index.sqlite`, with the same `items` and `folders` tables and indexes, and writes no other file's index. Neither component writes the other's file.
 - `device.json` is created once (by the CLI or by FamilyLightbox at first start) and afterwards rewritten by no component.
 - The existing `LibraryLocal/.media-state.json` is taken over into `state.json` at the first start.
 
@@ -326,6 +328,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 
 | Version | Date | What |
 |---|---|---|
+| 1.2 (addition) | 2026-10-27 | Section 7: `familylightbox-index.sqlite`, the app's own index with the CLI's `items` and `folders` tables, written only by the app (F008/S01). Not part of the contract. |
 | 1.2 (addition) | 2026-10-26 | Section 7: `familylightbox-state.json`, the app's own state, kept apart from its settings (F007/S04). Not part of the contract. |
 | 1.2 (addition) | 2026-10-26 | Moved into the FamilyLightbox repo and translated into English (F007/S01). Section numbers unchanged. Operational details of the home network moved to a private note in LibraryLocal (`docs/nas-inrichting.md`); the rules they support stay here (sections 2 and 8). Content of the rules unchanged, `contract_version` stays 1.2. |
 | 1.0 | 2026-10-15 | First version. Hash is sha256 (the architecture document said blake2b; changed). |
