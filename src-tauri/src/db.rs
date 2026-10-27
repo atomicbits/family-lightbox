@@ -1,5 +1,5 @@
-//! Leest de lokale index die de CLI bouwt (`media index`, datacontract sectie 7):
-//! tabel `items` met één regel per bestand uit de manifesten. Alleen lezen; de CLI schrijft.
+//! Leest de index (datacontract sectie 7): tabel `items` met één regel per bestand uit de
+//! manifesten. Sinds F008 de eigen index van de app, die `index.rs` bouwt met hetzelfde schema.
 
 use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
@@ -41,7 +41,7 @@ impl Db {
     pub fn open(path: &Path) -> Result<Db, String> {
         if !path.is_file() {
             return Err(format!(
-                "geen index gevonden: {}\nmaak ze met `./media index` (of `./media pull`)",
+                "nog geen index: {}\nde app maakt ze uit de manifesten in de werkkopie",
                 path.display()
             ));
         }
@@ -50,7 +50,7 @@ impl Db {
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
         .map_err(|e| format!("index openen mislukt: {e}"))?;
-        // de CLI kan de index net aan het herbouwen zijn
+        // the app may be replacing the index at this moment (the rename is atomic)
         conn.busy_timeout(Duration::from_secs(3)).map_err(|e| e.to_string())?;
         Ok(Db { conn })
     }
@@ -180,6 +180,6 @@ mod tests {
     #[test]
     fn missing_index_gives_a_helpful_error() {
         let err = Db::open(Path::new("/nope/index.sqlite")).unwrap_err();
-        assert!(err.contains("media index"));
+        assert!(err.starts_with("nog geen index"));
     }
 }

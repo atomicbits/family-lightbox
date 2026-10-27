@@ -5,9 +5,12 @@
 use crate::sync::excluded;
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::sync::{Arc, Mutex};
+use std::time::{Instant, UNIX_EPOCH};
 
 pub const INDEX_FILE: &str = "familylightbox-index.sqlite";
 const MANIFEST: &str = ".manifest.json";
@@ -174,6 +177,113 @@ fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Resu
     tx.commit().map_err(err)?;
     conn.close().map_err(|(_, e)| err(e))?;
     Ok(out)
+}
+
+/// What the manifests look like now: their paths, sizes and modification times. A sync keeps the
+/// NAS's time on a copied manifest, which can be older than the index, so comparing with the
+/// index's own time wouldn't do.
+pub fn fingerprint(library: &Path) -> Option<u64> {
+    let paths = manifest_paths(library).ok()?;
+    let mut h = DefaultHasher::new();
+    for p in &paths {
+        let meta = fs::metadata(p).ok();
+        p.hash(&mut h);
+        meta.as_ref().map(|m| m.len()).hash(&mut h);
+        meta.and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_nanos())
+            .hash(&mut h);
+    }
+    Some(h.finish())
+}
+
+#[derive(Serialize, Clone, Debug, Default)]
+pub struct IndexState {
+    pub running: bool,
+    /// The last build that finished, or none yet.
+    pub outcome: Option<BuildOutcome>,
+    pub error: Option<String>,
+    /// Builds finished since the app started; the grid reloads when it goes up.
+    pub builds: u64,
+}
+
+pub trait IndexSink: Send + Sync + 'static {
+    fn done(&self, state: &IndexState);
+}
+
+#[derive(Clone, Debug)]
+pub struct IndexJob {
+    pub library: PathBuf,
+    pub previews: PathBuf,
+    pub target: PathBuf,
+}
+
+#[derive(Default)]
+struct RunnerInner {
+    state: IndexState,
+    /// A request came in during a build: build once more afterwards.
+    queued: bool,
+    /// The manifests as they were when the last good build started.
+    built_from: Option<u64>,
+}
+
+/// One build at a time, on its own thread (F008/S02).
+#[derive(Clone, Default)]
+pub struct IndexRunner {
+    inner: Arc<Mutex<RunnerInner>>,
+}
+
+impl IndexRunner {
+    pub fn status(&self) -> IndexState {
+        self.inner.lock().map(|i| i.state.clone()).unwrap_or_default()
+    }
+
+    /// Whether the manifests changed since the last build (or there is no index yet).
+    pub fn stale(&self, job: &IndexJob) -> bool {
+        let built = self.inner.lock().ok().and_then(|i| i.built_from);
+        !job.target.is_file() || built.is_none() || built != fingerprint(&job.library)
+    }
+
+    /// Build now, or once more after the build that is running. Returns the thread when one
+    /// was started, `None` when the request was queued.
+    pub fn request(&self, job: IndexJob, sink: Arc<dyn IndexSink>) -> Option<std::thread::JoinHandle<()>> {
+        {
+            let mut i = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            if i.state.running {
+                i.queued = true;
+                return None;
+            }
+            i.state.running = true;
+        }
+        let me = self.clone();
+        Some(std::thread::spawn(move || me.run(&job, sink.as_ref())))
+    }
+
+    fn run(&self, job: &IndexJob, sink: &dyn IndexSink) {
+        loop {
+            let before = fingerprint(&job.library);
+            let result = build(&job.library, &job.previews, &job.target);
+            let (state, again) = {
+                let mut i = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+                match result {
+                    Ok(out) => {
+                        i.state.outcome = Some(out);
+                        i.state.error = None;
+                        i.built_from = before;
+                    }
+                    Err(e) => i.state.error = Some(e),
+                }
+                i.state.builds += 1;
+                let again = std::mem::take(&mut i.queued);
+                i.state.running = again;
+                (i.state.clone(), again)
+            };
+            sink.done(&state);
+            if !again {
+                return;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -356,5 +466,83 @@ mod tests {
         fs::create_dir_all(tmp.join("blocker")).unwrap();
         assert!(build(&f.library, &f.previews, &f.target).is_err());
         assert_eq!(rows(&f.target).len(), 4);
+    }
+
+    #[derive(Default)]
+    struct Recorder {
+        done: Mutex<Vec<IndexState>>,
+    }
+
+    impl IndexSink for Recorder {
+        fn done(&self, s: &IndexState) {
+            self.done.lock().unwrap().push(s.clone());
+        }
+    }
+
+    fn job(f: &Fixture) -> IndexJob {
+        IndexJob { library: f.library.clone(), previews: f.previews.clone(), target: f.target.clone() }
+    }
+
+    #[test]
+    fn stale_when_a_manifest_is_newer_added_or_removed() {
+        let f = fixture();
+        let r = IndexRunner::default();
+        assert!(r.stale(&job(&f)), "no index yet");
+        r.request(job(&f), Arc::new(Recorder::default())).unwrap().join().unwrap();
+        assert!(!r.stale(&job(&f)), "nothing changed");
+
+        // a synced manifest keeps the NAS's (older) time: still a change
+        let m = f.library.join("2026/07").join(MANIFEST);
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(86_400 * 30);
+        fs::File::options().write(true).open(&m).unwrap().set_modified(old).unwrap();
+        assert!(r.stale(&job(&f)), "older time on a manifest");
+        r.request(job(&f), Arc::new(Recorder::default())).unwrap().join().unwrap();
+        assert!(!r.stale(&job(&f)));
+
+        manifest(&f, "2016/12", json!({"files": []}));
+        assert!(r.stale(&job(&f)), "added");
+        r.request(job(&f), Arc::new(Recorder::default())).unwrap().join().unwrap();
+        fs::remove_dir_all(f.library.join("2016")).unwrap();
+        assert!(r.stale(&job(&f)), "removed");
+
+        r.request(job(&f), Arc::new(Recorder::default())).unwrap().join().unwrap();
+        fs::remove_file(&f.target).unwrap();
+        assert!(r.stale(&job(&f)), "index file gone");
+    }
+
+    #[test]
+    fn a_request_during_a_build_runs_once_more_afterwards() {
+        let f = fixture();
+        let r = IndexRunner::default();
+        r.inner.lock().unwrap().state.running = true; // as if a build were running
+        let rec = Arc::new(Recorder::default());
+        assert!(r.request(job(&f), rec.clone()).is_none());
+        assert!(r.request(job(&f), rec.clone()).is_none(), "two requests queue one build");
+        assert!(r.inner.lock().unwrap().queued);
+        // the running build finishes, sees the queued request and builds again
+        let me = r.clone();
+        let rec2 = rec.clone();
+        std::thread::spawn(move || me.run(&job(&f), rec2.as_ref())).join().unwrap();
+        let done = rec.done.lock().unwrap();
+        assert_eq!(done.len(), 2, "this build and the queued one");
+        assert!(done[0].running && !done[1].running);
+        assert_eq!(done[1].builds, 2);
+        assert!(done[1].outcome.as_ref().unwrap().items == 5 && done[1].error.is_none());
+        assert!(!r.status().running);
+    }
+
+    #[test]
+    fn a_failed_build_reports_the_error_and_keeps_the_last_outcome() {
+        let f = fixture();
+        let r = IndexRunner::default();
+        let rec = Arc::new(Recorder::default());
+        r.request(job(&f), rec.clone()).unwrap().join().unwrap();
+        let mut j = job(&f);
+        j.library = f.library.join("nope");
+        r.request(j, rec.clone()).unwrap().join().unwrap();
+        let s = r.status();
+        assert!(s.error.unwrap().starts_with("werkkopie niet gevonden"));
+        assert_eq!(s.outcome.unwrap().items, 5);
+        assert_eq!(s.builds, 2);
     }
 }

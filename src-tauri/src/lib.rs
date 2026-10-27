@@ -1,10 +1,9 @@
-//! Tauri-kern: leest de lokale index en previews van de CLI (datacontract sectie 4 en 7),
+//! Tauri-kern: leest de eigen index (F008) en de previews (datacontract sectie 4 en 7),
 //! serveert previews via het `preview://`-protocol en opent originelen.
 
 mod config;
 mod connect;
 mod db;
-#[allow(dead_code)] // the commands that use it come with F008/S02
 mod index;
 mod mounts;
 mod nas;
@@ -16,8 +15,9 @@ use config::{Device, Settings};
 use db::{Db, Item, MonthSummary};
 use percent_encoding::percent_decode_str;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 use tauri::http::{header, Response, StatusCode};
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 
 /// Waar de CLI haar spullen zet (datacontract 7). Overschrijfbaar met MEDIA_CONFIG, MEDIA_PREVIEWS, MEDIA_LIBRARY.
 pub struct Paths {
@@ -47,8 +47,13 @@ pub fn paths() -> Paths {
 }
 
 impl Paths {
+    /// The app's own index (F008); the CLI's `index.sqlite` is no longer read.
     fn index(&self) -> PathBuf {
-        self.config.join("index.sqlite")
+        self.config.join(index::INDEX_FILE)
+    }
+
+    fn index_job(&self) -> index::IndexJob {
+        index::IndexJob { library: self.library.clone(), previews: self.previews.clone(), target: self.index() }
     }
 }
 
@@ -206,7 +211,35 @@ impl runner::Sink for EventSink {
     }
     fn done(&self, state: &runner::SyncState) {
         let _ = self.0.emit("sync-done", state);
+        // What came in only shows in the grid once the index has it (F008/S02).
+        if state.manifests_copied > 0 || state.previews_copied > 0 {
+            let job = self.0.state::<Paths>().index_job();
+            self.0.state::<index::IndexRunner>().request(job, Arc::new(EventSink(self.0.clone())));
+        }
     }
+}
+
+impl index::IndexSink for EventSink {
+    fn done(&self, state: &index::IndexState) {
+        let _ = self.0.emit("index-done", state);
+    }
+}
+
+/// Rebuild the index in the background; with `only_if_stale`, only when a manifest changed since
+/// the last build. Returns whether a build was asked for. The end arrives as `index-done`.
+#[tauri::command]
+fn index_rebuild(only_if_stale: bool, app: tauri::AppHandle, paths: State<Paths>, runner: State<index::IndexRunner>) -> bool {
+    let job = paths.index_job();
+    if only_if_stale && !runner.stale(&job) {
+        return false;
+    }
+    runner.request(job, Arc::new(EventSink(app)));
+    true
+}
+
+#[tauri::command]
+fn index_status(runner: State<index::IndexRunner>) -> index::IndexState {
+    runner.status()
 }
 
 /// The two sync jobs for the current settings and mounts.
@@ -230,7 +263,7 @@ fn sync_start(kind: String, confirmed: bool, app: tauri::AppHandle, paths: State
         "previews" => runner::Kind::Previews,
         other => return Err(format!("onbekende synchronisatie: {other}")),
     };
-    runner.start(kind, confirmed, sync_jobs(&paths), std::sync::Arc::new(EventSink(app))).map(|_| ())
+    runner.start(kind, confirmed, sync_jobs(&paths), Arc::new(EventSink(app))).map(|_| ())
 }
 
 #[tauri::command]
@@ -310,12 +343,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(paths())
         .manage(runner::SyncRunner::default())
+        .manage(index::IndexRunner::default())
         .register_uri_scheme_protocol("preview", move |_ctx, request| {
             preview_response(&previews_root, request.uri().path())
         })
         .invoke_handler(tauri::generate_handler![
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
-            nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status,
+            nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

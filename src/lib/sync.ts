@@ -64,7 +64,6 @@ export type SyncLine = {
   cancellable: boolean;
   /** Clicking the text opens the confirmation dialog. */
   confirm: boolean;
-  hint?: string;
 };
 
 /** The line next to the NAS indicator, or null when there is nothing to say. */
@@ -94,7 +93,7 @@ export function syncLine(s: SyncState | null): SyncLine | null {
         s.manifests_copied > 0 && `${count(s.manifests_copied)} ${s.manifests_copied === 1 ? "manifest" : "manifesten"}`,
         s.previews_copied > 0 && `${count(s.previews_copied)} previews`,
       ].filter(Boolean);
-      return { ...base, text: `bijgewerkt: ${parts.join(", ")}`, hint: "index bijwerken: ./media index" };
+      return { ...base, text: `bijgewerkt: ${parts.join(", ")}` };
     }
     default:
       return null;

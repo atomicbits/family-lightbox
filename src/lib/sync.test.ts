@@ -24,10 +24,10 @@ describe("sync line", () => {
     expect(syncLine({ ...base, phase: "idle" })).toBeNull();
   });
 
-  it("says what was brought over, with the index hint", () => {
+  it("says what was brought over, without pointing at the CLI", () => {
     const l = syncLine({ ...base, phase: "done", manifests_copied: 2, previews_copied: 40 });
     expect(l?.text).toBe("bijgewerkt: 2 manifesten, 40 previews");
-    expect(l?.hint).toContain("./media index");
+    expect(JSON.stringify(l)).not.toContain("./media");
     expect(syncLine({ ...base, phase: "done", manifests_copied: 1 })?.text).toBe("bijgewerkt: 1 manifest");
   });
 });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, config, type DeviceState, type Item, type MonthSummary, type Status } from "./lib/api";
+import { api, config, type DeviceState, type Item, type MonthSummary } from "./lib/api";
 import { monthLabel, yearOf } from "./lib/months";
 import MonthList from "./components/MonthList";
 import Grid from "./components/Grid";
@@ -11,11 +11,14 @@ import { useNas } from "./lib/nas";
 import { useSync } from "./lib/sync";
 import SyncLine from "./components/SyncLine";
 import ConfirmPreviews from "./components/ConfirmPreviews";
+import { reselect, useIndex, type Anchor } from "./lib/indexer";
 import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
-import { moveAcross, type Sel } from "./lib/timeline";
+import { moveAcross, type Sel, type Section } from "./lib/timeline";
+
+const toSections = (months: MonthSummary[]): Section[] =>
+  months.map((m) => ({ month: m.month, count: m.photos + m.videos }));
 
 export default function App() {
-  const [status, setStatus] = useState<Status | null>(null);
   const [months, setMonths] = useState<MonthSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Sel | null>(null);
@@ -26,6 +29,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const nas = useNas();
   const sync = useSync();
+  const index = useIndex();
   const [confirming, setConfirming] = useState(false);
   const [cols, setCols] = useState(1);
   const [tile, setTile] = useState(loadTile);
@@ -51,19 +55,33 @@ export default function App() {
       if (Date.now() - lastRefresh.current < 30_000) return;
       lastRefresh.current = Date.now();
       nas.refresh();
+      // Peter may have imported or pushed with the CLI meanwhile (F008/S02)
+      index.rebuild({ visible: false, onlyIfStale: true }).catch(() => {});
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [hasDevice, nas.refresh]);
+  }, [hasDevice, nas.refresh, index.rebuild]);
 
+  const [waitingForIndex, setWaitingForIndex] = useState(false);
+  // Bumped on every reload after a rebuild, so answers to older requests are dropped.
+  const generation = useRef(0);
+
+  // At start: show the index there is, and rebuild it in the background (F008/S02). Without an
+  // index the grid waits for the first build.
   useEffect(() => {
     config.device().then(setDevice);
-    api.status().then(setStatus);
-    api.months().then(setMonths).catch((e) => setError(String(e)));
+    const gen = generation.current;
+    api.status().then((s) => {
+      if (s.index_exists)
+        api.months().then((m) => { if (gen === generation.current) setMonths(m); }).catch((e) => setError(String(e)));
+      else setWaitingForIndex(true);
+      index.rebuild({ visible: !s.index_exists, onlyIfStale: false }).catch((e) => setError(String(e)));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The library as sections, newest month first, with their counts from the index.
-  const sections = useMemo(() => months.map((m) => ({ month: m.month, count: m.photos + m.videos })), [months]);
+  const sections = useMemo(() => toSections(months), [months]);
   const counts = useMemo(() => sections.map((s) => s.count), [sections]);
 
   // Items per month, fetched once when a month comes (nearly) into view.
@@ -76,9 +94,14 @@ export default function App() {
         const month = sections[s]?.month;
         if (!month || cache.current.has(month) || inFlight.current.has(month)) continue;
         inFlight.current.add(month);
+        const gen = generation.current;
         api
           .items(month)
-          .then((items) => { cache.current.set(month, items); setLoaded((n) => n + 1); })
+          .then((items) => {
+            if (gen !== generation.current) return;
+            cache.current.set(month, items);
+            setLoaded((n) => n + 1);
+          })
           .catch((e) => setError(String(e)))
           .finally(() => inFlight.current.delete(month));
       }
@@ -111,6 +134,39 @@ export default function App() {
   }, [open, dialog, selected, move]);
 
   const current = selected ? itemsOf(sections[selected.section].month)?.[selected.index] : undefined;
+
+  // After every rebuild: months again, an empty cache, and the selection and the month at the
+  // top kept where they were.
+  const builds = index.state?.builds ?? 0;
+  useEffect(() => {
+    if (builds === 0) return;
+    const anchor: Anchor | null =
+      selected && sections[selected.section]
+        ? { month: sections[selected.section].month, index: selected.index, path: current?.path ?? null }
+        : null;
+    const topMonth = sections[top]?.month;
+    const gen = ++generation.current;
+    (async () => {
+      try {
+        const m = await api.months();
+        const items = anchor ? await api.items(anchor.month).catch(() => undefined) : undefined;
+        if (gen !== generation.current) return;
+        const next = toSections(m);
+        cache.current = new Map(anchor && items ? [[anchor.month, items]] : []);
+        inFlight.current.clear();
+        setError(null);
+        setWaitingForIndex(false);
+        setMonths(m);
+        setSelected(reselect(anchor, next, items));
+        const t = next.findIndex((x) => x.month === topMonth);
+        if (t >= 0 && t !== top) setJump({ section: t, nonce: Date.now() });
+      } catch (e) {
+        if (gen === generation.current) { setWaitingForIndex(false); setError(String(e)); }
+      }
+    })();
+    // only when a build finished; the rest is read as it is at that moment
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builds]);
   const topSection = sections[top];
   const lastSection = sections.length - 1;
 
@@ -142,8 +198,10 @@ export default function App() {
           />
           <span className="text-base leading-none">□</span>
         </label>
-        {status && !status.index_exists && (
-          <span className="text-amber-600">geen index: draai ./media index</span>
+        {index.line && (
+          <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
+            {index.line.text}
+          </span>
         )}
         {device?.error && (
           <button className="text-red-600" onClick={() => setShowSettings(true)}>
@@ -160,9 +218,9 @@ export default function App() {
           ⚙
         </button>
       </header>
-      {error ? (
+      {error || waitingForIndex ? (
         <div className="flex-1 grid place-items-center p-8 text-center whitespace-pre-wrap text-neutral-500">
-          {error}
+          {error ?? "index wordt gemaakt…"}
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex relative">
@@ -208,7 +266,7 @@ export default function App() {
         <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />
       )}
       {showSettings && (
-        <Settings device={device} nas={nas} sync={sync} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+        <Settings device={device} nas={nas} sync={sync} index={index} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}
       {confirming && sync.state?.summary && (
         <ConfirmPreviews

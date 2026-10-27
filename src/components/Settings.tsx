@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { accessLabel, anyMissing, config, mountLabel, registrationLabel, type DeviceState, type Settings as S, type SettingsState, type Shares } from "../lib/api";
 import type { Nas } from "../lib/nas";
 import type { Sync } from "../lib/sync";
+import { outcomeText, type Index } from "../lib/indexer";
 import { hostProblem, shareProblem } from "../lib/device";
 
-type Props = { device: DeviceState | null; nas: Nas; sync: Sync; onClose: () => void };
+type Props = { device: DeviceState | null; nas: Nas; sync: Sync; index: Index; onClose: () => void };
 
 const SHARE_LABELS: [keyof Shares, string][] = [
   ["library", "Originelen"],
@@ -14,7 +15,7 @@ const SHARE_LABELS: [keyof Shares, string][] = [
 ];
 
 /** Settings panel: the device (read-only) and the NAS host and share names (editable). */
-export default function Settings({ device, nas, sync, onClose }: Props) {
+export default function Settings({ device, nas, sync, index, onClose }: Props) {
   const [state, setState] = useState<SettingsState | null>(null);
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -71,6 +72,23 @@ export default function Settings({ device, nas, sync, onClose }: Props) {
             </div>
           )}
           {device && <div className="text-xs text-neutral-400 font-mono">{device.path}</div>}
+        </section>
+
+        <section className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">Index</h3>
+            <span className="flex-1" />
+            <button
+              className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
+              disabled={index.state?.running}
+              title="de index opnieuw opbouwen uit de manifesten in de werkkopie"
+              onClick={() => index.rebuild({ visible: true, onlyIfStale: false }).catch(() => {})}
+            >
+              {index.state?.running ? "Index bijwerken…" : "Index bijwerken"}
+            </button>
+          </div>
+          {index.state?.outcome && <div className="text-neutral-500">{outcomeText(index.state.outcome)}</div>}
+          {index.line?.tone === "amber" && <div className="text-amber-600 whitespace-pre-wrap">{index.line.title ?? index.line.text}</div>}
         </section>
 
         <section className="space-y-2">
