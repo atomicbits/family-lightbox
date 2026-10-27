@@ -1,7 +1,7 @@
 # Story S03: Signed and notarized macOS release on a version tag
 
 **Feature:** `F004-ci-and-releases`
-**Status:** In progress
+**Status:** Done
 **Depends on:** S02
 
 ## Goal
@@ -110,5 +110,9 @@ be tested before the first real release.
 - Downloaded from that public URL without logging in, and quarantined: `spctl` accepts the `.dmg`
   and the app as notarized, `codesign --verify --deep --strict` passes, the tickets are stapled,
   the bundle says 0.1.0.
-- Still to do: open it by double-click on a Mac and see no Gatekeeper warning (Peter; on Lynn's Mac
-  in S05).
+- Left for S05: the same on Lynn's Mac.
+
+### [2026-10-27] Checked
+
+- Peter downloaded the `.dmg` from the release, installed the app and opened it by double-click:
+  no Gatekeeper warning, and the app runs.
