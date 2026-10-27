@@ -155,3 +155,17 @@ without being asked, and never in the middle of a sync.
   nothing and kept running.
 - Next, with Peter's go: release `v0.2.0`, install it by hand over `v0.1.0`, then release `v0.2.1`
   and update through the app.
+
+### [2026-10-27] Released v0.2.0
+
+- With Peter's go: `scripts/bump-version.py 0.2.0` (921be8b) and the tag, pushed through the leak
+  check. The release run was green in 5 min 4 s and published
+  https://github.com/atomicbits/family-lightbox/releases/tag/v0.2.0 with the `.dmg`,
+  `FamilyLightbox.app.tar.gz`, its `.sig`, and `latest.json`.
+- `https://github.com/atomicbits/family-lightbox/releases/latest/download/latest.json` answers with
+  version 0.2.0 for `darwin-aarch64`, pointing at the release's `.tar.gz`, which downloads. The
+  public `.dmg`, quarantined, is accepted by `spctl` as notarized, and so is the app inside; the
+  bundle says 0.2.0.
+- **Deferred** (Peter, 2026-10-27): the live update from an installed `v0.2.0` to a next release.
+  It will be tested later, automatically, rather than by hand now. Until then this story stays
+  In progress.
