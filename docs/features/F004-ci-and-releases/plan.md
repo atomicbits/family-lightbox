@@ -16,9 +16,10 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
 - **Today** the app only runs from source, with `pnpm tauri dev` on Peter's Mac. There is no CI
   and no release; `tauri.conf.json` is at version 0.1.0 with identifier
   `io.atomicbits.familylightbox`.
-- **What already exists at Atomic Bits**: the private repo `atomicbits/wikai` releases a Tauri 2
-  app the same way this one needs to, in `.github/workflows/release.yml`, with its runbook in
-  `SIGNING.md` and `RELEASES.md`:
+- **What already exists at Atomic Bits**: the private repo `atomicbits/wikai` (checked out at
+  `~/Books`) releases a Tauri 2 app the same way this one needs to, in
+  `.github/workflows/release.yml`, with its runbook in `SIGNING.md` and `RELEASES.md` and the
+  background in `docs/features/F029-code-signing/` and `F028-auto-update/`:
   - **macOS**: an Apple Developer ID Application certificate of **Atomic Bits**. `tauri-action`
     imports the `.p12` into a temporary keychain, signs the `.app`, notarizes it with
     `notarytool`, staples the ticket and rebuilds the `.dmg`. It activates when the six
@@ -34,7 +35,10 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
   everything looks healthy.
 - **The secrets are on the `wikai` repo, not on the organization**, and GitHub never shows a
   secret's value again. Reusing them means setting the same values on this repo from where Peter
-  keeps them (password manager), or moving them to organization secrets (open point 1).
+  keeps them (password manager), or moving them to organization secrets (open point 1). The
+  certificate and its private key are in Peter's Keychain (`wikai` F029), so the `.p12` can be
+  exported again if the backup isn't at hand: Keychain Access → "Developer ID Application: Atomic
+  Bits (…)" → Export, then `base64 -i <file>.p12 | gh secret set APPLE_CERTIFICATE`.
 - **This repo is public.** GitHub-hosted runners, macOS included, cost nothing for a public repo,
   so the 10× macOS billing that made `wikai` turn its CI off doesn't apply. Releases and their
   downloads are public too. Secrets are never given to workflows from forks.
