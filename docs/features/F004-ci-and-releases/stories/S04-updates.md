@@ -139,3 +139,19 @@ without being asked, and never in the middle of a sync.
   backup outside the repo (written down in LibraryLocal).
 - All checks green locally: 51 vitest tests, 73 cargo tests, clippy, the build, and both script
   suites. The dev build starts with the plugin loaded.
+
+### [2026-10-27] Checked: the dry run and a refused signature
+
+- Dry run 40573511167 with the update key: green in 5 min 28 s. The artifact holds
+  `FamilyLightbox.app.tar.gz` (4.0 MB), its `.sig` and the `.dmg`. The `.sig`'s key id
+  (`4ecf23162f692e45`) is the public key's in `tauri.conf.json`, and the app inside the `.tar.gz`
+  passed the workflow's notarization check. `build-latest-json.py` turns the files into a valid
+  `latest.json`.
+- A refused signature, by hand: a fake `9.9.9` payload signed with a throwaway key, served with
+  its `latest.json` from `127.0.0.1`, and a debug build pointed there with
+  `FAMILYLIGHTBOX_UPDATE_ENDPOINT`. *Controleren op updates* found 9.9.9. *Bijwerken* first waited
+  for the sync the app starts by itself ("na de synchronisatie"), as designed. After that, the
+  app downloaded the payload and showed "Update geweigerd: de handtekening klopt niet", installed
+  nothing and kept running.
+- Next, with Peter's go: release `v0.2.0`, install it by hand over `v0.1.0`, then release `v0.2.1`
+  and update through the app.
