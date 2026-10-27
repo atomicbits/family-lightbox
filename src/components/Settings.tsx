@@ -4,8 +4,9 @@ import type { Nas } from "../lib/nas";
 import type { Sync } from "../lib/sync";
 import { outcomeText, type Index } from "../lib/indexer";
 import { hostProblem, shareProblem } from "../lib/device";
+import type { Update } from "../lib/update";
 
-type Props = { device: DeviceState | null; nas: Nas; sync: Sync; index: Index; onClose: () => void };
+type Props = { device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; onClose: () => void };
 
 const SHARE_LABELS: [keyof Shares, string][] = [
   ["library", "Originelen"],
@@ -15,7 +16,7 @@ const SHARE_LABELS: [keyof Shares, string][] = [
 ];
 
 /** Settings panel: the device (read-only) and the NAS host and share names (editable). */
-export default function Settings({ device, nas, sync, index, onClose }: Props) {
+export default function Settings({ device, nas, sync, index, update, onClose }: Props) {
   const [state, setState] = useState<SettingsState | null>(null);
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -164,6 +165,24 @@ export default function Settings({ device, nas, sync, index, onClose }: Props) {
             </div>
           )}
           <div className="text-xs text-neutral-400 font-mono">{state.path}</div>
+        </section>
+
+        <section className="space-y-1">
+          <h3 className="font-medium">Over</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-neutral-500">FamilyLightbox {update.version ?? ""}</span>
+            <span className="flex-1" />
+            <button
+              className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
+              disabled={update.state.checking || update.state.installing}
+              title="kijken of er een nieuwere versie is"
+              onClick={() => update.check(true)}
+            >
+              {update.state.checking ? "Controleren…" : "Controleren op updates"}
+            </button>
+          </div>
+          {update.state.checked && <div className="text-neutral-500">{update.state.checked}</div>}
+          {update.state.checkError && <div className="text-red-600 whitespace-pre-wrap">{update.state.checkError}</div>}
         </section>
 
         <div className="flex items-center gap-2">

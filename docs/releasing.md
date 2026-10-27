@@ -3,7 +3,9 @@
 How a release is made, signed and checked (F004/S03). A release is a pushed tag `vX.Y.Z`:
 `.github/workflows/release.yml` builds the app for Apple Silicon, signs it with the Developer ID
 of **Atomic Bits**, has Apple notarize it, and publishes the `.dmg` on a GitHub Release of this
-repo. The repo is public, so the release and its download are public too.
+repo. The repo is public, so the release and its download are public too. Each release also
+carries the update for installed apps (F004/S04): `FamilyLightbox.app.tar.gz`, its signature, and
+`latest.json`.
 
 ## Secrets
 
@@ -18,7 +20,26 @@ An agent may not set them; Peter does, with `gh secret set <NAME> -R atomicbits/
 | `APPLE_ID` | the company Apple ID | as for `wikai` |
 | `APPLE_PASSWORD` | an app-specific password for `notarytool` | appleid.apple.com → App-Specific Passwords; one per app is clearer than sharing `wikai`'s |
 | `APPLE_TEAM_ID` | the Apple Developer team ID | developer.apple.com → Membership |
+| `TAURI_SIGNING_PRIVATE_KEY` | the private half of this app's update key | generated once (below); the file's contents |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | its password | chosen when generating it |
 | `LEAK_TERMS` | the private terms list of the leak check (F004/S01) | `gh secret set LEAK_TERMS -R atomicbits/family-lightbox < ~/.config/family-lightbox/leak-terms.txt`, again after every change to the list |
+
+### The update key
+
+Installed apps only accept an update signed with the key whose public half is in
+`src-tauri/tauri.conf.json` (`plugins.updater.pubkey`). It is this app's own key, not `wikai`'s.
+It was generated once with
+
+```sh
+pnpm tauri signer generate -w <file outside the repo>   # asks for the password
+gh secret set TAURI_SIGNING_PRIVATE_KEY -R atomicbits/family-lightbox < <that file>
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD -R atomicbits/family-lightbox   # asks for it
+```
+
+and the public half (`<file>.pub`) was put into `tauri.conf.json`. A backup of the private key and
+its password is kept outside this repo. **Losing it is final**: no installed app can be updated
+any more, and every Mac has to install a release signed with a new key by hand. Never replace
+the key while an installed app still depends on it.
 
 Renewals: the Developer ID certificate is valid for five years; the Apple Developer Program is
 yearly. Both are shared with `wikai`, whose `SIGNING.md` keeps the dates.
@@ -46,16 +67,30 @@ The `build` job checks, before anything is published:
 - the leak check over the whole history;
 - the app: `codesign --verify --deep --strict`, `spctl` accepting it as a notarized Developer ID
   app, and the stapled ticket;
+- exactly one `.app.tar.gz` with its `.sig`, and the app inside it notarized too;
 - exactly one `.dmg`, itself notarized and stapled too (`spctl --type open` accepting it as a
   notarized Developer ID disk image): tauri-action only notarizes the app inside.
 
-The `publish` job then creates the GitHub Release and uploads the `.dmg`.
+The `publish` job then creates the GitHub Release, builds `latest.json` from the `.sig`
+(`scripts/build-latest-json.py`), and uploads the `.dmg`, the `.tar.gz` and the `.sig`, and
+`latest.json` last.
+
+## How an update reaches an installed app
+
+The app reads `https://github.com/atomicbits/family-lightbox/releases/latest/download/latest.json`
+a few seconds after it starts. GitHub's "latest" is the newest release that isn't a draft or a
+pre-release. When its `version` is higher, the header shows *Bijwerken*. The click downloads the
+`.tar.gz`, checks its signature against the public key, replaces the app and restarts it. During
+a sync the button waits. *Instellingen → Over* checks by hand. A release without `latest.json`
+(such as `v0.1.0`, from before the updater) leaves installed apps where they are; so does a
+version whose `latest.json` isn't uploaded yet.
 
 ## A dry run
 
 *Actions → release → Run workflow* (or `gh workflow run release.yml -R atomicbits/family-lightbox`)
 runs the same build and checks and publishes nothing; the `.dmg` is a workflow artifact for 14
-days. Without the `APPLE_*` secrets a dry run builds unsigned (with a warning); a tag never does.
+days. Without the `APPLE_*` secrets a dry run builds unsigned (with a warning), and without the
+`TAURI_SIGNING_*` secrets it builds no update payload (with a warning); a tag never does.
 
 ## Verify a release on a Mac
 

@@ -31,7 +31,8 @@ history on every push to `main` and every pull request, on macOS. It gets the li
 terms from the repository secret `LEAK_TERMS`; after a change to the list, set it again with
 `gh secret set LEAK_TERMS < ~/.config/family-lightbox/leak-terms.txt`.
 
-Releases (signed and notarized `.dmg` on a tag `vX.Y.Z`): see [`docs/releasing.md`](docs/releasing.md).
+Releases (signed and notarized `.dmg` on a tag `vX.Y.Z`, and the update that installed apps offer
+as *Bijwerken*): see [`docs/releasing.md`](docs/releasing.md).
 
 ## How work is done
 

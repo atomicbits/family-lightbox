@@ -75,6 +75,9 @@ jobs:
       - name: Leak check tests
         run: python3 scripts/test_leak_check.py
 
+      - name: latest.json tests
+        run: python3 scripts/test_build_latest_json.py
+
       # F004/S01: the second line behind the pre-push hook. A pull request from a fork gets no
       # secrets, so there the check can't run; on main a missing list fails the run.
       - name: Leak check over the whole history

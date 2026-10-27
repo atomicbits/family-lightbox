@@ -1,7 +1,7 @@
 # Story S04: Updates: the Tauri updater with its own key, `latest.json` on GitHub Releases, *Bijwerken* in the app
 
 **Feature:** `F004-ci-and-releases`
-**Status:** Written
+**Status:** In progress
 **Depends on:** S03
 
 ## Goal
@@ -118,3 +118,24 @@ without being asked, and never in the middle of a sync.
 ## Progress log
 
 ### [2026-10-27] Written
+
+### [2026-10-27] Built
+
+- `tauri-plugin-updater` 2.14 in Rust, `update.rs` with `update_check` and `update_install`.
+  The updater refuses `update_install` during a sync, and `sync_start` refuses while an update
+  installs. A failed signature check (minisign, base64, or the signed version) counts as
+  refused.
+- `src/lib/update.ts` (state, header line, texts; tests), `UpdateLine` in the header, *Over* in
+  the settings. The app checks five seconds after start, not in a dev build.
+- `tauri.conf.json`: `createUpdaterArtifacts` and `plugins.updater` with the public key and the
+  endpoint. `tauri.no-updater.json` turns the payload off for a dry run without the update key.
+  It is a file, not inline JSON, because tauri-action splits `args` like a shell and would strip
+  the quotes.
+- `release.yml`: the update key required for a tag; the `.tar.gz` and `.sig` collected and
+  counted; the app inside the `.tar.gz` checked with `spctl` and `stapler`. The publish job
+  builds `latest.json` with `scripts/build-latest-json.py` (tests in CI and before publishing)
+  and uploads it last.
+- Peter generated the key pair, set `TAURI_SIGNING_PRIVATE_KEY` and its password, and keeps the
+  backup outside the repo (written down in LibraryLocal).
+- All checks green locally: 51 vitest tests, 73 cargo tests, clippy, the build, and both script
+  suites. The dev build starts with the plugin loaded.

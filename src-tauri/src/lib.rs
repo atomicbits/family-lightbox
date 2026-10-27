@@ -10,6 +10,7 @@ mod nas;
 mod pull;
 mod runner;
 mod sync;
+mod update;
 
 use config::{Device, Settings};
 use db::{Db, Item, MonthSummary};
@@ -267,7 +268,17 @@ fn sync_jobs(paths: &Paths) -> runner::Jobs {
 /// Start a sync in the background: `kind` is "all" (manifests, then previews) or "previews"
 /// (after the confirmation dialog). Progress arrives as `sync-progress`, the end as `sync-done`.
 #[tauri::command]
-fn sync_start(kind: String, confirmed: bool, app: tauri::AppHandle, paths: State<Paths>, runner: State<runner::SyncRunner>) -> Result<(), String> {
+fn sync_start(
+    kind: String,
+    confirmed: bool,
+    app: tauri::AppHandle,
+    paths: State<Paths>,
+    runner: State<runner::SyncRunner>,
+    update: State<update::UpdateState>,
+) -> Result<(), String> {
+    if update.installing() {
+        return Err("de app wordt bijgewerkt en herstart zo".into());
+    }
     let kind = match kind.as_str() {
         "all" => runner::Kind::All,
         "previews" => runner::Kind::Previews,
@@ -351,15 +362,18 @@ pub fn run() {
     let previews_root = paths().previews.clone();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(paths())
         .manage(runner::SyncRunner::default())
         .manage(index::IndexRunner::default())
+        .manage(update::UpdateState::default())
         .register_uri_scheme_protocol("preview", move |_ctx, request| {
             preview_response(&previews_root, request.uri().path())
         })
         .invoke_handler(tauri::generate_handler![
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
+            update::update_check, update::update_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

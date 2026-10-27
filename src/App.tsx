@@ -10,6 +10,8 @@ import NasIndicator from "./components/NasIndicator";
 import { useNas } from "./lib/nas";
 import { useSync } from "./lib/sync";
 import SyncLine from "./components/SyncLine";
+import UpdateLine from "./components/UpdateLine";
+import { useUpdate } from "./lib/update";
 import ConfirmPreviews from "./components/ConfirmPreviews";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
 import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
@@ -30,6 +32,7 @@ export default function App() {
   const nas = useNas();
   const sync = useSync();
   const index = useIndex();
+  const update = useUpdate();
   const [confirming, setConfirming] = useState(false);
   const [cols, setCols] = useState(1);
   const [tile, setTile] = useState(loadTile);
@@ -208,6 +211,7 @@ export default function App() {
             device.json klopt niet: zie instellingen
           </button>
         )}
+        <UpdateLine update={update} syncing={!!sync.state?.running} />
         {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
         {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
         <button
@@ -266,7 +270,7 @@ export default function App() {
         <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />
       )}
       {showSettings && (
-        <Settings device={device} nas={nas} sync={sync} index={index} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+        <Settings device={device} nas={nas} sync={sync} index={index} update={update} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}
       {confirming && sync.state?.summary && (
         <ConfirmPreviews

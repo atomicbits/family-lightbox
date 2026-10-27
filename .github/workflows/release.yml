@@ -4,7 +4,8 @@ name: release
 # Developer ID, notarizes it with Apple and publishes the .dmg on a GitHub Release. A manual run
 # is a dry run by default: the same build and checks, nothing published. After wikai's
 # release.yml (macOS only, no R2): build without uploading, then publish in a job of its own that
-# can be rerun when GitHub's upload has a bad day. Runbook: docs/releasing.md.
+# can be rerun when GitHub's upload has a bad day. F004/S04 adds the updater: the signed
+# .app.tar.gz, and latest.json on the release, uploaded last. Runbook: docs/releasing.md.
 on:
   push:
     tags:
@@ -63,15 +64,30 @@ jobs:
         id: sign
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
+          tag=$([ "${{ github.event_name }}" = "push" ] && echo true || echo false)
           if [ -n "$APPLE_CERTIFICATE" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "push" ]; then
+          elif [ "$tag" = true ]; then
             echo "::error::a release must be signed: the APPLE_* secrets are missing (docs/releasing.md)"
             exit 1
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "::warning::no APPLE_* secrets: this dry run builds UNSIGNED"
+          fi
+          # F004/S04: the update payload needs the update key; installed apps only trust that key
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "updater=true" >> "$GITHUB_OUTPUT"
+            echo "config=" >> "$GITHUB_OUTPUT"
+          elif [ "$tag" = true ]; then
+            echo "::error::a release must carry an update: the TAURI_SIGNING_* secrets are missing (docs/releasing.md)"
+            exit 1
+          else
+            echo "updater=false" >> "$GITHUB_OUTPUT"
+            # a file, not inline JSON: tauri-action splits args like a shell and would eat the quotes
+            echo "config=--config $GITHUB_WORKSPACE/src-tauri/tauri.no-updater.json" >> "$GITHUB_OUTPUT"
+            echo "::warning::no TAURI_SIGNING_* secrets: this dry run builds no update payload"
           fi
 
       - name: Install gitleaks
@@ -129,8 +145,10 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          args: --target ${{ env.TARGET }}
+          args: --target ${{ env.TARGET }} ${{ steps.sign.outputs.config }}
 
       # A dry run without the secrets: the same build, without the signing environment at all.
       - name: Build (unsigned dry run)
@@ -138,10 +156,12 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          args: --target ${{ env.TARGET }}
+          args: --target ${{ env.TARGET }} ${{ steps.sign.outputs.config }}
 
-      - name: Collect the .dmg
+      - name: Collect the .dmg and the update payload
         id: dmg
         run: |
           set -euo pipefail
@@ -156,6 +176,17 @@ jobs:
           cp "$bundle"/dmg/*.dmg staging/
           echo "app=$(find "$bundle/macos" -maxdepth 1 -name '*.app' | head -1)" >> "$GITHUB_OUTPUT"
           hdiutil verify staging/*.dmg
+          if [ "${{ steps.sign.outputs.updater }}" = true ]; then
+            for pattern in '*.app.tar.gz' '*.app.tar.gz.sig'; do
+              n=$(find "$bundle/macos" -maxdepth 1 -name "$pattern" | wc -l | tr -d ' ')
+              if [ "$n" != 1 ]; then
+                echo "::error::expected exactly one $pattern, found $n"
+                exit 1
+              fi
+            done
+            cp "$bundle"/macos/*.app.tar.gz "$bundle"/macos/*.app.tar.gz.sig staging/
+          fi
+          ls -la staging
 
       - name: Check signature and notarization
         if: steps.sign.outputs.enabled == 'true'
@@ -170,6 +201,21 @@ jobs:
           echo "$assessment" | grep -q "source=Notarized Developer ID" \
             || { echo "::error::not accepted as a notarized Developer ID app"; exit 1; }
           xcrun stapler validate "$APP"
+
+      # What the updater installs is the .app inside the .tar.gz: it must be the notarized one.
+      - name: Check the app in the update payload
+        if: steps.sign.outputs.enabled == 'true' && steps.sign.outputs.updater == 'true'
+        run: |
+          set -euo pipefail
+          unpacked="$RUNNER_TEMP/payload"
+          mkdir -p "$unpacked"
+          tar -xzf staging/*.app.tar.gz -C "$unpacked"
+          app=$(find "$unpacked" -maxdepth 1 -name '*.app' | head -1)
+          assessment=$(spctl --assess --type execute --verbose=4 "$app" 2>&1)
+          echo "$assessment"
+          echo "$assessment" | grep -q "source=Notarized Developer ID" \
+            || { echo "::error::the app in the update payload isn't notarized"; exit 1; }
+          xcrun stapler validate "$app"
 
       # tauri-action notarizes the .app but only signs the .dmg around it. Lynn downloads the .dmg
       # through a browser, so it gets quarantined: notarize and staple the outer container too.
@@ -197,11 +243,11 @@ jobs:
           echo "$assessment" | grep -q "source=Notarized Developer ID" \
             || { echo "::error::the .dmg isn't accepted as notarized"; exit 1; }
 
-      - name: Upload the .dmg as a workflow artifact
+      - name: Upload the release files as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: dmg-${{ steps.version.outputs.version }}
-          path: staging/*.dmg
+          path: staging/*
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -217,11 +263,23 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TAG: ${{ github.ref_name }}
     steps:
-      - name: Download the .dmg
+      - name: Checkout (the latest.json script)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+
+      - name: Download the release files
         uses: actions/download-artifact@v4
         with:
           name: dmg-${{ needs.build.outputs.version }}
           path: artefacts
+
+      - name: Build latest.json from the .sig
+        run: |
+          set -euo pipefail
+          python3 scripts/test_build_latest_json.py
+          python3 scripts/build-latest-json.py "${{ needs.build.outputs.version }}" artefacts "$GITHUB_REPOSITORY"
+          cat artefacts/latest.json
 
       - name: Create the release, or add to it on a rerun
         run: |
@@ -233,7 +291,8 @@ jobs:
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "FamilyLightbox $TAG" \
               --notes-file notes.md --verify-tag
           fi
-          for f in artefacts/*; do
+          # latest.json last: an app that looks meanwhile never sees a payload that isn't there yet
+          for f in $(ls artefacts/* | grep -v '/latest.json$') artefacts/latest.json; do
             for attempt in 1 2 3 4 5; do
               if gh release upload "$TAG" "$f" -R "$GITHUB_REPOSITORY" --clobber; then
                 echo "uploaded $(basename "$f")"
