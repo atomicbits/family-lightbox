@@ -1,6 +1,6 @@
 # Feature 4: CI and signed releases (macOS first)
 
-**Status:** In design
+**Status:** In design (plan reviewed 2026-10-27; S01 written)
 **Depends on:** Feature 1
 **Folder:** `F004-ci-and-releases`
 
@@ -47,9 +47,17 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
 
 ### In scope
 
+- **A leak check before every push** (Peter, 2026-10-27): because the repo is public, nothing
+  is pushed before a check over what is being pushed finds no secrets (keys, tokens, passwords,
+  certificates) and none of our private terms (personal names beyond the agreed ones, e-mail
+  addresses, home-network details). It runs as a git `pre-push` hook, it is required for an
+  agent doing a push, and CI repeats it as a second line. The list of private terms lives outside
+  the repo, because listing them in the repo would leak them. What already leaked is cleaned up.
 - **CI on every push and pull request**, on a macOS runner (the app has macOS-only code):
-  `cargo test`, `cargo clippy --all-targets -D warnings`, `pnpm test`, `tsc` and `pnpm build`.
-- **A signed and notarized macOS release** when a `v*.*.*` tag is pushed, reusing Atomic Bits'
+  `cargo test`, `cargo clippy --all-targets -D warnings`, `pnpm test`, `tsc`, `pnpm build`, and
+  the leak check.
+- **A signed and notarized macOS release**, Apple Silicon only (`aarch64-apple-darwin`; Lynn's Mac
+  is Apple Silicon), when a `v*.*.*` tag is pushed, reusing Atomic Bits'
   Developer ID and the shape of `wikai`'s `release.yml`: a `.dmg`, on a GitHub Release of this
   repo. One script bumps the version in `tauri.conf.json`, `Cargo.toml` and `package.json`.
 - **Updates on their own**: the Tauri updater with a key of this app's own, `latest.json` on the
@@ -70,6 +78,9 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
 
 ## Acceptance criteria
 
+- A push that adds a secret or a private term is refused before anything leaves the Mac, also
+  when an agent pushes; the message says which file and line, without repeating a secret. A push
+  that removes one goes through. The current tree contains none of them.
 - A push to `main` runs CI, and a failing test or a clippy warning makes it red.
 - Pushing a tag `vX.Y.Z` produces a GitHub Release with a `.dmg` for which, on a clean Mac,
   `spctl --assess --type execute FamilyLightbox.app` says `accepted source=Notarized Developer ID`
@@ -78,33 +89,33 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
 - An installed version finds a newer release, offers *Bijwerken*, and after a restart runs the
   new version. A release whose update signature doesn't match is refused.
 - On Lynn's Mac, installed from the release: the device setup, connecting to the NAS with her
-  account, the first sync with its confirmation, the years before [private] skipped without an error,
+  account, the first sync with its confirmation, the years her account may not read skipped without an error,
   the index built, and the grid browsing. The results go into the stories of features 6–8.
 
 ## Stories
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | CI on every push and pull request (macOS runner) | Planned | — |
-| S02 | Signed and notarized macOS release on a version tag, with the version script and the runbook | Planned | S01 |
-| S03 | Updates: the Tauri updater with its own key, `latest.json` on GitHub Releases, *Bijwerken* in the app | Planned | S02 |
-| S04 | First install on Lynn's Mac, and the checks left by features 6–8 | Planned | S02 |
+| [S01](stories/S01-leak-check.md) | Leak check before every push: secrets and private terms, git hook, required for agents, current tree cleaned | Planned | — |
+| S02 | CI on every push and pull request (macOS runner), including the leak check | Planned | S01 |
+| S03 | Signed and notarized macOS release on a version tag, with the version script and the runbook | Planned | S02 |
+| S04 | Updates: the Tauri updater with its own key, `latest.json` on GitHub Releases, *Bijwerken* in the app | Planned | S03 |
+| S05 | First install on Lynn's Mac, and the checks left by features 6–8 | Planned | S03 |
 
-## Open points
+## Decisions and open points
 
-1. **Where the Apple secrets live.** My proposal is repository secrets on `family-lightbox` with
-   the same values as on `wikai`, set by Peter with `gh secret set` from his password manager.
-   The alternative is organization secrets shared by both repos, so a renewal happens in one
-   place. Whether a Free organization can give organization secrets to a private repo like
-   `wikai` is to be checked first; if not, that option falls away.
-2. **Lynn's Mac: Apple Silicon or Intel?** Apple Silicon only means `aarch64-apple-darwin`, as
-   `wikai` builds. With an Intel Mac, a universal build (`universal-apple-darwin`) is needed,
-   which takes about twice as long.
-3. **Public downloads.** A public repo means anyone can download the `.dmg`. The app contains no
-   private data (the home-network details are kept out, as agreed), so I see no problem, but it
-   is worth saying out loud.
-4. **A separate update key**, not `wikai`'s: losing or leaking one then never touches the other
-   product. The new key is backed up the same way as `wikai`'s (`SIGNING.md`, "Bus factor").
-5. **Updates in this feature or later.** Without S03, every new version means Peter installing a
-   `.dmg` on Lynn's Mac by hand. I propose keeping S03 in, after S04 if Lynn's tests are more
-   urgent.
+Peter's answers on 2026-10-27:
+
+1. **Apple secrets as repository secrets** on `family-lightbox`, with the same values as on
+   `wikai`. On condition that every push is checked for leaks first (S01).
+2. **Apple Silicon only**: `aarch64-apple-darwin`, no universal build.
+3. **Public downloads are fine**, with the same condition: a pre-push leak check that an agent
+   must run when it pushes (S01).
+4. **A separate Tauri update key** for this app, not `wikai`'s.
+5. **Updates are part of this feature** (S04).
+
+Open:
+
+- **Which names are private** (S01). See the story's open point.
+- **Rewriting the public history** to remove what already leaked (S01) is a force push of
+  `main`, and only happens if Peter asks for it.
