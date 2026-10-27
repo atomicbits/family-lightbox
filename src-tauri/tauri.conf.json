@@ -26,6 +26,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Atomic Bits",
+    "copyright": "Copyright (c) 2026 Atomic Bits",
+    "category": "Photography",
+    "shortDescription": "Browse and select photos in the family photo library",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

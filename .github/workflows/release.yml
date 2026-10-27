@@ -1,0 +1,222 @@
+name: release
+
+# F004/S03: a pushed tag vX.Y.Z builds FamilyLightbox for Apple Silicon, signs it with Atomic Bits'
+# Developer ID, notarizes it with Apple and publishes the .dmg on a GitHub Release. A manual run
+# is a dry run by default: the same build and checks, nothing published. After wikai's
+# release.yml (macOS only, no R2): build without uploading, then publish in a job of its own that
+# can be rerun when GitHub's upload has a bad day. Runbook: docs/releasing.md.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build, sign and check only; publish nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_TERM_COLOR: always
+  TARGET: aarch64-apple-darwin
+
+jobs:
+  build:
+    name: build, sign and notarize (Apple Silicon)
+    runs-on: macos-14
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout (full history, for the leak check)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version, and the tag that must match it
+        id: version
+        run: |
+          set -euo pipefail
+          conf=$(python3 -c 'import json; print(json.load(open("src-tauri/tauri.conf.json"))["version"])')
+          pkg=$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')
+          cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+          echo "tauri.conf.json=$conf package.json=$pkg Cargo.toml=$cargo"
+          if [ "$conf" != "$pkg" ] || [ "$conf" != "$cargo" ]; then
+            echo "::error::the three versions differ (scripts/bump-version.py keeps them equal)"
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "push" ] && [ "${GITHUB_REF_NAME}" != "v$conf" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} doesn't match version $conf"
+            exit 1
+          fi
+          echo "version=$conf" >> "$GITHUB_OUTPUT"
+
+      - name: Signing secrets present?
+        id: sign
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            echo "::error::a release must be signed: the APPLE_* secrets are missing (docs/releasing.md)"
+            exit 1
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::no APPLE_* secrets: this dry run builds UNSIGNED"
+          fi
+
+      - name: Install gitleaks
+        run: brew install gitleaks
+
+      - name: Leak check over the whole history
+        env:
+          LEAK_TERMS_CONTENT: ${{ secrets.LEAK_TERMS }}
+        run: |
+          set -eu
+          if [ -z "$LEAK_TERMS_CONTENT" ]; then
+            echo "::error::the repository secret LEAK_TERMS is missing (README, Development)"
+            exit 1
+          fi
+          export LEAK_TERMS="$RUNNER_TEMP/leak-terms.txt"
+          printf '%s\n' "$LEAK_TERMS_CONTENT" > "$LEAK_TERMS"
+          python3 scripts/leak-check.py --history
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: release
+
+      - name: Frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      # tauri-action imports the .p12 into a temporary keychain, signs the .app, notarizes it with
+      # notarytool, staples the ticket and builds the .dmg around it. No tagName/releaseName:
+      # build only, publishing is the job below.
+      - name: Build, sign and notarize
+        if: steps.sign.outputs.enabled == 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          args: --target ${{ env.TARGET }}
+
+      # A dry run without the secrets: the same build, without the signing environment at all.
+      - name: Build (unsigned dry run)
+        if: steps.sign.outputs.enabled != 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --target ${{ env.TARGET }}
+
+      - name: Collect the .dmg
+        id: dmg
+        run: |
+          set -euo pipefail
+          bundle="src-tauri/target/$TARGET/release/bundle"
+          ls -la "$bundle/dmg" "$bundle/macos"
+          n=$(find "$bundle/dmg" -maxdepth 1 -name '*.dmg' | wc -l | tr -d ' ')
+          if [ "$n" != 1 ]; then
+            echo "::error::expected exactly one .dmg, found $n"
+            exit 1
+          fi
+          mkdir -p staging
+          cp "$bundle"/dmg/*.dmg staging/
+          echo "app=$(find "$bundle/macos" -maxdepth 1 -name '*.app' | head -1)" >> "$GITHUB_OUTPUT"
+          hdiutil verify staging/*.dmg
+
+      - name: Check signature and notarization
+        if: steps.sign.outputs.enabled == 'true'
+        env:
+          APP: ${{ steps.dmg.outputs.app }}
+        run: |
+          set -euo pipefail
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dvv "$APP" 2>&1 | grep -E '^(Authority|TeamIdentifier|Timestamp)='
+          assessment=$(spctl --assess --type execute --verbose=4 "$APP" 2>&1)
+          echo "$assessment"
+          echo "$assessment" | grep -q "source=Notarized Developer ID" \
+            || { echo "::error::not accepted as a notarized Developer ID app"; exit 1; }
+          xcrun stapler validate "$APP"
+
+      - name: Upload the .dmg as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ steps.version.outputs.version }}
+          path: staging/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  publish:
+    name: publish on the GitHub Release
+    needs: [build]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Download the .dmg
+        uses: actions/download-artifact@v4
+        with:
+          name: dmg-${{ needs.build.outputs.version }}
+          path: artefacts
+
+      - name: Create the release, or add to it on a rerun
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            cat > notes.md <<'EOF'
+          FamilyLightbox for macOS (Apple Silicon), signed with the Developer ID of Atomic Bits and notarized by Apple. Open the `.dmg` and drag FamilyLightbox to Applications.
+          EOF
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "FamilyLightbox $TAG" \
+              --notes-file notes.md --verify-tag
+          fi
+          for f in artefacts/*; do
+            for attempt in 1 2 3 4 5; do
+              if gh release upload "$TAG" "$f" -R "$GITHUB_REPOSITORY" --clobber; then
+                echo "uploaded $(basename "$f")"
+                continue 2
+              fi
+              echo "::warning::upload of $(basename "$f") failed (attempt $attempt of 5)"
+              sleep $((attempt * 20))
+            done
+            echo "::error::giving up on $(basename "$f")"
+            exit 1
+          done
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "\(.size)\t\(.name)"'

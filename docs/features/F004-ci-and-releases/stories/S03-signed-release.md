@@ -1,0 +1,67 @@
+# Story S03: Signed and notarized macOS release on a version tag
+
+**Feature:** `F004-ci-and-releases`
+**Status:** In progress
+**Depends on:** S02
+
+## Goal
+
+Pushing a tag `vX.Y.Z` gives a GitHub Release with a `.dmg` that Lynn can open on her Mac without
+any Gatekeeper warning: signed with Atomic Bits' Developer ID and notarized by Apple, for Apple
+Silicon. A dry run builds and signs the same way without publishing anything, so the pipeline can
+be tested before the first real release.
+
+## Acceptance criteria
+
+- **The workflow** `.github/workflows/release.yml`:
+  - runs on a pushed tag `v*.*.*`, and by hand with `dry_run` (default on for a manual run);
+  - one build job on `macos-14`, target `aarch64-apple-darwin`, with `tauri-apps/tauri-action`
+    building **without uploading** (as `wikai` does since its upload failures), with the six
+    `APPLE_*` secrets in the environment;
+  - checks before anything is published:
+    - the tag equals the version in `tauri.conf.json`, `Cargo.toml` and `package.json`;
+    - the leak check over the whole history (S01);
+    - on the built app: `codesign --verify --deep --strict`, `spctl --assess --type execute`
+      saying `source=Notarized Developer ID`, and `xcrun stapler validate`;
+    - exactly one `.dmg`;
+  - a signed build is required for a tag. Without the `APPLE_*` secrets a tag fails; a dry run
+    then builds unsigned with a warning, so the rest of the pipeline can still be tested;
+  - the `.dmg` leaves the build job as a workflow artifact; a separate job publishes it on a
+    GitHub Release named after the tag. That job can be rerun on its own if GitHub's upload
+    fails. A dry run publishes nothing;
+  - permissions: `contents: read` for the build, `contents: write` only for the publish job.
+- **The bundle**: `publisher` and `copyright` "Atomic Bits", category Photography, a short
+  description, and no person's name.
+- **The version** in three places, kept equal by `scripts/bump-version.py X.Y.Z`: it sets
+  `tauri.conf.json`, `Cargo.toml` and `package.json`, refreshes `Cargo.lock`, and makes the commit
+  `Release vX.Y.Z` with the tag. It refuses a version that isn't higher, or a dirty tree. It
+  doesn't push: the runbook does that, through the leak check.
+- **The runbook** `docs/releasing.md`: the secret names (never values) and where they come from
+  (the Developer ID of Atomic Bits, as for `wikai`), the steps of a release, how to verify one on
+  a Mac, the Apple agreement that must be accepted before notarization works, and what to do when
+  a job fails.
+- **By hand**:
+  - a dry run without the Apple secrets: the build is green and unsigned;
+  - after Peter sets the `APPLE_*` secrets: a dry run that signs and notarizes, checked on the
+    artifact with `spctl` on Peter's Mac;
+  - the first release `v0.1.0`, after Peter's go, downloaded on a Mac and opened without a
+    warning.
+
+## How
+
+- `.github/workflows/release.yml`, after `wikai`'s `release.yml` (macOS job only, no R2, no
+  Worker; GitHub Releases is where Lynn downloads, and S04's updater reads from).
+- `scripts/bump-version.py` (Python 3, standard library).
+- `src-tauri/tauri.conf.json`: the bundle fields.
+- The Apple secrets are set by Peter: an agent may not write to a secret store. The values are
+  the ones `wikai` uses; the `.p12` can be exported again from his Keychain.
+- Deliberately not done here: the update signature and `latest.json` (S04); Windows.
+
+## Files affected
+
+- `.github/workflows/release.yml`, `scripts/bump-version.py`, `docs/releasing.md` (new).
+- `src-tauri/tauri.conf.json`, `README.md`.
+
+## Progress log
+
+### [2026-10-27] Written
