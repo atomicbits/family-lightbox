@@ -1,7 +1,7 @@
 # Story S02: CI on every push and pull request (macOS runner), including the leak check
 
 **Feature:** `F004-ci-and-releases`
-**Status:** In progress
+**Status:** Done
 **Depends on:** S01
 
 ## Goal
@@ -64,5 +64,11 @@ second line behind the pre-push hook.
   secret store), so Peter sets it himself, as the README says.
 - GitHub notes that `actions/checkout@v4`, `actions/setup-node@v4` and `pnpm/action-setup@v4` still
   ship Node 20 internals; they run forced on Node 24. Harmless; newer majors can follow later.
-- Still to do: a green run once `LEAK_TERMS` is set, and the red run from a failing test on a
-  throwaway pull request.
+
+### [2026-10-27] Checked
+
+- Peter set `LEAK_TERMS`. The rerun on `main` was green in 2 min 46 s, the leak check over the
+  whole history included.
+- A throwaway pull request (#1) with a deliberately failing test went red at *Frontend tests* in
+  21 s, with the later steps skipped. It was closed without merging and its branch deleted; a
+  closed pull request stays visible on GitHub.
