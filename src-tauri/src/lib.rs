@@ -11,6 +11,7 @@ mod pull;
 mod runner;
 mod sync;
 mod update;
+mod window;
 
 use config::{Device, Settings};
 use db::{Db, Item, MonthSummary};
@@ -363,6 +364,18 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(window::flags())
+                .skip_initial_state("main")
+                .build(),
+        )
+        .setup(|app| {
+            if let Some(main) = app.get_webview_window("main") {
+                window::restore(&main);
+            }
+            Ok(())
+        })
         .manage(paths())
         .manage(runner::SyncRunner::default())
         .manage(index::IndexRunner::default())

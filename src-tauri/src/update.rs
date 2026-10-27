@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_updater::{Error as UpdaterError, Update, Updater, UpdaterExt};
+use tauri_plugin_window_state::AppHandleExt;
 
 use crate::runner::SyncRunner;
 
@@ -129,7 +130,11 @@ pub async fn update_install(
         )
         .await;
     match result {
-        Ok(()) => app.restart(),
+        Ok(()) => {
+            // the restart skips the window-state plugin's save at exit
+            let _ = app.save_window_state(crate::window::flags());
+            app.restart()
+        }
         Err(e) => {
             let refused = is_refused(&e);
             state.failed(&update.version, refused);
