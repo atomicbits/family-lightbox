@@ -29,11 +29,10 @@ pointer.
   LibraryLocal (`docs/nas-inrichting.md`, Dutch). Specifically:
   - the `~/.ssh/config` block, the key file name and the host alias go to the note. The contract
     keeps that the CLI's bulk transport uses SSH with a key and must work non-interactively;
-  - the exact `[private]` command and which account is denied which years go to the note. The
+  - the exact ACL command and which account is denied which years go to the note. The
     contract keeps that access per user is restricted on the NAS itself (per year folder, with
     ACLs), never in the app, and that unreadable year folders are skipped;
-  - the name of Peter's Drive mirror share (`[private]`) and its Cloud Sync
-    exclusions go to the note. The contract keeps that a separate mirror exists and excludes
+  - the name of Peter's Drive mirror share and its Cloud Sync exclusions go to the note. The contract keeps that a separate mirror exists and excludes
     `Library`, `Lists` and `Exports`;
   - the account names `peter` and `lynn`, the device names `mbp-peter` and `mbp-lynn`, and the NAS
     name `raven` stay. They are already in this repo's docs, and the examples need concrete
@@ -87,8 +86,8 @@ pointer.
   what.
 - Moved to LibraryLocal `docs/nas-inrichting.md` (private, Dutch), verbatim:
   - the `~/.ssh/config` block;
-  - the `[private]` command and that `lynn` is denied the years before [private];
-  - the name `[private]` and its Cloud Sync exclusions.
+  - the ACL command and which years which account is denied;
+  - the name of the Drive mirror share and its Cloud Sync exclusions.
   Sections 2 and 8 keep the rules and say that the details are in a private note.
 - Different from the story: code blocks with Dutch comments or placeholders (3.1, 4, 6, 7, 11)
   have their comments and placeholders (`<jaar>` → `<year>`, …) translated. The paths, names

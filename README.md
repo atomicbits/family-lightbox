@@ -9,13 +9,22 @@ reveal the original in the Finder or open it with the default application.
 
 ## Development
 
+    sh scripts/setup-dev.sh # once per clone: the leak check before every push
     pnpm install
     pnpm tauri dev          # app with hot reload
     pnpm test               # frontend tests (vitest)
     cd src-tauri && cargo test
+    python3 scripts/test_leak_check.py
 
-The app reads `~/.config/media/index.sqlite` (created by `./media index`), `~/Pictures/Previews`
-and `~/Pictures/LibraryLocal`; other locations via `MEDIA_CONFIG`, `MEDIA_PREVIEWS`, `MEDIA_LIBRARY`.
+The app builds its own index, `~/.config/media/familylightbox-index.sqlite`, from the manifests in
+`~/Pictures/LibraryLocal`, and reads the previews in `~/Pictures/Previews`; other locations via
+`MEDIA_CONFIG`, `MEDIA_PREVIEWS`, `MEDIA_LIBRARY`.
+
+**This repo is public.** Every push goes through `scripts/leak-check.py` (a `pre-push` hook, set
+up by `scripts/setup-dev.sh`): it refuses a push that adds a secret (found by `gitleaks`) or a
+private term (from a list kept outside the repo, `~/.config/family-lightbox/leak-terms.txt`).
+`scripts/leak-check.py --tree` and `--history` check the whole tree or history. Never push with
+`--no-verify`.
 
 ## How work is done
 

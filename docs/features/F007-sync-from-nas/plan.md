@@ -36,8 +36,8 @@ moves towards (D13).
   - Peter's own `~/Pictures/Previews` is 28 GB.
 - **What is read over the network**: everything comes from the mounts of feature 6, over SMB or
   AFP. That means listing folders and copying files on a mounted share, with no rsync.
-- **Lynn's account** can't read the year folders before [private] (ACL on the NAS). Those are skipped,
-  just as `pull` skips them.
+- **Lynn's account** can't read some year folders (ACL on the NAS). Those are skipped, just as
+  `pull` skips them.
 
 ## Scope
 
@@ -94,8 +94,8 @@ moves towards (D13).
   files, and the next run continues where it stopped.
 - Too little space: the previews pass refuses with the numbers (needed, free, the 20 GB
   reserve), and copies nothing.
-- With an account that can't read the years before [private], those years are skipped without an
-  error, and the rest syncs.
+- With an account that can't read some years, those years are skipped without an error, and the
+  rest syncs.
 - The window stays responsive during a sync of tens of thousands of files, and the progress line
   updates.
 - `cargo test` covers the planning (missing, newer, older, same), the exclusions, unreadable
@@ -126,7 +126,7 @@ on Lynn's Mac.
    - (b) the app makes previews natively (part of feature 10), later;
    - (c) the NAS makes them (slow Celeron, D4 rejected this).
    My proposal is (a), as a one-off with the CLI in LibraryLocal, outside this feature. Lynn's
-   account can only see [private], so for her this matters for [private]–2021; for Peter it is
+   account can't see every year, so for her it matters for fewer years than for Peter, who sees
    2000–2021.
 2. **Disk space on Lynn's Mac**: the previews need 29 GB now, and roughly 60–70 GB once 2000–2021
    has previews. Is that fine on her laptop, or should the previews pass be limited (for example

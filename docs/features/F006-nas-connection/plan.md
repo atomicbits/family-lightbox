@@ -16,8 +16,8 @@ registered device to write as. Without the NAS the app keeps working on what is 
 - The shares are `Library`, `Previews`, `Lists` and `Exports` on `raven` (data contract section 2).
   Lynn is an ordinary DSM user without SSH, so the app only uses file sharing. It reads `Library`
   and `Previews` and writes `Lists`, and `Exports` later.
-- Lynn's account is denied the year folders before [private] on the NAS itself (ACL). The app doesn't
-  filter anything; it skips what it can't read.
+- Lynn's account is denied some year folders on the NAS itself (ACL). The app doesn't filter
+  anything; it skips what it can't read.
 - The mount point is not a reliable name: macOS mounts a second `Library` as `/Volumes/Library-1`,
   and a leftover folder in `/Volumes` can look like a share. Peter's Mac has `Library` mounted
   over **AFP** today, not SMB. The app therefore identifies a share by what is mounted (server and

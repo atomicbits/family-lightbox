@@ -34,7 +34,7 @@ local file other than its own temporary files, and never writes to the NAS.
     `.Spotlight-V100`, `.fseventsd`, `*.tmp`, `*.partial`;
   - symbolic links are not followed;
   - a folder the account may not read (permission denied) is skipped and listed in the result
-    as skipped. That is how Lynn's years before [private] behave. Any other read error, such as the
+    as skipped. That is how the years Lynn may not read behave. Any other read error, such as the
     NAS going away, ends the run with that error instead of being treated as "nothing there".
 - **Copying** (atomic):
   - the engine writes to `.<name>.flb.partial` in the target folder, creating the folders on the

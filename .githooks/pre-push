@@ -1,0 +1,4 @@
+#!/bin/sh
+# Leak check before every push (F004/S01): no secrets, no private terms. Never skip it with
+# --no-verify; see CLAUDE.md.
+exec python3 "$(git rev-parse --show-toplevel)/scripts/leak-check.py" "$@"

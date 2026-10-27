@@ -37,7 +37,7 @@ reads them.
   `~/Pictures/LibraryLocal`). No `Library` mount, or a `Library` that isn't readable, means the
   pass doesn't run and says why.
 - **Rules from S02**: missing or newer on the NAS is copied; a newer local manifest stays. Year
-  folders the account may not read are skipped and listed (Lynn: before [private]). Nothing is
+  folders the account may not read are skipped and listed (Lynn: some years). Nothing is
   deleted locally and nothing is written on the NAS.
 - **Check after copying**: every manifest copied in this run is parsed. A file that isn't valid
   JSON, or has no `files` list, is listed as "ongeldig" in the result. It stays in place, because

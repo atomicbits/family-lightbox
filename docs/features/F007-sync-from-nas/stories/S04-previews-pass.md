@@ -33,7 +33,7 @@ once before it starts.
   - every file ending in `.jpg`, which covers both the preview and the `.t.jpg` thumbnail, at any
     depth;
   - the S02 rules apply: missing or newer on the NAS is copied, and a newer local preview stays;
-  - year folders the account may not read are skipped and listed (Lynn: before [private]);
+  - year folders the account may not read are skipped and listed (Lynn: some years);
   - nothing is deleted locally, and nothing is written on the NAS.
   No `Previews` mount means the pass doesn't run, and says why.
 - **Two steps: count, then copy**:
