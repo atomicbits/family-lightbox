@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLayout, moveAcross, rowOf, sectionsInRange } from "./timeline";
+import { buildLayout, moveAcross, rowOf, sameSections, sectionsInRange } from "./timeline";
 
 // three months: 10 items, 1 item, 6 items; 4 columns
 //   header 0 | 0 1 2 3 | 4 5 6 7 | 8 9
@@ -73,5 +73,14 @@ describe("moveAcross", () => {
     expect(mv(2, 4, "down")).toEqual({ section: 2, index: 4 });
     expect(moveAcross(null, "down", 4, counts)).toEqual({ section: 0, index: 0 });
     expect(moveAcross(null, "down", 4, [])).toBeNull();
+  });
+});
+
+describe("sameSections", () => {
+  it("is the same when only other counts than the item count changed", () => {
+    const a = [{ month: "2026/07", count: 3 }, { month: "2012/scans", count: 1 }];
+    expect(sameSections(a, [{ month: "2026/07", count: 3 }, { month: "2012/scans", count: 1 }])).toBe(true);
+    expect(sameSections(a, [{ month: "2026/07", count: 4 }, { month: "2012/scans", count: 1 }])).toBe(false);
+    expect(sameSections(a, a.slice(0, 1))).toBe(false);
   });
 });

@@ -49,3 +49,12 @@ reload. What couldn't be made is listed in the settings, with a way to try again
   `pnpm build` clean.
 - Still to check in the app, during Peter's first real run: tiles of the month on screen filling
   in, the counts in the settings, *Opnieuw proberen*.
+
+### [2026-10-28] Fixed: the grid jumped back while previews were made
+
+- Peter, during the first real run: scrolling through the months, the grid jumped back to the top
+  every time previews were made. Each batch updated the month counts, which made new sections and
+  a new layout, and the grid scrolled to the selected tile on every new layout.
+- Now the sections stay the same object while the months and their item counts are the same
+  (`sameSections`), and the grid scrolls to the selection only when the selection moves or the
+  number of columns changes, not on every layout.

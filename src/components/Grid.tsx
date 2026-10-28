@@ -79,10 +79,15 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
     }
   }, [topSection, onTopSection]);
 
-  // Keep the selected tile in view (arrow keys), also after the layout changes.
+  // Keep the selected tile in view when the selection moves (arrow keys) or the columns change, but
+  // not on every new layout: the grid would jump back to it while scrolling elsewhere.
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const selKey = selected ? `${selected.section}:${selected.index}` : null;
   useEffect(() => {
-    if (selected) virtualizer.scrollToIndex(rowOf(layout, selected, cols), { align: "auto" });
-  }, [selected, layout, cols, virtualizer]);
+    if (selected) virtualizer.scrollToIndex(rowOf(layoutRef.current, selected, cols), { align: "auto" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selKey, cols, virtualizer]);
 
   // Jump from the month list: that month's header at the top.
   useEffect(() => {

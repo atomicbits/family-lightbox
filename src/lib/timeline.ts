@@ -9,6 +9,11 @@ export type Layout = { rows: Row[]; headerRow: number[] };
 /** A selected tile: section index and position within that section. */
 export type Sel = { section: number; index: number };
 
+/** Whether two lists of sections have the same months and counts, so the layout stays the same. */
+export function sameSections(a: Section[], b: Section[]): boolean {
+  return a.length === b.length && a.every((s, i) => s.month === b[i].month && s.count === b[i].count);
+}
+
 export function buildLayout(sections: Section[], cols: number): Layout {
   const c = Math.max(1, cols);
   const rows: Row[] = [];

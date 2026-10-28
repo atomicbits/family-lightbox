@@ -18,7 +18,7 @@ import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
 import { listen } from "@tauri-apps/api/event";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
 import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
-import { moveAcross, type Sel, type Section } from "./lib/timeline";
+import { moveAcross, sameSections, type Sel, type Section } from "./lib/timeline";
 
 const toSections = (months: MonthSummary[]): Section[] =>
   months.map((m) => ({ month: m.month, count: m.photos + m.videos }));
@@ -88,7 +88,14 @@ export default function App() {
   }, []);
 
   // The library as sections, newest month first, with their counts from the index.
-  const sections = useMemo(() => toSections(months), [months]);
+  // The same object while the months and their counts stay the same: new previews only change the
+  // month list's preview counts, and a new layout would move the grid (F012/S04).
+  const stableSections = useRef<Section[]>([]);
+  const sections = useMemo(() => {
+    const next = toSections(months);
+    if (!sameSections(stableSections.current, next)) stableSections.current = next;
+    return stableSections.current;
+  }, [months]);
   const counts = useMemo(() => sections.map((s) => s.count), [sections]);
 
   // Items per month, fetched once when a month comes (nearly) into view.
