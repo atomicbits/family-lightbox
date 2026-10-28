@@ -261,6 +261,7 @@ Exports are end products: never rewritten automatically, but pushed and synced t
 ~/.config/media/state.json       last push/pull per month, last merge, NAS address
 ~/.config/media/index.sqlite     derived index of manifests, previews and lists; can be rebuilt with `media index`
 ~/.config/media/familylightbox-index.sqlite  the app's own index, the same tables as `index.sqlite`; only the app writes it
+~/.config/media/familylightbox-previews.sqlite  which hash each preview was made from, and what failed; only the app writes it, not part of the contract
 ~/.config/media/familylightbox.json  the app's settings (NAS name, names of the shares); not part of the contract
 ~/.config/media/familylightbox-state.json  the app's own state (for example when the first previews pass was confirmed); not part of the contract
 ~/Pictures/LibraryLocal/         working copy of Library (partial)
@@ -328,6 +329,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 
 | Version | Date | What |
 |---|---|---|
+| 1.2 (addition) | 2026-10-28 | Section 7: `familylightbox-previews.sqlite`, the app's own record of which hash each preview was made from (F012/S02). Not part of the contract. |
 | 1.2 (addition) | 2026-10-28 | Section 4: FamilyLightbox makes previews too (F012/S01, ImageIO and AVFoundation). The RAW rule allows the decoded RAW where the embedded JPEG is smaller than the preview; the video rule names the CLI's behavior under 2 s and the first-frame fallback. Manifest format unchanged. |
 | 1.2 (addition) | 2026-10-27 | Section 7: `familylightbox-index.sqlite`, the app's own index with the CLI's `items` and `folders` tables, written only by the app (F008/S01). Not part of the contract. |
 | 1.2 (addition) | 2026-10-26 | Section 7: `familylightbox-state.json`, the app's own state, kept apart from its settings (F007/S04). Not part of the contract. |

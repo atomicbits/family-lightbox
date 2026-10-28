@@ -1,6 +1,6 @@
 # Feature 12: Make missing previews in the app
 
-**Status:** In progress (plan accepted 2026-10-28, before feature 3; S01 done)
+**Status:** In progress (plan accepted 2026-10-28, before feature 3; S01 and S02 done)
 **Depends on:** Feature 6 (the NAS shares), feature 7 (sync), feature 8 (the index knows which previews are missing)
 **Folder:** `F012-make-missing-previews`
 
@@ -16,8 +16,8 @@ The CLI's `media previews` gets no new features; it stays as it is until this fe
 
 ## Background
 
-- **The gap found on 2026-10-28.** 40 838 photos and videos of 2005–2021, in 140 months, have no
-  preview anywhere: not on Peter's Mac and not on the NAS (`Previews` holds 2022–2026 only). All
+- **The gap found on 2026-10-28.** 85 874 photos and videos of 2000–2021 have no preview
+  anywhere (the CLI counted 40 838, because it skips the historical folder names; see S02): not on Peter's Mac and not on the NAS (`Previews` holds 2022–2026 only). All
   their originals are on the NAS and readable over SMB.
 - **Why.** `media previews` makes a preview only when the original is in the local working copy
   (architecture decision D4: previews are made on the laptop at import). The old years were never
@@ -54,7 +54,7 @@ The CLI's `media previews` gets no new features; it stays as it is until this fe
   record is adopted, as the CLI does.
 - **In the background**, after a sync, at a low priority and with a few at a time, so browsing
   stays smooth; the month on screen goes first. A line in the window shows the progress
-  ("Previews maken: 1 204 / 40 838"), with a way to pause it. It continues after a restart where
+  ("Previews maken: 1 204 / 85 874"), with a way to pause it. It continues after a restart where
   it left off.
 - **The grid** shows a new preview as soon as it is made, without a reload.
 - **Failures** (a damaged file, a format macOS can't read) are counted, listed in the settings,
@@ -71,7 +71,7 @@ The CLI's `media previews` gets no new features; it stays as it is until this fe
 
 ## Acceptance criteria
 
-- On Peter's Mac, the 40 838 missing previews of 2005–2021 are made by the app, appear in the
+- On Peter's Mac, the 85 874 missing previews of 2000–2021 are made by the app, appear in the
   grid while it runs, and end up on the NAS; another Mac gets them with its next sync.
 - A preview made by the app follows data contract 4: size, quality, sRGB, upright without an
   orientation tag, only the allowed metadata. Checked against previews from `media previews` on the
@@ -91,7 +91,7 @@ The CLI's `media previews` gets no new features; it stays as it is until this fe
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-make-one-preview.md) | Make one preview and thumbnail natively (ImageIO, AVFoundation) by data contract 4, compared with the CLI's | Done | — |
-| [S02](stories/S02-what-is-missing.md) | The plan: what is missing or outdated, the app's own record of hashes, adopting existing previews | Planned | S01 |
+| [S02](stories/S02-what-is-missing.md) | The plan: what is missing or outdated, the app's own record of hashes, adopting existing previews | Done | S01 |
 | [S03](stories/S03-background-job.md) | The background job: from the local copy or the NAS, to the local folder and the NAS, the progress line, pause, resume | Planned | S02 |
 | [S04](stories/S04-grid-and-failures.md) | The grid picks up new previews as they are made; failures in the settings | Planned | S03 |
 
@@ -112,7 +112,7 @@ missing previews of today waiting for the app (no run of `media previews` on the
    large enough, and otherwise decodes the RAW. Proposal: accept both, and loosen "the embedded
    JPEG" in the contract to "the embedded JPEG where it is large enough". Our EOS R and older Canon
    RAWs embed a full-size JPEG, so in practice nothing changes.
-4. **The 40 838 of today.** The app will take a few hours for them over the network once S03 is
+4. **The 85 874 of today.** The app will take a few hours for them over the network once S03 is
    in. Proposal: wait for the app rather than run `media previews` on the NAS mount now, so the
    first real run is this feature's. If you'd rather have them sooner, the CLI can do it today
    (`MEDIA_LIBRARY=/Volumes/Library ./media previews`) without any change to it.

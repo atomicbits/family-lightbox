@@ -1,7 +1,7 @@
 # Story S02: The plan: what is missing or outdated
 
 **Feature:** `F012-make-missing-previews`
-**Status:** Planned
+**Status:** Done
 **Depends on:** S01
 
 ## Goal
@@ -27,14 +27,20 @@ which hash each preview was made from, so a changed original gets a new preview.
   written. Data contract 7 lists the new file.
 - **Order**: the month on screen first, then the newest months first.
 - **Fast enough** to run at every start: the full library (124 000 items) in about a second, with
-  the NAS checked per folder, not per file.
+  the NAS checked per folder, not per file, and only for what isn't local.
+- **A preview another Mac made again**: when the local preview is newer than the record (the
+  sync keeps the NAS's time), it is adopted with the current hash instead of made once more.
 - **Tests** (`cargo test`, temporary folders): every state above, a hash change, a NAS that isn't
   connected (no *copy*, only *make* for what isn't local), a year folder on the NAS that can't be
   read.
 
 ## How
 
-- A module `src-tauri/src/previews_plan.rs`, independent of macOS.
+- A module `src-tauri/src/previews_plan.rs`, independent of macOS: `Record` (open, `made`,
+  `failed`, `clear_failures`), `plan(index, record, previews, nas, focus)` and `order(todo, focus)`
+  for S03 to put another month first. Each folder is listed once, locally and on the NAS; a
+  folder that can't be read counts as empty.
+- An example program, `cargo run --example previews-plan`, prints the plan for real data.
 - Deliberately not done here: making or copying anything (S03).
 
 ## Files affected
@@ -44,3 +50,19 @@ which hash each preview was made from, so a changed original gets a new preview.
 ## Progress log
 
 ### [2026-10-28] Written
+
+### [2026-10-28] Built and checked
+
+- 7 tests (`cargo test previews_plan`): every state, a changed hash, a failure tried again after
+  clearing, a newer preview from another Mac adopted, no NAS, an unreadable year on the NAS, the
+  order. 93 tests in all, clippy clean.
+- On Peter's Mac, with a scratch record (the app's own file isn't written yet):
+  - first run: 38 698 adopted, 85 874 to make, 0 to copy, in 0.6 s; the next run 38 698 fine in
+    0.24 s;
+  - with the `Previews` share connected: the same, in 4.2 s, because every folder with missing
+    previews is listed on the NAS over SMB. S03 runs the plan after the sync, which has already
+    copied what the NAS has, so it can leave the NAS out and check it per preview just before
+    making it.
+- **The gap is larger than the CLI said**: 85 874 photos and videos have no preview (2000–2021
+  and `0000`), not 40 838. `media previews` only walks month folders (`YYYY/MM`) and misses the
+  historical folders such as `2006/10-13.<name>`; the app works from the index, which has them all.

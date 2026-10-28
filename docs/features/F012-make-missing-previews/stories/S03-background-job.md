@@ -21,14 +21,14 @@ can be paused and continues after a restart.
   NAS again: when another Mac made it in the meantime, it copies that one instead.
 - **Load**: a few at a time (half the cores, at most 4), at a low priority, so the grid scrolls
   smoothly and the fan stays quiet.
-- **The line in the window**: "Previews maken: 1 204 / 40 838" with a *Pauzeren* button, next to
+- **The line in the window**: "Previews maken: 1 204 / 85 874" with a *Pauzeren* button, next to
   the sync line; *Hervatten* continues. Paused stays paused after a restart, until resumed.
 - **Resume**: the record of S02 is written per preview, so a restart continues where it stopped.
 - **Data contract**: section 1 (who writes `Previews`) and section 8 (transport) name the app.
 - **Tests** (`cargo test`, temporary folders standing in for the shares): local original, original
   only on the NAS, no NAS, a preview that appears on the NAS during the run, pause and resume,
   a failure recorded and not retried.
-- **By hand**: on Peter's Mac, the 40 838 missing previews of 2005–2021 are made and land on the
+- **By hand**: on Peter's Mac, the 85 874 missing previews of 2000–2021 are made and land on the
   NAS; browsing stays smooth meanwhile.
 
 ## How

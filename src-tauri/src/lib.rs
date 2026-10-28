@@ -9,6 +9,7 @@ mod mounts;
 mod nas;
 #[cfg(target_os = "macos")]
 pub mod preview;
+pub mod previews_plan;
 mod pull;
 mod runner;
 mod sync;
