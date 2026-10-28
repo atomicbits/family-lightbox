@@ -143,14 +143,14 @@ The original extension stays in the name so that `IMG_1.HEIC` and `IMG_1.JPG` ne
 | Size | Long side 2048 and 400 px respectively; never upscale (a smaller original keeps its own size). |
 | Orientation | Applied: the preview is upright, without an orientation tag. |
 | Metadata | Only `DateTimeOriginal` (with `OffsetTimeOriginal`), equal to `taken` from the manifest, and `ColorSpace=sRGB`; no GPS, no camera settings, no orientation tag. |
-| Source for RAW | The embedded JPEG from the RAW file (exiftool `-PreviewImage` or `-JpgFromRaw`), scaled. No RAW development. |
-| Source for video | The frame at 10 % of the duration, or at 1 s if the video is shorter than 10 s (ffmpeg). |
+| Source for RAW | The embedded JPEG from the RAW file, scaled, where it is at least as large as the preview (exiftool `-PreviewImage` or `-JpgFromRaw` in the CLI, ImageIO's thumbnail in the app); otherwise the RAW decoded by the system. No RAW development beyond that: no own settings or edits. |
+| Source for video | The frame at 10 % of the duration, or at 1 s if the video is shorter than 10 s (half the duration under 2 s); the first frame if that one can't be read. Upright by the track's rotation. |
 | Refreshing | A preview is made again when it is missing or when the hash of the original in the manifest changed. Existing previews are never rewritten for no reason. |
 | Completeness | Every laptop SHOULD have the complete `Previews` tree locally; the app MUST work when previews are missing (it shows a placeholder). |
 
 Previews are derived and can be rebuilt; they have no manifest and don't go to Drive.
 
-They are made on a laptop (`media previews`), not on the NAS: DSM's ImageMagick and ffmpeg don't read CR3, HEIC or HEVC and don't write JPEG. The CLI uses `sips` (macOS, hardware decoding), `exiftool` (embedded JPEG from RAW, metadata) and `ffmpeg` (video frame). Which preview belongs to which hash is recorded in the local index (`~/.config/media/index.sqlite`, table `previews`, not part of the contract): a preview that already exists without an index entry is adopted, not made again.
+They are made on a laptop, by the CLI (`media previews`) or by FamilyLightbox (feature 12, natively with ImageIO and AVFoundation), not on the NAS: DSM's ImageMagick and ffmpeg don't read CR3, HEIC or HEVC and don't write JPEG. The CLI uses `sips` (macOS, hardware decoding), `exiftool` (embedded JPEG from RAW, metadata) and `ffmpeg` (video frame). Which preview belongs to which hash is recorded in the local index (`~/.config/media/index.sqlite`, table `previews`, not part of the contract): a preview that already exists without an index entry is adopted, not made again.
 
 ## 5. Lists
 
@@ -328,6 +328,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 
 | Version | Date | What |
 |---|---|---|
+| 1.2 (addition) | 2026-10-28 | Section 4: FamilyLightbox makes previews too (F012/S01, ImageIO and AVFoundation). The RAW rule allows the decoded RAW where the embedded JPEG is smaller than the preview; the video rule names the CLI's behavior under 2 s and the first-frame fallback. Manifest format unchanged. |
 | 1.2 (addition) | 2026-10-27 | Section 7: `familylightbox-index.sqlite`, the app's own index with the CLI's `items` and `folders` tables, written only by the app (F008/S01). Not part of the contract. |
 | 1.2 (addition) | 2026-10-26 | Section 7: `familylightbox-state.json`, the app's own state, kept apart from its settings (F007/S04). Not part of the contract. |
 | 1.2 (addition) | 2026-10-26 | Moved into the FamilyLightbox repo and translated into English (F007/S01). Section numbers unchanged. Operational details of the home network moved to a private note in LibraryLocal (`docs/nas-inrichting.md`); the rules they support stay here (sections 2 and 8). Content of the rules unchanged, `contract_version` stays 1.2. |

@@ -161,3 +161,4 @@ no folder yet.
 | 9 | Open originals that are not on this laptop, from the NAS | Planned | 6 |
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |
 | 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
+| 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (before 3; S01 done) | 6, 7, 8 |
