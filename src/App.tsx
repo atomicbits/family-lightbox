@@ -14,7 +14,8 @@ import UpdateLine from "./components/UpdateLine";
 import { useUpdate } from "./lib/update";
 import ConfirmPreviews from "./components/ConfirmPreviews";
 import PreviewsLine from "./components/PreviewsLine";
-import { usePreviews } from "./lib/previews";
+import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
+import { listen } from "@tauri-apps/api/event";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
 import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
 import { moveAcross, type Sel, type Section } from "./lib/timeline";
@@ -117,6 +118,26 @@ export default function App() {
   const itemsOf = (month: string) => cache.current.get(month);
 
   useEffect(() => { if (selected) need([selected.section]); }, [selected, need]);
+
+  // A preview made in the background replaces its placeholder right away (F012/S04).
+  useEffect(() => {
+    const off = listen<Done[]>("previews-made", (e) => {
+      const byMonth = new Map<string, Set<string>>();
+      for (const d of e.payload) {
+        if (!byMonth.has(d.month)) byMonth.set(d.month, new Set());
+        byMonth.get(d.month)!.add(d.path);
+      }
+      let changed = false;
+      for (const [month, paths] of byMonth) {
+        const items = cache.current.get(month);
+        const next = items && markMade(items, paths);
+        if (next) { cache.current.set(month, next); changed = true; }
+      }
+      if (changed) setLoaded((n) => n + 1);
+      setMonths((m) => addToMonths(m, e.payload));
+    });
+    return () => { off.then((f) => f()); };
+  }, []);
 
   const move = useCallback(
     (m: "left" | "right" | "up" | "down") => setSelected((s) => moveAcross(s, m, cols, counts)),
@@ -279,7 +300,7 @@ export default function App() {
         <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />
       )}
       {showSettings && (
-        <Settings device={device} nas={nas} sync={sync} index={index} update={update} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+        <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}
       {confirming && sync.state?.summary && (
         <ConfirmPreviews

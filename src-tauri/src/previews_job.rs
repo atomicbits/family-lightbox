@@ -34,9 +34,16 @@ pub struct MakeState {
 pub trait MakeSink: Send + Sync + 'static {
     fn progress(&self, state: &MakeState);
     fn done(&self, state: &MakeState);
-    /// Previews were made since the last call; the app rebuilds the index now and then, so they
-    /// show in the grid while the rest is made.
-    fn some_made(&self) {}
+    /// Previews made or copied since the last call, a few times a second (F012/S04): the app sets
+    /// their flag in the index and the grid shows them right away.
+    fn made(&self, _done: &[Done]) {}
+}
+
+/// A preview that is there now, with the month the grid shows it under.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Done {
+    pub path: String,
+    pub month: String,
 }
 
 #[derive(Clone, Debug)]
@@ -57,9 +64,6 @@ pub fn default_workers() -> usize {
     let cores = std::thread::available_parallelism().map_or(2, |n| n.get());
     (cores / 2).clamp(1, 4)
 }
-
-/// How often the grid is given what was made meanwhile.
-pub const SHOW_EVERY: Duration = Duration::from_secs(120);
 
 #[derive(Default)]
 struct Inner {
@@ -174,7 +178,13 @@ impl MakeRunner {
 
         let record = Mutex::new(record);
         let last_emit = Mutex::new(Instant::now());
-        let last_show = Mutex::new((Instant::now(), false));
+        let pending: Mutex<Vec<Done>> = Mutex::new(Vec::new());
+        let flush = || {
+            let batch = std::mem::take(&mut *pending.lock().unwrap_or_else(|e| e.into_inner()));
+            if !batch.is_empty() {
+                sink.made(&batch);
+            }
+        };
         std::thread::scope(|scope| {
             for _ in 0..job.workers.max(1) {
                 scope.spawn(|| {
@@ -206,25 +216,26 @@ impl MakeRunner {
                             }
                         });
                         if matches!(outcome, Outcome::Made { .. } | Outcome::Copied) {
-                            let mut show = last_show.lock().unwrap_or_else(|e| e.into_inner());
-                            show.1 = true;
-                            if show.0.elapsed() >= SHOW_EVERY {
-                                *show = (Instant::now(), false);
-                                sink.some_made();
-                            }
+                            let done = Done { path: w.path.clone(), month: w.month.clone() };
+                            pending.lock().unwrap_or_else(|e| e.into_inner()).push(done);
                         }
-                        let mut t = last_emit.lock().unwrap_or_else(|e| e.into_inner());
-                        if t.elapsed() >= Duration::from_millis(200) {
-                            *t = Instant::now();
+                        let due = {
+                            let mut t = last_emit.lock().unwrap_or_else(|e| e.into_inner());
+                            let due = t.elapsed() >= Duration::from_millis(200);
+                            if due {
+                                *t = Instant::now();
+                            }
+                            due
+                        };
+                        if due {
+                            flush();
                             sink.progress(&s);
                         }
                     }
                 });
             }
         });
-        if last_show.lock().map(|s| s.1).unwrap_or(false) {
-            sink.some_made();
-        }
+        flush();
         if let Ok(mut i) = self.inner.lock() {
             i.queue.clear();
         }
@@ -354,7 +365,7 @@ mod tests {
     #[derive(Default)]
     struct Recorder {
         done: Mutex<Option<MakeState>>,
-        shown: Mutex<u32>,
+        made: Mutex<Vec<Done>>,
         on_progress: Mutex<Option<OnProgress>>,
     }
 
@@ -367,8 +378,8 @@ mod tests {
         fn done(&self, s: &MakeState) {
             *self.done.lock().unwrap() = Some(s.clone());
         }
-        fn some_made(&self) {
-            *self.shown.lock().unwrap() += 1;
+        fn made(&self, done: &[Done]) {
+            self.made.lock().unwrap().extend_from_slice(done);
         }
     }
 
@@ -396,7 +407,9 @@ mod tests {
             assert!(both(f.job.previews_nas.as_ref().unwrap(), p), "{p} on the NAS");
         }
         assert!(!both(&f.job.previews, "2019/05/a/nowhere.mp4"));
-        assert_eq!(*sink.shown.lock().unwrap(), 1);
+        let mut made: Vec<_> = sink.made.lock().unwrap().iter().map(|d| (d.path.clone(), d.month.clone())).collect();
+        made.sort();
+        assert_eq!(made, vec![("2019/05/a/nas.mp4".to_string(), "2019/05".to_string()), ("2026/07/a/local.mp4".into(), "2026/07".into())]);
         // the record has both; the one without an original is tried again next time
         let again = run(&f, &MakeRunner::default()).0;
         assert_eq!((again.total, again.skipped), (1, 1));

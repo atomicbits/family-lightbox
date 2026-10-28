@@ -179,6 +179,26 @@ fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Resu
     Ok(out)
 }
 
+/// Sets the preview flag of these paths in the index, for previews made since the last build
+/// (F012/S04), so the grid shows them without a rebuild. A build running meanwhile replaces the
+/// file; it reads the previews folder itself, so it misses at most the ones made during it, until
+/// the next build.
+pub fn mark_previews(target: &Path, paths: &[&str]) -> Result<usize, String> {
+    let err = |e: rusqlite::Error| format!("index bijwerken mislukt: {e}");
+    let mut conn = Connection::open_with_flags(target, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(err)?;
+    conn.busy_timeout(std::time::Duration::from_secs(3)).map_err(err)?;
+    let tx = conn.transaction().map_err(err)?;
+    let mut n = 0;
+    {
+        let mut stmt = tx.prepare("UPDATE items SET preview = 1 WHERE path = ?1 AND preview = 0").map_err(err)?;
+        for p in paths {
+            n += stmt.execute([p]).map_err(err)?;
+        }
+    }
+    tx.commit().map_err(err)?;
+    Ok(n)
+}
+
 /// What the manifests look like now: their paths, sizes and modification times. A sync keeps the
 /// NAS's time on a copied manifest, which can be older than the index, so comparing with the
 /// index's own time wouldn't do.
@@ -544,5 +564,18 @@ mod tests {
         assert!(s.error.unwrap().starts_with("werkkopie niet gevonden"));
         assert_eq!(s.outcome.unwrap().items, 5);
         assert_eq!(s.builds, 2);
+    }
+
+    #[test]
+    fn marking_previews_sets_their_flag_without_a_rebuild() {
+        let f = fixture();
+        build(&f.library, &f.previews, &f.target).unwrap();
+        let scan = "2012/scans Peter/scan1.tif";
+        let db = Db::open(&f.target).unwrap();
+        assert_eq!(db.missing_previews().unwrap(), 1);
+        assert_eq!(mark_previews(&f.target, &[scan, "2026/07/not-indexed.JPG"]).unwrap(), 1);
+        assert_eq!(mark_previews(&f.target, &[scan]).unwrap(), 0);
+        assert!(db.items("2012/scans Peter").unwrap().iter().all(|i| i.preview));
+        assert_eq!(db.missing_previews().unwrap(), 0);
     }
 }

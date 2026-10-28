@@ -46,7 +46,8 @@ can be paused and continues after a restart.
 - **The workers** take the next preview from a shared queue, so *focus* can put another month
   first at any moment. Their threads run at macOS's *utility* priority.
 - **The grid**: while it runs, the index is rebuilt at most every 2 minutes when previews were
-  made, and once at the end, so they show while the rest is made (S04 makes this immediate).
+  made, and once at the end, so they show while the rest is made. S04 replaced this with a flag
+  per preview.
 - **Pause** is kept in `familylightbox-state.json` (`previews_paused`).
 - **A failure** is recorded only when the original is still readable afterwards; when the NAS
   went away while reading, it counts as skipped and is tried again next time.

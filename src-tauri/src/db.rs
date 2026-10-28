@@ -80,6 +80,13 @@ impl Db {
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
     }
 
+    /// How many photos and videos have no preview on this Mac (F012/S04).
+    pub fn missing_previews(&self) -> Result<i64, String> {
+        self.conn
+            .query_row("SELECT count(*) FROM items WHERE kind IN ('photo', 'video') AND NOT preview", [], |r| r.get(0))
+            .map_err(|e| e.to_string())
+    }
+
     /// De foto's en video's van één maand, op opnametijd.
     pub fn items(&self, month: &str) -> Result<Vec<Item>, String> {
         let mut stmt = self

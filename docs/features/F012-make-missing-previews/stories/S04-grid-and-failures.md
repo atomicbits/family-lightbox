@@ -1,7 +1,7 @@
 # Story S04: The grid shows new previews as they are made; failures in the settings
 
 **Feature:** `F012-make-missing-previews`
-**Status:** Planned
+**Status:** In progress: built and tested; to check in the app during the first real run
 **Depends on:** S03
 
 ## Goal
@@ -20,15 +20,32 @@ reload. What couldn't be made is listed in the settings, with a way to try again
 
 ## How
 
-- An event per finished preview (path), batched to a few per second; the grid updates the tiles
-  it shows.
+- The job collects what it made or copied and hands it over with each progress event (every
+  200 ms): `MakeSink::made(&[Done])`, with path and month. The app sets their flag with
+  `index::mark_previews` (an `UPDATE` on the app's own index) and emits `previews-made`; the grid
+  marks the items in its cache (`markMade`) and the month counts (`addToMonths`). This replaces
+  S03's rebuild every 2 minutes; one rebuild still follows a run that made something.
+- A build running at the same moment replaces the index file and may miss the previews made
+  during it; the next build has them.
+- `previews_overview` (missing from the index, failures from the record) and `previews_retry`
+  (clears the failures and starts making) for the settings.
 - Deliberately not done here: making previews in a separate process or on another Mac.
 
 ## Files affected
 
-- `src-tauri/src/db.rs`, `src-tauri/src/previews_job.rs`, `src/App.tsx`, the grid and
-  `src/components/Settings.tsx`.
+- `src-tauri/src/db.rs`, `src-tauri/src/index.rs`, `src-tauri/src/previews_plan.rs`,
+  `src-tauri/src/previews_job.rs`, `src-tauri/src/lib.rs`, `src/lib/previews.ts` and its tests,
+  `src/App.tsx`, `src/components/Settings.tsx`.
 
 ## Progress log
 
 ### [2026-10-28] Written
+
+### [2026-10-28] Built
+
+- `cargo test`: the flag set without a rebuild and the missing count (`index`), the failures
+  listed and cleared (`previews_plan`), the batches with path and month (`previews_job`); 100 Rust
+  tests, clippy clean. `pnpm test`: `markMade`, `addToMonths` and `missingText`; 57 tests.
+  `pnpm build` clean.
+- Still to check in the app, during Peter's first real run: tiles of the month on screen filling
+  in, the counts in the settings, *Opnieuw proberen*.

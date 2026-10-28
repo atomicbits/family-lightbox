@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { Item, MonthSummary } from "./api";
 import { count } from "./sync";
 
 export type MakeState = {
@@ -17,6 +18,39 @@ export type MakeState = {
   nas_failed: number;
   message: string | null;
 };
+
+/** A preview that is there now, with the month the grid shows it under (F012/S04). */
+export type Done = { path: string; month: string };
+
+/** For the settings: photos and videos without a preview on this Mac, and what failed. */
+export type Overview = { missing: number; failed: { path: string; error: string }[] };
+
+/** The items of a month with these previews marked, or null when none of them is in it. */
+export function markMade(items: Item[], paths: Set<string>): Item[] | null {
+  let changed = false;
+  const next = items.map((i) => {
+    if (i.preview || !paths.has(i.path)) return i;
+    changed = true;
+    return { ...i, preview: true };
+  });
+  return changed ? next : null;
+}
+
+/** The month counts with these previews added. */
+export function addToMonths(months: MonthSummary[], done: Done[]): MonthSummary[] {
+  const per = new Map<string, number>();
+  for (const d of done) per.set(d.month, (per.get(d.month) ?? 0) + 1);
+  return months.map((m) => {
+    const n = per.get(m.month);
+    return n ? { ...m, previews: Math.min(m.photos + m.videos, m.previews + n) } : m;
+  });
+}
+
+/** "85 874 foto's en video's zonder preview" or that all are there. */
+export function missingText(o: Overview): string {
+  if (o.missing === 0) return "alle foto's en video's hebben een preview";
+  return `${count(o.missing)} ${o.missing === 1 ? "foto of video" : "foto's en video's"} zonder preview`;
+}
 
 export type PreviewsLine = {
   text: string;
@@ -44,6 +78,9 @@ export type Previews = {
   resume: () => Promise<void>;
   /** The month at the top of the grid goes first. */
   focus: (month: string | null) => void;
+  overview: () => Promise<Overview>;
+  /** Forget the failures and make them again; returns how many. */
+  retry: () => Promise<number>;
 };
 
 export function usePreviews(): Previews {
@@ -63,5 +100,8 @@ export function usePreviews(): Previews {
   const resume = useCallback(async () => { await invoke("previews_resume"); await refresh(); }, [refresh]);
   const focus = useCallback((month: string | null) => { invoke("previews_focus", { month }).catch(() => {}); }, []);
 
-  return { state, line: previewsLine(state), pause, resume, focus };
+  const overview = useCallback(() => invoke<Overview>("previews_overview"), []);
+  const retry = useCallback(() => invoke<number>("previews_retry"), []);
+
+  return { state, line: previewsLine(state), pause, resume, focus, overview, retry };
 }

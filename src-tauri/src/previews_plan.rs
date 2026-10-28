@@ -61,6 +61,12 @@ pub struct Plan {
     pub millis: u64,
 }
 
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct Failure {
+    pub path: String,
+    pub error: String,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 struct Entry {
     hash: String,
@@ -119,6 +125,17 @@ impl Record {
     /// Making the preview of `path` from `hash` failed; not tried again until the hash changes.
     pub fn failed(&mut self, path: &str, hash: &str, error: &str) -> Result<(), String> {
         self.put(&[(path, hash, Some(error))])
+    }
+
+    /// What failed, with its error, by path.
+    pub fn failures(&self) -> Result<Vec<Failure>, String> {
+        let err = |e: rusqlite::Error| format!("previewregister lezen mislukt: {e}");
+        let mut stmt = self
+            .conn
+            .prepare("SELECT path, error FROM previews WHERE error IS NOT NULL ORDER BY path")
+            .map_err(err)?;
+        let rows = stmt.query_map([], |r| Ok(Failure { path: r.get(0)?, error: r.get(1)? })).map_err(err)?;
+        rows.collect::<Result<_, _>>().map_err(err)
     }
 
     /// Forget the failures, so they are tried again (by hand, S04).
@@ -410,8 +427,10 @@ mod tests {
         let f = fixture(&[("2026/07/a/x.JPG", Some("2026/07"), "h")]);
         let mut rec = Record::open(&f.record).unwrap();
         rec.failed("2026/07/a/x.JPG", "h", "kapot").unwrap();
+        assert_eq!(rec.failures().unwrap(), vec![Failure { path: "2026/07/a/x.JPG".into(), error: "kapot".into() }]);
         assert_eq!(plan(&f.index, &mut rec, &f.previews, None, None).unwrap().counts.failed, 1);
         assert_eq!(rec.clear_failures().unwrap(), 1);
+        assert!(rec.failures().unwrap().is_empty());
         assert_eq!(plan(&f.index, &mut rec, &f.previews, None, None).unwrap().counts.make, 1);
     }
 }

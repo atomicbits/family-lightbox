@@ -287,11 +287,41 @@ impl previews_job::MakeSink for EventSink {
     }
     fn done(&self, state: &previews_job::MakeState) {
         let _ = self.0.emit("previews-done", state);
+        // the counts in the month list come from a build
+        if state.made + state.copied > 0 {
+            self.rebuild_index();
+        }
     }
-    fn some_made(&self) {
-        // the grid shows them once the index has them; the build runs on its own thread
-        self.rebuild_index();
+    fn made(&self, done: &[previews_job::Done]) {
+        // the flag in the index, then the grid (F012/S04); a missing index is built at the end anyway
+        let paths: Vec<&str> = done.iter().map(|d| d.path.as_str()).collect();
+        if index::mark_previews(&self.0.state::<Paths>().index(), &paths).is_ok() {
+            let _ = self.0.emit("previews-made", done);
+        }
     }
+}
+
+#[derive(serde::Serialize)]
+pub struct PreviewsOverview {
+    /// Photos and videos without a preview on this Mac.
+    pub missing: i64,
+    pub failed: Vec<previews_plan::Failure>,
+}
+
+/// For the settings: how many previews are missing and what failed (F012/S04).
+#[tauri::command]
+fn previews_overview(paths: State<Paths>) -> Result<PreviewsOverview, String> {
+    let missing = Db::open(&paths.index())?.missing_previews()?;
+    let failed = previews_plan::Record::open(&paths.config.join(previews_plan::RECORD_FILE))?.failures()?;
+    Ok(PreviewsOverview { missing, failed })
+}
+
+/// Try the failures again: forget them and start making.
+#[tauri::command]
+fn previews_retry(app: tauri::AppHandle, paths: State<Paths>) -> Result<usize, String> {
+    let n = previews_plan::Record::open(&paths.config.join(previews_plan::RECORD_FILE))?.clear_failures()?;
+    start_making(&app);
+    Ok(n)
 }
 
 #[cfg(target_os = "macos")]
@@ -487,7 +517,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            previews_status, previews_pause, previews_resume, previews_focus,
+            previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

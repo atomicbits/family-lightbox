@@ -5,8 +5,9 @@ import type { Sync } from "../lib/sync";
 import { outcomeText, type Index } from "../lib/indexer";
 import { hostProblem, shareProblem } from "../lib/device";
 import type { Update } from "../lib/update";
+import { missingText, type Overview, type Previews } from "../lib/previews";
 
-type Props = { device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; onClose: () => void };
+type Props = { device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; previews: Previews; onClose: () => void };
 
 const SHARE_LABELS: [keyof Shares, string][] = [
   ["library", "Originelen"],
@@ -16,7 +17,13 @@ const SHARE_LABELS: [keyof Shares, string][] = [
 ];
 
 /** Settings panel: the device (read-only) and the NAS host and share names (editable). */
-export default function Settings({ device, nas, sync, index, update, onClose }: Props) {
+export default function Settings({ device, nas, sync, index, update, previews, onClose }: Props) {
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [previewsError, setPreviewsError] = useState<string | null>(null);
+  const making = previews.state?.running ?? false;
+  const loadOverview = () => previews.overview().then(setOverview).catch((e) => setPreviewsError(String(e)));
+  // again when a run ends, so the counts and failures are current
+  useEffect(() => { if (!making) loadOverview(); }, [making]);
   const [state, setState] = useState<SettingsState | null>(null);
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -90,6 +97,34 @@ export default function Settings({ device, nas, sync, index, update, onClose }: 
           </div>
           {index.state?.outcome && <div className="text-neutral-500">{outcomeText(index.state.outcome)}</div>}
           {index.line?.tone === "amber" && <div className="text-amber-600 whitespace-pre-wrap">{index.line.title ?? index.line.text}</div>}
+        </section>
+
+        <section className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">Previews</h3>
+            <span className="flex-1" />
+            <button
+              className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
+              disabled={!overview || overview.failed.length === 0}
+              title="de mislukte previews opnieuw proberen te maken"
+              onClick={() => previews.retry().then(loadOverview).catch((e) => setPreviewsError(String(e)))}
+            >
+              Opnieuw proberen
+            </button>
+          </div>
+          {overview && <div className="text-neutral-500">{missingText(overview)}</div>}
+          {previews.line && <div className="text-neutral-500">{previews.line.text}</div>}
+          {overview && overview.failed.length > 0 && (
+            <>
+              <div className="text-amber-600">{overview.failed.length} mislukt:</div>
+              <ul className="max-h-32 overflow-auto text-xs font-mono text-neutral-500 space-y-0.5">
+                {overview.failed.map((f) => (
+                  <li key={f.path} title={f.error}>{f.path}: {f.error}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {previewsError && <div className="text-amber-600">{previewsError}</div>}
         </section>
 
         <section className="space-y-2">
