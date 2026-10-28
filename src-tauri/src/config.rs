@@ -109,6 +109,8 @@ pub const STATE_FILE: &str = "familylightbox-state.json";
 pub struct AppState {
     /// When a full previews pass was first confirmed on this Mac.
     pub previews_confirmed_at: Option<String>,
+    /// Making previews was paused by hand (F012/S03); stays paused until resumed.
+    pub previews_paused: bool,
 }
 
 /// The state, or the default when it is missing or broken (a broken file is left alone).
@@ -269,7 +271,7 @@ mod tests {
     fn state_file_round_trip_and_broken_file() {
         let dir = tempfile::tempdir().unwrap();
         assert_eq!(load_state(dir.path()), AppState::default());
-        let st = AppState { previews_confirmed_at: Some("2026-10-26T23:00:00+01:00".into()) };
+        let st = AppState { previews_confirmed_at: Some("2026-10-26T23:00:00+01:00".into()), ..Default::default() };
         save_state(dir.path(), &st).unwrap();
         assert_eq!(load_state(dir.path()), st);
         assert!(!dir.path().join(format!("{STATE_FILE}.tmp")).exists());

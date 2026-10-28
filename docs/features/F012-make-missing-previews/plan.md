@@ -1,6 +1,6 @@
 # Feature 12: Make missing previews in the app
 
-**Status:** In progress (plan accepted 2026-10-28, before feature 3; S01 and S02 done)
+**Status:** In progress (plan accepted 2026-10-28, before feature 3; S01 and S02 done, S03 built)
 **Depends on:** Feature 6 (the NAS shares), feature 7 (sync), feature 8 (the index knows which previews are missing)
 **Folder:** `F012-make-missing-previews`
 
@@ -92,7 +92,7 @@ The CLI's `media previews` gets no new features; it stays as it is until this fe
 |---|---|---|---|
 | [S01](stories/S01-make-one-preview.md) | Make one preview and thumbnail natively (ImageIO, AVFoundation) by data contract 4, compared with the CLI's | Done | — |
 | [S02](stories/S02-what-is-missing.md) | The plan: what is missing or outdated, the app's own record of hashes, adopting existing previews | Done | S01 |
-| [S03](stories/S03-background-job.md) | The background job: from the local copy or the NAS, to the local folder and the NAS, the progress line, pause, resume | Planned | S02 |
+| [S03](stories/S03-background-job.md) | The background job: from the local copy or the NAS, to the local folder and the NAS, the progress line, pause, resume | In progress: built, run on real data owed | S02 |
 | [S04](stories/S04-grid-and-failures.md) | The grid picks up new previews as they are made; failures in the settings | Planned | S03 |
 
 ## Decisions

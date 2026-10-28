@@ -426,7 +426,7 @@ mod tests {
         for y in ["2022", "2023", "2024"] {
             put(pv_r, &format!("{y}/07/a.JPG.jpg"), "a");
         }
-        config::save_state(cfg, &config::AppState { previews_confirmed_at: Some("2026-10-27T08:00:00+01:00".into()) }).unwrap();
+        config::save_state(cfg, &config::AppState { previews_confirmed_at: Some("2026-10-27T08:00:00+01:00".into()), ..Default::default() }).unwrap();
         let rec = Arc::new(Recorder::default());
         SyncRunner::default().start(Kind::Previews, false, jobs(lib_r, lib_l, pv_r, pv_l, cfg), rec.clone()).unwrap().join().unwrap();
         let ev = rec.events.lock().unwrap();

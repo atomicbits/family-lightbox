@@ -13,6 +13,8 @@ import SyncLine from "./components/SyncLine";
 import UpdateLine from "./components/UpdateLine";
 import { useUpdate } from "./lib/update";
 import ConfirmPreviews from "./components/ConfirmPreviews";
+import PreviewsLine from "./components/PreviewsLine";
+import { usePreviews } from "./lib/previews";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
 import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
 import { moveAcross, type Sel, type Section } from "./lib/timeline";
@@ -33,6 +35,7 @@ export default function App() {
   const sync = useSync();
   const index = useIndex();
   const update = useUpdate();
+  const previews = usePreviews();
   const [confirming, setConfirming] = useState(false);
   const [cols, setCols] = useState(1);
   const [tile, setTile] = useState(loadTile);
@@ -173,6 +176,11 @@ export default function App() {
   const topSection = sections[top];
   const lastSection = sections.length - 1;
 
+  // The month on screen gets its previews first (F012/S03).
+  const topMonth = topSection?.month ?? null;
+  const focusPreviews = previews.focus;
+  useEffect(() => { focusPreviews(topMonth); }, [topMonth, focusPreviews]);
+
   return (
     <div className="relative h-full flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       <header className="flex items-center gap-3 px-4 h-10 border-b border-neutral-200 dark:border-neutral-800 text-sm">
@@ -213,6 +221,7 @@ export default function App() {
         )}
         <UpdateLine update={update} syncing={!!sync.state?.running} />
         {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
+        <PreviewsLine previews={previews} />
         {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
         <button
           className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"

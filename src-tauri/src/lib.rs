@@ -9,6 +9,8 @@ mod mounts;
 mod nas;
 #[cfg(target_os = "macos")]
 pub mod preview;
+#[cfg(target_os = "macos")]
+pub mod previews_job;
 pub mod previews_plan;
 mod pull;
 mod runner;
@@ -219,6 +221,8 @@ impl runner::Sink for EventSink {
         // What came in only shows in the grid once the index has it (F008/S02).
         if state.manifests_copied > 0 || state.previews_copied > 0 {
             self.rebuild_index();
+        } else {
+            start_making(&self.0);
         }
     }
     fn year_copied(&self) {
@@ -237,7 +241,91 @@ impl EventSink {
 impl index::IndexSink for EventSink {
     fn done(&self, state: &index::IndexState) {
         let _ = self.0.emit("index-done", state);
+        // the index is current now: make what is missing (F012/S03)
+        start_making(&self.0);
     }
+}
+
+/// The job that makes missing previews, for the current mounts (F012/S03).
+#[cfg(target_os = "macos")]
+fn make_job(paths: &Paths) -> previews_job::MakeJob {
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let chosen = |list: &[mounts::Mount]| mounts::NasMounts::chosen(list).map(|m| PathBuf::from(&m.mount_point));
+    previews_job::MakeJob {
+        index: paths.index(),
+        record: paths.config.join(previews_plan::RECORD_FILE),
+        previews: paths.previews.clone(),
+        library: paths.library.clone(),
+        library_nas: chosen(&found.library),
+        previews_nas: chosen(&found.previews),
+        workers: previews_job::default_workers(),
+    }
+}
+
+/// Start making previews, unless a sync or an index build runs, an update installs, or it is
+/// paused or running already.
+fn start_making(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let busy = app.state::<runner::SyncRunner>().status().running
+            || app.state::<index::IndexRunner>().status().running
+            || app.state::<update::UpdateState>().installing();
+        if !busy {
+            let job = make_job(&app.state::<Paths>());
+            app.state::<previews_job::MakeRunner>().start(job, Arc::new(EventSink(app.clone())));
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+}
+
+#[cfg(target_os = "macos")]
+impl previews_job::MakeSink for EventSink {
+    fn progress(&self, state: &previews_job::MakeState) {
+        let _ = self.0.emit("previews-progress", state);
+    }
+    fn done(&self, state: &previews_job::MakeState) {
+        let _ = self.0.emit("previews-done", state);
+    }
+    fn some_made(&self) {
+        // the grid shows them once the index has them; the build runs on its own thread
+        self.rebuild_index();
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn previews_status(runner: State<previews_job::MakeRunner>) -> previews_job::MakeState {
+    runner.status()
+}
+
+/// Pause making previews; it stays paused after a restart until resumed.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn previews_pause(paths: State<Paths>, runner: State<previews_job::MakeRunner>) -> Result<(), String> {
+    runner.stop(true);
+    let mut state = config::load_state(&paths.config);
+    state.previews_paused = true;
+    config::save_state(&paths.config, &state)
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn previews_resume(app: tauri::AppHandle, paths: State<Paths>, runner: State<previews_job::MakeRunner>) -> Result<(), String> {
+    let mut state = config::load_state(&paths.config);
+    state.previews_paused = false;
+    config::save_state(&paths.config, &state)?;
+    runner.set_paused(false);
+    start_making(&app);
+    Ok(())
+}
+
+/// The month at the top of the grid goes first.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn previews_focus(month: Option<String>, runner: State<previews_job::MakeRunner>) {
+    runner.focus(month);
 }
 
 /// Rebuild the index in the background; with `only_if_stale`, only when a manifest changed since
@@ -283,6 +371,9 @@ fn sync_start(
     if update.installing() {
         return Err("de app wordt bijgewerkt en herstart zo".into());
     }
+    // no previews are made during a sync; they start again after it (F012/S03)
+    #[cfg(target_os = "macos")]
+    app.state::<previews_job::MakeRunner>().stop(false);
     let kind = match kind.as_str() {
         "all" => runner::Kind::All,
         "previews" => runner::Kind::Previews,
@@ -377,12 +468,18 @@ pub fn run() {
             if let Some(main) = app.get_webview_window("main") {
                 window::restore(&main);
             }
+            #[cfg(target_os = "macos")]
+            {
+                let paused = config::load_state(&app.state::<Paths>().config).previews_paused;
+                app.state::<previews_job::MakeRunner>().set_paused(paused);
+            }
             Ok(())
         })
         .manage(paths())
         .manage(runner::SyncRunner::default())
         .manage(index::IndexRunner::default())
         .manage(update::UpdateState::default())
+        .manage(previews_job::MakeRunner::default())
         .register_uri_scheme_protocol("preview", move |_ctx, request| {
             preview_response(&previews_root, request.uri().path())
         })
@@ -390,6 +487,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
+            previews_status, previews_pause, previews_resume, previews_focus,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

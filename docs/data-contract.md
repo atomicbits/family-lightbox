@@ -27,7 +27,7 @@ The words **MUST**, **MUST NOT**, **SHOULD** and **MAY** are meant as in RFC 211
 | Share | Path on the NAS | Content | Who writes |
 |---|---|---|---|
 | `Library` | `/volume1/Library` | Originals and month manifests | laptops via `media push` |
-| `Previews` | `/volume1/Previews` | Derived JPEGs, same path structure | laptops via `media previews push` |
+| `Previews` | `/volume1/Previews` | Derived JPEGs, same path structure | laptops via `media previews push`, and FamilyLightbox when it makes a missing preview |
 | `Lists` | `/volume1/Lists` | Devices, event logs, summaries | app and CLI, directly |
 | `Exports` | `/volume1/Exports` | Output of collections | laptops via `media push` |
 
@@ -283,6 +283,7 @@ Exports are end products: never rewritten automatically, but pushed and synced t
 |---|---|
 | Laptop → NAS, bulk (`push`), with SSH | `rsync -a --partial --relative --chmod=Fgo+r,Dgo+rx` (the group must be able to read, section 2) with the exclusions of section 1, over SSH to `raven:/volume1/<share>/` (an SSH host alias, see below), per month (`./2026/07`), in two passes: first all originals with `--ignore-existing` (never overwrite, section 1), then only `*.xmp` without that flag (Lightroom sidecars may change). No `--delete`. Then read back the sizes on the NAS and write the manifest. |
 | Laptop → NAS, bulk (`push`), without SSH | The same rsync to the SMB mount `/Volumes/<share>/` instead of `raven:`, with `--whole-file` (delta transfer makes no sense over SMB). Slower, but the same result and the same manifest. The CLI chooses this path if the target is a plain path instead of `host:path`. |
+| Laptop → NAS, previews by the app (FamilyLightbox F012) | Each preview the app makes is copied to the `Previews` share right away, thumbnail first, each through a temporary name `<name>.<process id>.tmp` and a rename, so another Mac never reads a half-written file. Before making one, the app looks on the share: one that is there already is copied instead. Nothing is deleted. |
 | Laptop → NAS, previews (`previews push`) | `rsync -a --partial --relative --prune-empty-dirs`, only `*.jpg`, without `--ignore-existing` (a preview may be renewed when the original changed), no `--delete`, to `raven:/volume1/Previews/` per month. |
 | NAS → laptop, bulk (`pull`) | The same rsync, in the other direction, in three passes per readable year folder (a year folder this user may not read is skipped silently): (1) all `.manifest.json`, also of years without originals, with `--update`; (2) all `*.jpg` from `Previews`, with `--update` (a newer local preview stays); (3) originals of the last 18 months with `--ignore-existing`, without camera video (`mp4 360 insv lrv thm`); later also the originals from lists. Beforehand a dry run with `--stats`: at least 20 GB must stay free after the pull. Then `media index`. |
 | One original on demand | The SMB share, mounted as `/Volumes/Library`; the app opens the path directly. |
@@ -329,6 +330,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 
 | Version | Date | What |
 |---|---|---|
+| 1.2 (addition) | 2026-10-28 | Sections 1 and 8: FamilyLightbox writes the previews it makes to the `Previews` share, through a temporary name and a rename (F012/S03). Manifest format unchanged. |
 | 1.2 (addition) | 2026-10-28 | Section 7: `familylightbox-previews.sqlite`, the app's own record of which hash each preview was made from (F012/S02). Not part of the contract. |
 | 1.2 (addition) | 2026-10-28 | Section 4: FamilyLightbox makes previews too (F012/S01, ImageIO and AVFoundation). The RAW rule allows the decoded RAW where the embedded JPEG is smaller than the preview; the video rule names the CLI's behavior under 2 s and the first-frame fallback. Manifest format unchanged. |
 | 1.2 (addition) | 2026-10-27 | Section 7: `familylightbox-index.sqlite`, the app's own index with the CLI's `items` and `folders` tables, written only by the app (F008/S01). Not part of the contract. |
