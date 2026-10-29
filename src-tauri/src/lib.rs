@@ -389,10 +389,13 @@ fn sync_jobs(paths: &Paths) -> runner::Jobs {
 
 /// Start a sync in the background: `kind` is "all" (manifests, then previews) or "previews"
 /// (after the confirmation dialog). Progress arrives as `sync-progress`, the end as `sync-done`.
+/// `at_launch` is the window's own sync at start: only once per process, so reloading the window
+/// (⌘R, or the dev server) doesn't sync again and interrupt the previews being made.
 #[tauri::command]
 fn sync_start(
     kind: String,
     confirmed: bool,
+    at_launch: Option<bool>,
     app: tauri::AppHandle,
     paths: State<Paths>,
     runner: State<runner::SyncRunner>,
@@ -400,6 +403,9 @@ fn sync_start(
 ) -> Result<(), String> {
     if update.installing() {
         return Err("de app wordt bijgewerkt en herstart zo".into());
+    }
+    if at_launch == Some(true) && !runner.first_launch() {
+        return Ok(());
     }
     // no previews are made during a sync; they start again after it (F012/S03)
     #[cfg(target_os = "macos")]

@@ -155,11 +155,18 @@ struct Inner {
 pub struct SyncRunner {
     inner: Arc<Mutex<Inner>>,
     cancel: Arc<AtomicBool>,
+    /// The sync at launch ran in this process; a reloaded window doesn't start it again.
+    launched: Arc<AtomicBool>,
 }
 
 impl SyncRunner {
     pub fn status(&self) -> SyncState {
         self.inner.lock().map(|i| i.state.clone()).unwrap_or_default()
+    }
+
+    /// True the first time only: whether this is the sync at launch.
+    pub fn first_launch(&self) -> bool {
+        !self.launched.swap(true, Ordering::Relaxed)
     }
 
     pub fn cancel(&self) {
@@ -433,6 +440,14 @@ mod tests {
         assert_eq!(ev.last(), Some(&("done", Phase::Done)));
         // 2022 done when 2023 starts; 2023 done within 2 minutes is left to the rebuild after the sync
         assert_eq!(ev.iter().filter(|e| e.0 == "year").count(), 1);
+    }
+
+    #[test]
+    fn the_sync_at_launch_counts_once_per_process() {
+        let r = SyncRunner::default();
+        assert!(r.first_launch());
+        assert!(!r.first_launch());
+        assert!(!r.clone().first_launch(), "a clone shares it");
     }
 
     #[test]

@@ -104,7 +104,8 @@ export type Sync = {
   state: SyncState | null;
   /** The line to show (done and cancelled fade after a few seconds). */
   line: SyncLine | null;
-  start: (kind: "all" | "previews", confirmed: boolean) => Promise<void>;
+  /** `atLaunch`: the sync at start, which runs once per app process, not again after a reload. */
+  start: (kind: "all" | "previews", confirmed: boolean, atLaunch?: boolean) => Promise<void>;
   cancel: () => Promise<void>;
 };
 
@@ -126,8 +127,8 @@ export function useSync(): Sync {
     return () => { off.forEach((p) => p.then((f) => f())); if (timer.current) clearTimeout(timer.current); };
   }, []);
 
-  const start = useCallback(async (kind: "all" | "previews", confirmed: boolean) => {
-    await invoke("sync_start", { kind, confirmed });
+  const start = useCallback(async (kind: "all" | "previews", confirmed: boolean, atLaunch = false) => {
+    await invoke("sync_start", { kind, confirmed, atLaunch });
   }, []);
   const cancel = useCallback(async () => { await invoke("sync_cancel"); }, []);
 

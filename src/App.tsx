@@ -50,7 +50,7 @@ export default function App() {
     lastRefresh.current = Date.now();
     // Then sync from the NAS in the background, once Library is connected (F007/S05).
     nas.start().then((m) => {
-      if (m?.library.some((x) => x.chosen)) sync.start("all", false).catch(() => {});
+      if (m?.library.some((x) => x.chosen)) sync.start("all", false, true).catch(() => {});
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice]);
