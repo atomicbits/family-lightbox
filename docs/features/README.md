@@ -163,4 +163,4 @@ no folder yet.
 | 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
 | 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (S01–S03 done, S04 built) | 6, 7, 8 |
 | 13 | [Ratings and hearts](F013-ratings-and-hearts/plan.md): 1–5 stars shared, a heart per person, on the tiles; undo with a message, a button and ⌘Z | Done | 3 |
-| 14 | [Hiding photos](F014-hide-photos/plan.md): hide practical photos for both of us, from the right-click menu, with undo; show them per month or year until a restart | In progress (S01 done, S02–S03 built) | 13 |
+| 14 | [Hiding photos](F014-hide-photos/plan.md): hide practical photos for both of us, from the right-click menu, with undo; show them per month or year until a restart | In progress (S01 done, S02–S04 built) | 13 |

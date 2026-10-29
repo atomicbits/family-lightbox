@@ -25,7 +25,7 @@ export function groupByYear(months: MonthSummary[]): YearGroup[] {
     g.months.push(m);
     g.photos += m.photos;
     g.videos += m.videos;
-    g.hidden += m.hidden ?? 0;
+    if (!m.revealed) g.hidden += m.hidden ?? 0;
     groups.set(y, g);
   }
   return [...groups.values()].sort((a, b) => b.year.localeCompare(a.year));

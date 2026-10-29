@@ -20,7 +20,7 @@ import PhotoMenu from "./components/PhotoMenu";
 import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
 import { hideText, listText, skippedText, undoHeart, undoHide, undoList, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
-import { shownCount, visibleItems, withHidden } from "./lib/hidden";
+import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./lib/hidden";
 import UndoIcon from "./components/UndoIcon";
 import { changeText, marksBlocked, useMarks } from "./lib/marks";
 import MarksBar from "./components/MarksBar";
@@ -164,7 +164,13 @@ export default function App() {
       .then(setHiddenPerMonth)
       .catch(() => {});
   }, [hiddenRec, builds]);
-  const shownMonths = useMemo(() => withHidden(months, hiddenPerMonth), [months, hiddenPerMonth]);
+  // Months whose hidden photos are shown for now (F014/S04): only here, until a restart.
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const [monthMenu, setMonthMenu] = useState<{ x: number; y: number; kind: "year" | "month"; key: string } | null>(null);
+  const shownMonths = useMemo(
+    () => withRevealed(withHidden(months, hiddenPerMonth), revealed),
+    [months, hiddenPerMonth, revealed],
+  );
 
   // The library (or the list) as sections, newest month first, with their counts.
   // The same object while the months and their counts stay the same: new previews only change the
@@ -219,7 +225,7 @@ export default function App() {
   const itemsOf = (month: string) => {
     if (listId) return listView?.byMonth.get(month);
     const items = cache.current.get(month);
-    return items && visibleItems(items, hiddenRec);
+    return items && (revealed.has(month) ? items : visibleItems(items, hiddenRec));
   };
 
   // When photos are hidden or shown again (here or on the other Mac), keep the selection on the
@@ -242,7 +248,7 @@ export default function App() {
     const i = items.findIndex((x) => x.path === sp.path);
     setSelected(i >= 0 ? { section, index: i } : items.length ? { section, index: Math.min(selected?.index ?? 0, items.length - 1) } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hiddenRec, sections]);
+  }, [hiddenRec, sections, revealed]);
 
   useEffect(() => { if (selected) need([selected.section]); }, [selected, need]);
 
@@ -292,11 +298,11 @@ export default function App() {
         items = await api.items(month);
         cache.current.set(month, items);
       }
-      if (!listId) items = visibleItems(items, hiddenRec);
+      if (!listId && !revealed.has(month)) items = visibleItems(items, hiddenRec);
       if (items[index]) out.push(items[index]);
     }
     return out;
-  }, [sections, listId, listView, hiddenRec]);
+  }, [sections, listId, listView, hiddenRec, revealed]);
 
   // Stars and hearts for the selection (F013/S03): the picked tiles, or the selected one.
   const me = device?.device?.owner ?? null;
@@ -504,14 +510,14 @@ export default function App() {
         const m = await api.months();
         const items = anchor ? await api.items(anchor.month).catch(() => undefined) : undefined;
         if (gen !== generation.current) return;
-        const next = toSections(withHidden(m, hiddenPerMonth));
+        const next = toSections(withRevealed(withHidden(m, hiddenPerMonth), revealed));
         cache.current = new Map(anchor && items ? [[anchor.month, items]] : []);
         inFlight.current.clear();
         setError(null);
         setWaitingForIndex(false);
         setMonths(m);
         setReneed((n) => n + 1);
-        setSelected(reselect(anchor, next, items && visibleItems(items, hiddenRec)));
+        setSelected(reselect(anchor, next, items && (anchor && revealed.has(anchor.month) ? items : visibleItems(items, hiddenRec))));
         setPicked(new Set());
         const t = next.findIndex((x) => x.month === topMonth);
         if (t >= 0 && t !== top) setJump({ section: t, nonce: Date.now() });
@@ -615,6 +621,7 @@ export default function App() {
               <MonthList
                 months={shownMonths}
                 selected={listId ? null : topSection?.month ?? null}
+                onMenu={(kind, key, x, y) => setMonthMenu({ kind, key, x, y })}
                 onSelect={(m) => {
                   if (listId) {
                     pendingMonth.current = m;
@@ -653,7 +660,7 @@ export default function App() {
               marked={listId ? lists.members : null}
               marks={marks.state}
               me={device?.device?.owner ?? null}
-              dimHidden={!!listId}
+              dimHidden
             />
           </main>
           {open && selected && (current ? (
@@ -721,6 +728,33 @@ export default function App() {
         </button>
       </footer>
       {toast && <Toast text={toast.text} onUndo={toast.undoable ? doUndo : null} onClose={() => setToast(null)} />}
+      {monthMenu && (() => {
+        const ms = shownMonths.filter((m) => (monthMenu.kind === "year" ? yearOf(m.month) === monthMenu.key : m.month === monthMenu.key));
+        const hidden = ms.reduce((n, m) => n + (m.hidden ?? 0), 0);
+        const shown = ms.length > 0 && ms.filter((m) => m.hidden).every((m) => m.revealed) && hidden > 0;
+        const keys = ms.map((m) => m.month);
+        return (
+          <PhotoMenu
+            x={monthMenu.x}
+            y={monthMenu.y}
+            what={monthMenu.kind === "year" ? monthMenu.key : `${monthLabel(monthMenu.key)} ${yearOf(monthMenu.key)}`}
+            lists={[]}
+            blocked={null}
+            onAddTo={() => {}}
+            onClose={() => setMonthMenu(null)}
+            actions={[
+              shown
+                ? { label: "Verborgen foto's weer verbergen", run: () => setRevealed((r) => toggled(r, keys, false)) }
+                : {
+                    label: `Verborgen foto's tonen (${hidden})`,
+                    disabled: hidden === 0,
+                    title: hidden === 0 ? "hier is niets verborgen" : "tijdelijk, tot de app herstart",
+                    run: () => setRevealed((r) => toggled(r, keys, true)),
+                  },
+            ]}
+          />
+        );
+      })()}
       {menu && (
         <PhotoMenu
           x={menu.x}

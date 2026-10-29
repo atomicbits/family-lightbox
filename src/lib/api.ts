@@ -9,6 +9,8 @@ export type MonthSummary = {
   local: number;
   /** How many of its photos and videos are hidden (F014/S02); set by the app, not the index. */
   hidden?: number;
+  /** Its hidden photos are shown for now (F014/S04). */
+  revealed?: boolean;
 };
 
 export type Item = {
