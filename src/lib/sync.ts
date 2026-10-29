@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 export type SyncPhase =
-  | "idle" | "manifests" | "counting" | "awaiting_confirmation" | "copying" | "done" | "cancelled" | "failed";
+  | "idle" | "manifests" | "lists" | "counting" | "awaiting_confirmation" | "copying" | "done" | "cancelled" | "failed";
 
 export type PreviewsSummary = {
   copy_files: number;
@@ -27,6 +27,7 @@ export type SyncState = {
   bytes_total: number;
   summary: PreviewsSummary | null;
   manifests_copied: number;
+  lists_copied: number;
   manifests_changed: string[];
   previews_copied: number;
   previews_bytes: number;
@@ -73,6 +74,8 @@ export function syncLine(s: SyncState | null): SyncLine | null {
   switch (s.phase) {
     case "manifests":
       return { ...base, text: s.files_total > 0 ? `manifesten ${count(s.files_done)}/${count(s.files_total)}` : `manifesten ${count(s.files_done)}`, cancellable: true };
+    case "lists":
+      return { ...base, text: "lijsten…", cancellable: true };
     case "counting":
       return { ...base, text: `previews tellen… ${s.folder.split("/").slice(0, 2).join("/")}`.trimEnd(), cancellable: true };
     case "copying":
@@ -88,9 +91,10 @@ export function syncLine(s: SyncState | null): SyncLine | null {
     case "cancelled":
       return { ...base, text: "geannuleerd" };
     case "done": {
-      if (s.manifests_copied === 0 && s.previews_copied === 0) return null;
+      if (s.manifests_copied === 0 && s.lists_copied === 0 && s.previews_copied === 0) return null;
       const parts = [
         s.manifests_copied > 0 && `${count(s.manifests_copied)} ${s.manifests_copied === 1 ? "manifest" : "manifesten"}`,
+        s.lists_copied > 0 && "lijsten",
         s.previews_copied > 0 && `${count(s.previews_copied)} previews`,
       ].filter(Boolean);
       return { ...base, text: `bijgewerkt: ${parts.join(", ")}` };

@@ -17,6 +17,7 @@ pub enum Phase {
     #[default]
     Idle,
     Manifests,
+    Lists,
     Counting,
     AwaitingConfirmation,
     Copying,
@@ -37,6 +38,8 @@ pub struct SyncState {
     /// The previews count, once there is one.
     pub summary: Option<PreviewsSummary>,
     pub manifests_copied: u64,
+    /// Files copied from `Lists` (F003/S01).
+    pub lists_copied: u64,
     pub manifests_changed: Vec<String>,
     pub previews_copied: u64,
     pub previews_bytes: u64,
@@ -134,6 +137,8 @@ pub enum Kind {
 /// The two jobs for this Mac, or why one can't run (a share not connected).
 pub struct Jobs {
     pub manifests: Result<Job, String>,
+    /// Without the `Lists` share this pass is skipped.
+    pub lists: Result<Job, String>,
     pub previews: Result<Job, String>,
     pub config_dir: PathBuf,
     pub free: fn(&Path) -> Option<u64>,
@@ -242,6 +247,22 @@ impl SyncRunner {
             }
             if let Some(e) = out.error {
                 return self.finish(sink, Phase::Failed, Some(e));
+            }
+            if let Ok(job) = &jobs.lists {
+                let s = self.update(|s| s.phase = Phase::Lists);
+                sink.progress(&s);
+                // the lists are small; a failure here doesn't stop the previews
+                match sync::plan(job, &mut |p| report(Phase::Lists, p), &self.cancel) {
+                    Ok(plan) => {
+                        let r = sync::execute(job, &plan, &mut |p| report(Phase::Lists, p), &self.cancel);
+                        self.update(|s| s.lists_copied = r.copied_missing + r.copied_newer + r.copied_changed);
+                        if r.cancelled {
+                            return self.finish(sink, Phase::Cancelled, None);
+                        }
+                    }
+                    Err(sync::Stop::Cancelled) => return self.finish(sink, Phase::Cancelled, None),
+                    Err(sync::Stop::Failed(_)) => {}
+                }
             }
         }
 
@@ -385,10 +406,29 @@ mod tests {
     fn jobs(lib_r: &Path, lib_l: &Path, pv_r: &Path, pv_l: &Path, cfg: &Path) -> Jobs {
         Jobs {
             manifests: Ok(Job { remote: lib_r.into(), local: lib_l.into(), filter: pull::is_manifest, only: None, max_depth: Some(2) }),
+            lists: Err("niet verbonden".into()),
             previews: Ok(Job { remote: pv_r.into(), local: pv_l.into(), filter: pull::is_preview, only: None, max_depth: None }),
             config_dir: cfg.into(),
             free: plenty,
         }
+    }
+
+    #[test]
+    fn the_lists_are_copied_after_the_manifests() {
+        let d: Vec<_> = (0..7).map(|_| tempfile::tempdir().unwrap()).collect();
+        let (lib_r, lib_l, pv_r, pv_l, cfg, li_r, li_l) =
+            (d[0].path(), d[1].path(), d[2].path(), d[3].path(), d[4].path(), d[5].path(), d[6].path());
+        put(li_r, "devices.json", "{}");
+        put(li_r, "events/mbp-lynn.jsonl", "x\n");
+        put(li_r, "2026/ski.json", "{}");
+        put(li_r, "devices.json.tmp-mbp-lynn", "{}");
+        let mut j = jobs(lib_r, lib_l, pv_r, pv_l, cfg);
+        j.lists = Ok(Job { remote: li_r.into(), local: li_l.into(), filter: crate::lists::is_lists_file, only: None, max_depth: Some(1) });
+        let r = SyncRunner::default();
+        r.start(Kind::All, false, j, Arc::new(Recorder::default())).unwrap().join().unwrap();
+        assert_eq!(r.status().lists_copied, 3);
+        assert!(li_l.join("events/mbp-lynn.jsonl").is_file());
+        assert!(!li_l.join("devices.json.tmp-mbp-lynn").exists());
     }
 
     #[test]

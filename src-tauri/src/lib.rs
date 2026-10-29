@@ -5,6 +5,7 @@ mod config;
 mod connect;
 mod db;
 mod index;
+pub mod lists;
 mod mounts;
 mod nas;
 #[cfg(target_os = "macos")]
@@ -26,11 +27,14 @@ use std::sync::Arc;
 use tauri::http::{header, Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 
-/// Waar de CLI haar spullen zet (datacontract 7). Overschrijfbaar met MEDIA_CONFIG, MEDIA_PREVIEWS, MEDIA_LIBRARY.
+/// Waar de CLI haar spullen zet (datacontract 7). Overschrijfbaar met MEDIA_CONFIG, MEDIA_PREVIEWS, MEDIA_LIBRARY, MEDIA_LISTS.
+#[derive(Clone)]
 pub struct Paths {
     pub config: PathBuf,
     pub previews: PathBuf,
     pub library: PathBuf,
+    /// The local copy of `Lists` (data contract 7).
+    pub lists: PathBuf,
 }
 
 fn home() -> PathBuf {
@@ -50,6 +54,7 @@ pub fn paths() -> Paths {
         config: env_path("MEDIA_CONFIG", h.join(".config").join("media")),
         previews: env_path("MEDIA_PREVIEWS", h.join("Pictures").join("Previews")),
         library: env_path("MEDIA_LIBRARY", h.join("Pictures").join("LibraryLocal")),
+        lists: env_path("MEDIA_LISTS", h.join("Pictures").join("Lists")),
     }
 }
 
@@ -381,6 +386,7 @@ fn sync_jobs(paths: &Paths) -> runner::Jobs {
     let found = mounts::find_shares(&mounts::system_mounts(), &settings);
     runner::Jobs {
         manifests: pull::manifests_job(&settings, &found, &paths.library),
+        lists: pull::lists_job(&settings, &found, &paths.lists),
         previews: pull::previews_job(&settings, &found, &paths.previews),
         config_dir: paths.config.clone(),
         free: pull::free_bytes,
@@ -426,6 +432,36 @@ fn sync_cancel(runner: State<runner::SyncRunner>) {
 #[tauri::command]
 fn sync_status(runner: State<runner::SyncRunner>) -> runner::SyncState {
     runner.status()
+}
+
+/// The lists from the `Lists` share, or from the local copy when it isn't connected (F003/S01).
+fn load_lists(paths: &Paths) -> (lists::ListsState, std::collections::BTreeMap<String, lists::List>) {
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let nas = mounts::NasMounts::chosen(&found.lists).map(|m| PathBuf::from(&m.mount_point));
+    lists::load(nas.as_deref(), &paths.lists)
+}
+
+/// All lists, without their photos. On a blocking thread: the share may be slow to answer.
+#[tauri::command]
+async fn lists_state(paths: State<'_, Paths>) -> Result<lists::ListsState, String> {
+    let paths = paths.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || load_lists(&paths).0).await.map_err(|e| e.to_string())
+}
+
+/// The photos of one list, by hash.
+#[tauri::command]
+async fn list_photos(id: String, paths: State<'_, Paths>) -> Result<Vec<lists::Member>, String> {
+    let paths = paths.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (state, mut all) = load_lists(&paths);
+        if let Some(p) = state.problem {
+            return Err(p);
+        }
+        all.remove(&id).map(|l| l.photos.into_values().collect()).ok_or_else(|| format!("onbekende lijst: {id}"))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -523,6 +559,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
+            lists_state, list_photos,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

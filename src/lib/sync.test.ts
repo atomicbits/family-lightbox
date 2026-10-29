@@ -3,7 +3,7 @@ import { confirmText, count, estimate, gb, syncLine, type SyncState } from "./sy
 
 const base: SyncState = {
   phase: "idle", running: false, folder: "", files_done: 0, files_total: 0, bytes_done: 0, bytes_total: 0,
-  summary: null, manifests_copied: 0, manifests_changed: [], previews_copied: 0, previews_bytes: 0, skipped: [], message: null,
+  summary: null, manifests_copied: 0, lists_copied: 0, manifests_changed: [], previews_copied: 0, previews_bytes: 0, skipped: [], message: null,
 };
 
 describe("sync line", () => {
@@ -11,6 +11,7 @@ describe("sync line", () => {
     expect(syncLine({ ...base, phase: "manifests", files_done: 120 })?.text).toBe("manifesten 120");
     expect(syncLine({ ...base, phase: "manifests", files_done: 1, files_total: 2 })?.text).toBe("manifesten 1/2");
     expect(syncLine({ ...base, phase: "counting", folder: "2023/04/EOSR/photos" })?.text).toBe("previews tellen… 2023/04");
+    expect(syncLine({ ...base, phase: "lists" })?.text).toBe("lijsten…");
     const copying = syncLine({ ...base, phase: "copying", files_done: 1234, files_total: 13076, bytes_done: 1.2e9, bytes_total: 4.99e9 });
     expect(copying?.text).toBe("previews 1 234/13 076 · 1,2/5,0 GB");
     expect(copying?.cancellable).toBe(true);

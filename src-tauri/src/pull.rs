@@ -34,6 +34,20 @@ pub fn manifests_job(settings: &Settings, found: &NasMounts, working_copy: &Path
     })
 }
 
+/// The lists job (F003/S01): the chosen `Lists` mount to the local copy, the devices, the event
+/// files and the summaries only.
+pub fn lists_job(settings: &Settings, found: &NasMounts, local: &Path) -> Result<Job, String> {
+    let mount = NasMounts::chosen(&found.lists)
+        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.shares.lists))?;
+    Ok(Job {
+        remote: mount.mount_point.clone().into(),
+        local: local.to_path_buf(),
+        filter: crate::lists::is_lists_file,
+        only: None,
+        max_depth: Some(1),
+    })
+}
+
 #[derive(Debug, Default, Serialize)]
 pub struct ManifestsOutcome {
     pub copied: u64,

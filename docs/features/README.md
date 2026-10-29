@@ -152,7 +152,7 @@ no folder yet.
 |---|---|---|---|
 | 1 | [Browse the library](F001-browse-library/plan.md) | Done | CLI `index`, `previews` |
 | 2 | Filter by source (camera, Peter's or Lynn's iPhone) | Planned | 1 |
-| 3 | [Lists](F003-lists/plan.md): create and fill lists together, native (data contract section 5) | In progress | 6, 8 |
+| 3 | [Lists](F003-lists/plan.md): create and fill lists together, native (data contract section 5) | In progress (S01 done) | 6, 8 |
 | 4 | [CI and signed releases](F004-ci-and-releases/plan.md), macOS first (reusing Atomic Bits' signing from `wikai`) | In progress (S01–S03 done; S04 built, v0.2.0 released) | 1 |
 | 5 | Start imports from the app via the CLI's `--json` output | Dropped: imports move into the app natively (D13), see 10 | — |
 | 6 | [Connect to the NAS](F006-nas-connection/plan.md): find or mount the shares (macOS first), register the device | Done on Peter's Mac; Lynn's Mac deferred | 1 |

@@ -1,6 +1,6 @@
 # Feature 3: Lists: create and fill lists together
 
-**Status:** In progress (plan accepted 2026-10-29)
+**Status:** In progress (plan accepted 2026-10-29; S01 done)
 **Depends on:** Feature 6 (the device is registered, `Lists` is connected), feature 8 (the index, with the hash of every photo)
 **Folder:** `F003-lists`
 
@@ -91,7 +91,7 @@ The app writes and reads the lists exactly as data contract 5 describes, so the 
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-read-and-merge.md) | Read and merge the lists (contract 5.3), from the NAS or the local copy; the sync of feature 7 copies `Lists` | Planned | — |
+| [S01](stories/S01-read-and-merge.md) | Read and merge the lists (contract 5.3), from the NAS or the local copy; the sync of feature 7 copies `Lists` | Done | — |
 | [S02](stories/S02-write-events.md) | Write events to this Mac's own file on the NAS (create, add, remove, rename, archive); refuse without the NAS; the summaries | Planned | S01 |
 | [S03](stories/S03-lists-in-the-app.md) | Lists in the app: per year in the sidebar, create, rename, archive; the active list, adding and removing the selected photo, the marks | Planned | S02 |
 | [S04](stories/S04-a-list-and-the-other-mac.md) | A list as a grid, with who added what and when; the other Mac's changes within 15 seconds | Planned | S03 |
