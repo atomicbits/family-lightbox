@@ -688,6 +688,7 @@ export default function App() {
                   onHeart={(heart) => applyMarks([selKey(selected)], { heart })}
                 />
               }
+              onMenu={(x, y) => setMenu({ x, y, keys: [selKey(selected)] })}
               onMarkKey={(e) => markKey(e, [selKey(selected)], !!me && marks.state.hearts[current.hash]?.[me] !== undefined)}
             />
           ) : (
@@ -765,7 +766,7 @@ export default function App() {
           onAddTo={(id) => listChange("add", id, menu.keys)}
           onClose={() => setMenu(null)}
           actions={[
-            ...(menu.keys.length === 1 ? [{ label: "Openen", run: () => { setSelected(parseKey(menu.keys[0])); setOpen(true); } }] : []),
+            ...(menu.keys.length === 1 && !open ? [{ label: "Openen", run: () => { setSelected(parseKey(menu.keys[0])); setOpen(true); } }] : []),
             ...(listId && lists.active
               ? [{
                   label: `Uit ${lists.active.name} halen`,

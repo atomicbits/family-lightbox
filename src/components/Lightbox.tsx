@@ -23,10 +23,12 @@ type Props = {
   /** The stars and heart to set (F013/S03), and their keys: true when the key was one of them. */
   bar: ReactNode;
   onMarkKey: (e: KeyboardEvent) => boolean;
+  /** Right-click on the photo: the same menu as on a tile (F014). */
+  onMenu: (x: number, y: number) => void;
 };
 
 /** Eén foto groot (de 2048 px-preview), met pijltjes, en knoppen naar het origineel. */
-export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me, bar, onMarkKey }: Props) {
+export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me, bar, onMarkKey, onMenu }: Props) {
   const heart = heartView(hearts, me);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -50,7 +52,11 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
       {/* The image is positioned absolutely in a box with a definite size: in a grid or flex item
           with an auto height, max-h-full has nothing to resolve against and a tall photo spills
           out at the bottom. */}
-      <div className="relative flex-1 min-h-0 m-4" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="relative flex-1 min-h-0 m-4"
+        onClick={(e) => e.stopPropagation()}
+        onContextMenu={(e) => { e.preventDefault(); onMenu(e.clientX, e.clientY); }}
+      >
         {item.preview ? (
           <img
             src={previewUrl(item.path, false)}

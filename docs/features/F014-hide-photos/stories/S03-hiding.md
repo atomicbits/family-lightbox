@@ -42,3 +42,9 @@ hidden photo that is shown undoes it. Both get the message with undo, like stars
 
 - `pnpm test`: undoing a hide (one shown again meanwhile left alone), the texts; 81 tests. `tsc`
   and `pnpm build` clean.
+
+### [2026-10-30] In the lightbox too
+
+- Peter: with a photo open after a double-click, right-click on it should offer hiding too. The
+  lightbox now opens the same menu for the photo shown (without *Openen*); after hiding, the
+  lightbox moves on to the next shown photo.
