@@ -23,6 +23,7 @@ describe("hidden photos", () => {
   it("say how many are hidden", () => {
     expect(countTitle(312, 20)).toBe("312 foto's en video's, 20 verborgen");
     expect(countTitle(1, 0)).toBe("1 foto of video");
+    expect(countTitle(40, 0, 2)).toBe("40 foto's en video's, 2 reeksen");
   });
 });
 

@@ -58,7 +58,7 @@ export default function MonthList({ months, selected, onSelect, onMenu }: Props)
                       ? "bg-blue-600 text-white"
                       : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800")
                   }
-                  title={`${countTitle(shownCount(m), m.hidden ?? 0)}; ${m.previews} previews, ${m.local} originelen lokaal`}
+                  title={`${countTitle(shownCount(m), m.revealed ? 0 : m.hidden ?? 0, m.stacks ?? 0)}; ${m.previews} previews, ${m.local} originelen lokaal`}
                 >
                   <span className="truncate">
                     {monthLabel(m.month)}

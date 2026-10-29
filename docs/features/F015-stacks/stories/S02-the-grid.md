@@ -1,7 +1,7 @@
 # Story S02: The grid with stacks together, folded or unfolded
 
 **Feature:** `F015-stacks`
-**Status:** Planned
+**Status:** In progress: built and tested; to see in the app once S04 can make stacks
 **Depends on:** S01
 
 ## Goal
@@ -25,10 +25,34 @@ the photos that matter are shown, unfolded all of them.
 - **Tests** (`pnpm test`): the order with interleaved devices, folded with hearts, with 4–5 stars,
   with only lower stars (the highest win), with nothing, unfolded, a stack starting in another month, hidden photos.
 
+## How
+
+- `stacks.ts`: `buildStacks` (members by date taken, then path), `folded` (the rule above),
+  `home` (the month of a stack's first visible photo), `tilesOf`, `arrange(month, items, ids,
+  view)` and `stackDelta(month, view)` (tiles minus visible stacked photos, and how many stacks
+  stand there).
+- The members come from the index for every stacked hash (`items_by_hash`), since a stack may
+  hold photos of another month; they are read again when the stacks or the index change.
+- App's `monthTiles` applies hidden photos (F014) and then the stacks to a month's items; the
+  sections add `stackDelta` to the counts, so the layout matches the tiles; the month list keeps
+  counting photos and names the stacks in the tooltip.
+- Folding is a set of stack ids in App's state. The menu already offers *Reeks openklappen* /
+  *dichtklappen* on a photo of a stack (S03 adds the symbol). When a photo is folded away, the
+  selection moves to its stack's first shown tile.
+
 ## Files affected
 
-- `src/lib/stacks.ts` (new), `src/App.tsx`.
+- `src/lib/stacks.ts` and its tests (new), `src/App.tsx`, `src/lib/hidden.ts`, `src/lib/api.ts`,
+  `src/components/MonthList.tsx`, `src-tauri/src/lib.rs` (`items_by_hash`).
 
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `pnpm test`: folded to the first photo with the other device's photos left in place, unfolded
+  together in the order taken, the folding rule (hearts and 4–5 stars; the highest stars; the
+  first), a stack across midnight standing in its first month, a hidden first photo moving the
+  stack, the tile counts; the tooltip with stacks. 91 tests; `tsc`, `pnpm build`, clippy clean.
+- No stacks exist yet; S04 makes them from the menu.

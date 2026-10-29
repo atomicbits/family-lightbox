@@ -36,8 +36,10 @@ export function visibleItems(items: Item[], hidden: Record<string, unknown>): It
   return items.some((i) => i.hash in hidden) ? items.filter((i) => !(i.hash in hidden)) : items;
 }
 
-/** "312 foto's en video's, 20 verborgen". */
-export function countTitle(shown: number, hidden: number): string {
-  const base = `${shown} ${shown === 1 ? "foto of video" : "foto's en video's"}`;
-  return hidden > 0 ? `${base}, ${hidden} verborgen` : base;
+/** "312 foto's en video's, 20 verborgen, 2 reeksen". */
+export function countTitle(shown: number, hidden: number, stacks = 0): string {
+  const parts = [`${shown} ${shown === 1 ? "foto of video" : "foto's en video's"}`];
+  if (hidden > 0) parts.push(`${hidden} verborgen`);
+  if (stacks > 0) parts.push(`${stacks} ${stacks === 1 ? "reeks" : "reeksen"}`);
+  return parts.join(", ");
 }

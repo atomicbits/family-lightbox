@@ -21,6 +21,7 @@ import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
 import { hideText, listText, skippedText, undoHeart, undoHide, undoList, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
 import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./lib/hidden";
+import { arrange, buildStacks, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
 import UndoIcon from "./components/UndoIcon";
 import ShortcutsOverlay from "./components/ShortcutsOverlay";
 import { isShortcutsKey } from "./lib/shortcuts";
@@ -169,20 +170,46 @@ export default function App() {
   // Months whose hidden photos are shown for now (F014/S04): only here, until a restart.
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [monthMenu, setMonthMenu] = useState<{ x: number; y: number; kind: "year" | "month"; key: string } | null>(null);
-  const shownMonths = useMemo(
-    () => withRevealed(withHidden(months, hiddenPerMonth), revealed),
-    [months, hiddenPerMonth, revealed],
-  );
+  // Stacks (F015/S02): their members from the index (they may lie in other months than where
+  // their stack stands), and which stacks are unfolded in this window.
+  const [stackMembers, setStackMembers] = useState<StackMember[]>([]);
+  const [unfolded, setUnfolded] = useState<Set<string>>(new Set());
+  const stackIds = marks.state.stacks;
+  useEffect(() => {
+    const hashes = Object.keys(stackIds);
+    if (hashes.length === 0) return setStackMembers([]);
+    invoke<StackMember[]>("items_by_hash", { hashes }).then(setStackMembers).catch(() => {});
+  }, [stackIds, builds]);
+  const stackView: StackView = useMemo(() => ({
+    stacks: buildStacks(stackMembers, stackIds),
+    unfolded,
+    marks: marks.state,
+    isHidden: (x) => x.hash in hiddenRec && !revealed.has(x.month),
+  }), [stackMembers, stackIds, unfolded, marks.state, hiddenRec, revealed]);
+
+  const shownMonths = useMemo(() => {
+    const ms = withRevealed(withHidden(months, hiddenPerMonth), revealed);
+    return stackView.stacks.size === 0
+      ? ms
+      : ms.map((m) => { const n = stackDelta(m.month, stackView).stacks; return n === (m.stacks ?? 0) ? m : { ...m, stacks: n }; });
+  }, [months, hiddenPerMonth, revealed, stackView]);
+
+  // A month's tiles from its items: hidden ones out (unless shown), stacks together (F014, F015).
+  const monthTiles = useCallback((month: string, items: Item[]) =>
+    arrange(month, revealed.has(month) ? items : visibleItems(items, hiddenRec), stackIds, stackView),
+  [revealed, hiddenRec, stackIds, stackView]);
 
   // The library (or the list) as sections, newest month first, with their counts.
   // The same object while the months and their counts stay the same: new previews only change the
   // month list's preview counts, and a new layout would move the grid (F012/S04).
   const stableSections = useRef<Section[]>([]);
   const sections = useMemo(() => {
-    const next = showingList ? listView!.sections : listId ? [] : toSections(shownMonths);
+    const library = () =>
+      toSections(shownMonths).map((s) => (stackView.stacks.size ? { ...s, count: s.count + stackDelta(s.month, stackView).delta } : s));
+    const next = showingList ? listView!.sections : listId ? [] : library();
     if (!sameSections(stableSections.current, next)) stableSections.current = next;
     return stableSections.current;
-  }, [shownMonths, listView, listId, showingList]);
+  }, [shownMonths, listView, listId, showingList, stackView]);
 
   // Another view: start at the top, without a selection.
   useEffect(() => {
@@ -227,7 +254,7 @@ export default function App() {
   const itemsOf = (month: string) => {
     if (listId) return listView?.byMonth.get(month);
     const items = cache.current.get(month);
-    return items && (revealed.has(month) ? items : visibleItems(items, hiddenRec));
+    return items && monthTiles(month, items);
   };
 
   // When photos are hidden or shown again (here or on the other Mac), keep the selection on the
@@ -247,10 +274,14 @@ export default function App() {
     const section = sections.findIndex((x) => x.month === sp.month);
     const items = itemsOf(sp.month);
     if (section < 0 || !items) return setSelected(null);
-    const i = items.findIndex((x) => x.path === sp.path);
+    let i = items.findIndex((x) => x.path === sp.path);
+    // folded away: the stack's first shown photo
+    const stackOf = (path: string) => stackMembers.find((m) => m.path === path && m.hash in stackIds)?.hash;
+    const h = stackOf(sp.path);
+    if (i < 0 && h) i = items.findIndex((x) => stackIds[x.hash] === stackIds[h]);
     setSelected(i >= 0 ? { section, index: i } : items.length ? { section, index: Math.min(selected?.index ?? 0, items.length - 1) } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hiddenRec, sections, revealed]);
+  }, [hiddenRec, sections, revealed, stackView]);
 
   useEffect(() => { if (selected) need([selected.section]); }, [selected, need]);
 
@@ -300,11 +331,11 @@ export default function App() {
         items = await api.items(month);
         cache.current.set(month, items);
       }
-      if (!listId && !revealed.has(month)) items = visibleItems(items, hiddenRec);
+      if (!listId) items = monthTiles(month, items);
       if (items[index]) out.push(items[index]);
     }
     return out;
-  }, [sections, listId, listView, hiddenRec, revealed]);
+  }, [sections, listId, listView, monthTiles]);
 
   // Stars and hearts for the selection (F013/S03): the picked tiles, or the selected one.
   const me = device?.device?.owner ?? null;
@@ -366,6 +397,17 @@ export default function App() {
         ? [{ label: hiddenOnes < hashes.length ? `Niet meer verbergen (${hiddenOnes})` : "Niet meer verbergen", run: () => { applyHide(keys, false); }, ...common }]
         : []),
     ];
+  };
+
+  // Folding or unfolding the stack of the photo clicked (F015/S02; S03 adds the symbol).
+  const foldActions = (keys: string[]) => {
+    if (listId || keys.length !== 1) return [];
+    const { section, index } = parseKey(keys[0]);
+    const h = itemsOf(sections[section]?.month)?.[index]?.hash;
+    const id = h ? stackIds[h] : undefined;
+    if (!id) return [];
+    const open = unfolded.has(id);
+    return [{ label: open ? "Reeks dichtklappen" : "Reeks openklappen", run: () => setUnfolded((u) => toggled(u, [id], !open)) }];
   };
 
   // Adding to and taking out of lists, with the message and an undo step.
@@ -522,14 +564,15 @@ export default function App() {
         const m = await api.months();
         const items = anchor ? await api.items(anchor.month).catch(() => undefined) : undefined;
         if (gen !== generation.current) return;
-        const next = toSections(withRevealed(withHidden(m, hiddenPerMonth), revealed));
+        const next = toSections(withRevealed(withHidden(m, hiddenPerMonth), revealed))
+          .map((s) => (stackView.stacks.size ? { ...s, count: s.count + stackDelta(s.month, stackView).delta } : s));
         cache.current = new Map(anchor && items ? [[anchor.month, items]] : []);
         inFlight.current.clear();
         setError(null);
         setWaitingForIndex(false);
         setMonths(m);
         setReneed((n) => n + 1);
-        setSelected(reselect(anchor, next, items && (anchor && revealed.has(anchor.month) ? items : visibleItems(items, hiddenRec))));
+        setSelected(reselect(anchor, next, items && anchor ? monthTiles(anchor.month, items) : undefined));
         setPicked(new Set());
         const t = next.findIndex((x) => x.month === topMonth);
         if (t >= 0 && t !== top) setJump({ section: t, nonce: Date.now() });
@@ -789,6 +832,7 @@ export default function App() {
                 }]
               : []),
             ...hideActions(menu.keys),
+            ...foldActions(menu.keys),
           ]}
         />
       )}

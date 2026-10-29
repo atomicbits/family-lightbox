@@ -11,6 +11,8 @@ export type MonthSummary = {
   hidden?: number;
   /** Its hidden photos are shown for now (F014/S04). */
   revealed?: boolean;
+  /** How many stacks stand in it (F015/S02). */
+  stacks?: number;
 };
 
 export type Item = {
