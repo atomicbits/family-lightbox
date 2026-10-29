@@ -10,6 +10,8 @@ export type MarksState = {
   ratings: Record<string, Rating>;
   /** Per photo: who put a heart on it, and when. */
   hearts: Record<string, Record<string, string>>;
+  /** Hidden photos, with who hid them and when (F014). */
+  hidden: Record<string, { by: string; at: string }>;
   ignored: number;
   problem: string | null;
 };
@@ -79,7 +81,7 @@ export function changeText(n: number, change: { stars: number } | { heart: boole
   return change.heart ? `hartje op ${photos}` : `hartje weg bij ${photos}`;
 }
 
-export const NO_MARKS: MarksState = { source: "none", ratings: {}, hearts: {}, ignored: 0, problem: null };
+export const NO_MARKS: MarksState = { source: "none", ratings: {}, hearts: {}, hidden: {}, ignored: 0, problem: null };
 
 export type Marks = {
   state: MarksState;
@@ -87,6 +89,7 @@ export type Marks = {
   reload: () => Promise<MarksState>;
   rate: (photos: string[], stars: number) => Promise<MarksState>;
   heart: (photos: string[], on: boolean) => Promise<MarksState>;
+  hide: (photos: string[], hidden: boolean) => Promise<MarksState>;
 };
 
 /** `version` changes when the watch of `useLists` read the share again. */
@@ -104,6 +107,7 @@ export function useMarks(version: number): Marks {
   }, []);
   const rate = useCallback((photos: string[], stars: number) => apply("marks_rate", { photos, stars }), [apply]);
   const heart = useCallback((photos: string[], on: boolean) => apply("marks_heart", { photos, on }), [apply]);
+  const hide = useCallback((photos: string[], hidden: boolean) => apply("marks_hide", { photos, hidden }), [apply]);
 
   const reload = useCallback(async () => {
     const s = await invoke<MarksState>("marks_state");
@@ -111,5 +115,5 @@ export function useMarks(version: number): Marks {
     return s;
   }, []);
 
-  return { state, reload, rate, heart };
+  return { state, reload, rate, heart, hide };
 }

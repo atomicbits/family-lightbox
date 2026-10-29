@@ -489,6 +489,12 @@ async fn marks_rate(photos: Vec<String>, stars: u8, paths: State<'_, Paths>) -> 
 }
 
 #[tauri::command]
+async fn marks_hide(photos: Vec<String>, hidden: bool, paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || change_marks(&paths, marks::Change::Hide { photos, hidden })).await
+}
+
+#[tauri::command]
 async fn marks_heart(photos: Vec<String>, on: bool, paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
     let paths = paths.inner().clone();
     on_blocking(move || change_marks(&paths, marks::Change::Heart { photos, on })).await
@@ -765,7 +771,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

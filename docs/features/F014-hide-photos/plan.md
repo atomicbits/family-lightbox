@@ -1,6 +1,6 @@
 # Feature 14: Hiding photos
 
-**Status:** In design
+**Status:** In progress (plan accepted 2026-10-30; S01 done)
 **Depends on:** Feature 13 (the marks files, the right-click menu, the message with undo)
 **Folder:** `F014-hide-photos`
 
@@ -59,16 +59,19 @@ Filtering, with an option to show hidden photos, comes later in its own feature.
 - `cargo test` covers hide and unhide in the merge and the counts per month without the hidden
   photos; `pnpm test` covers the grid without them, showing a month or a year, and the texts.
 
-## Stories (proposal)
+## Stories
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-the-data.md) | The data: `hide` and `unhide` in the marks files and the contract, merged, written, read | Planned | — |
+| [S01](stories/S01-the-data.md) | The data: `hide` and `unhide` in the marks files and the contract, merged, written, read | Done | — |
 | [S02](stories/S02-not-shown.md) | Not shown: the grid and the counts without hidden photos | Planned | S01 |
 | [S03](stories/S03-hiding.md) | Hiding and unhiding from the right-click menu, with the message and undo | Planned | S02 |
 | [S04](stories/S04-showing-for-a-while.md) | Showing hidden photos per month or year from the month list, dimmed, until a restart | Planned | S03 |
 
-## Open points
+## Decisions
+
+Peter accepted all six proposals on 2026-10-30.
+
 
 1. **The data.** Proposal: the ops `hide` and `unhide` in the same marks files as stars and
    hearts, so no new files and the same watch. The alternative, files of their own, buys nothing.

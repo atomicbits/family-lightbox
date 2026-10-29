@@ -1,7 +1,7 @@
 # Story S04: Undo, with a message, a button and ⌘Z
 
 **Feature:** `F013-ratings-and-hearts`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done
 **Depends on:** S03
 
 ## Goal
@@ -58,3 +58,7 @@ from the message that says what happened, from a button that is always in the he
 - `pnpm test`: stars back per photo grouped by value with a photo rated by someone else left
   alone, hearts back, list adds and removes back, the texts; 77 tests. `tsc` and `pnpm build`
   clean.
+
+### [2026-10-30] Checked
+
+- Peter in the app: "F013 werkt".

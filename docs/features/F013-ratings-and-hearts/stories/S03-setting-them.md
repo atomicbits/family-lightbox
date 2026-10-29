@@ -1,7 +1,7 @@
 # Story S03: Setting stars and hearts for the selection
 
 **Feature:** `F013-ratings-and-hearts`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done
 **Depends on:** S02
 
 ## Goal
@@ -49,3 +49,7 @@ photos they apply to; a click sets them for all. Keys and the lightbox do the sa
 - `pnpm test`: the shared rating (same, different, none, partly none), the heart state, what a
   click does, when it is blocked, the texts; 73 tests. `tsc` and `pnpm build` clean.
 - To try in the app, which also shows S02 for the first time.
+
+### [2026-10-30] Checked
+
+- Peter in the app: "F013 werkt".

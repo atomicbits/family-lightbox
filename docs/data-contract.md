@@ -243,7 +243,7 @@ Derived from 5.3, written by whoever merges last, atomically. Meant for people, 
 
 ### 5.5 Marks: stars and hearts, `Lists/marks/<device name>.jsonl`
 
-Stars are shared: a photo has at most one rating, 1 to 5, and whoever rates it last sets it. A heart belongs to a person (`who`): each person's heart is on or off per photo, and everyone sees whose hearts are on it. Both refer to the photo by its hash, like lists (FamilyLightbox feature 13).
+Stars are shared: a photo has at most one rating, 1 to 5, and whoever rates it last sets it. A heart belongs to a person (`who`): each person's heart is on or off per photo, and everyone sees whose hearts are on it. Hiding is shared like stars: a photo is hidden for everyone, and whoever hides or unhides it last decides; nothing is deleted. All refer to the photo by its hash, like lists (FamilyLightbox features 13 and 14).
 
 One file per device, next to `events/`, written only by that device, only by appending, with the writing rules of 5.2 (one `write` and `fsync` per change, every line ending in `\n`, a reader ignores a half-written or invalid line and lines whose `dev` isn't the file's device). Only devices in `devices.json` count. They are separate from the list events on purpose: a reader of `events/` takes every line with a `list` field as a list event.
 
@@ -256,12 +256,12 @@ One file per device, next to `events/`, written only by that device, only by app
 | Field | Required | Meaning |
 |---|---|---|
 | `v`, `ts`, `dev`, `who` | yes | As in 5.2. |
-| `op` | yes | `rate`, `heart`, `unheart`. |
+| `op` | yes | `rate`, `heart`, `unheart`, `hide`, `unhide`. |
 | `photo` | yes | Content hash of the original. |
 | `stars` | with `rate` | 0 to 5; 0 removes the rating. |
 | `path` | no | Last known path in `Library`, as a hint. |
 
-Merging: all lines of registered devices, sorted as in 5.3 (moment of `ts`, then `dev`, then line). For each photo the last `rate` gives its stars, with its `who` and `ts`; for each photo and `who` the last `heart` or `unheart` decides whether that person's heart is on it. An `unheart` without a heart, or a rating of 0 without a rating, changes nothing.
+Merging: all lines of registered devices, sorted as in 5.3 (moment of `ts`, then `dev`, then line). For each photo the last `rate` gives its stars, with its `who` and `ts`; for each photo and `who` the last `heart` or `unheart` decides whether that person's heart is on it; for each photo the last `hide` or `unhide`, whoever wrote it, decides whether it is hidden. An `unheart` without a heart, or a rating of 0 without a rating, changes nothing.
 
 ## 6. Exports
 
@@ -355,6 +355,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 
 | Version | Date | What |
 |---|---|---|
+| 1.2 (addition) | 2026-10-30 | Section 5.5: `hide` and `unhide`, shared per photo, the last one decides (FamilyLightbox F014/S01). |
 | 1.2 (addition) | 2026-10-30 | Section 5.5: stars and hearts as events in `Lists/marks/<device>.jsonl`, merged like the lists; the app's sync copies them too (FamilyLightbox F013/S01). List events unchanged. |
 | 1.2 (addition) | 2026-10-29 | Section 5.4: how FamilyLightbox makes the slug of a new list, and the temporary name of a summary (F003/S02). Event format unchanged. |
 | 1.2 (addition) | 2026-10-29 | Section 8: the app's sync copies `Lists` to the local copy, for reading without the NAS (F003/S01). Section 5 unchanged. |

@@ -1,7 +1,7 @@
 # Story S01: The data: hide and unhide in the marks files
 
 **Feature:** `F014-hide-photos`
-**Status:** Planned
+**Status:** Done
 **Depends on:** —
 
 ## Goal
@@ -26,3 +26,12 @@ Mac the same way: the last one decides for a photo, whoever wrote it.
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `marks.rs`: `Op::Hide` / `Op::Unhide`, `Marks.hidden` (by hash, with who and when),
+  `Change::Hide`; the command `marks_hide(photos, hidden)`; `useMarks().hide` and
+  `MarksState.hidden` in the UI. Data contract 5.5 extended.
+- 2 tests: hiding shared with the last one deciding (an earlier unhide doesn't undo a later
+  hide), writing hide and unhide and reading back, an empty selection refused. 126 Rust tests,
+  clippy clean.

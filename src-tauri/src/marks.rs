@@ -1,7 +1,7 @@
 //! Stars and hearts (feature 13, data contract 5.5): like the lists, every device appends events to
 //! its own file, `Lists/marks/<device>.jsonl`, and every reader merges them the same way. Stars are
-//! shared (the last rating wins); a heart belongs to a person (`who`). This module reads, merges
-//! and writes them (F013/S01).
+//! shared (the last rating wins); a heart belongs to a person (`who`); hiding is shared, the last
+//! `hide` or `unhide` decides (F014/S01). This module reads, merges and writes them (F013/S01).
 
 use crate::lists::{complete_lines, moment, registered, DEVICES_FILE};
 use serde::{Deserialize, Serialize};
@@ -17,6 +17,8 @@ pub enum Op {
     Rate(u8),
     Heart,
     Unheart,
+    Hide,
+    Unhide,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -53,6 +55,8 @@ fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
         "rate" => Op::Rate(u8::try_from(r.stars?).ok().filter(|s| *s <= 5)?),
         "heart" => Op::Heart,
         "unheart" => Op::Unheart,
+        "hide" => Op::Hide,
+        "unhide" => Op::Unhide,
         _ => return None,
     };
     Some(Event { ts, at, dev: device.to_string(), who: r.who.filter(|w| !w.is_empty())?, photo, op, line: n })
@@ -86,6 +90,14 @@ pub struct Marks {
     pub ratings: HashMap<String, Rating>,
     /// Per photo, the people whose heart is on it, with when they put it on.
     pub hearts: HashMap<String, BTreeMap<String, String>>,
+    /// Hidden photos, with who hid them and when (F014/S01).
+    pub hidden: HashMap<String, Hidden>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Hidden {
+    pub by: String,
+    pub at: String,
 }
 
 /// Data contract 5.5: sorted by moment, then device, then line; the last `rate` of a photo gives
@@ -111,6 +123,12 @@ pub fn merge(mut events: Vec<Event>) -> Marks {
                         m.hearts.remove(&e.photo);
                     }
                 }
+            }
+            Op::Hide => {
+                m.hidden.insert(e.photo, Hidden { by: e.who, at: e.ts });
+            }
+            Op::Unhide => {
+                m.hidden.remove(&e.photo);
             }
         }
     }
@@ -147,12 +165,13 @@ pub fn read(lists: &Path) -> Result<Read, String> {
 pub enum Change {
     Rate { photos: Vec<String>, stars: u8 },
     Heart { photos: Vec<String>, on: bool },
+    Hide { photos: Vec<String>, hidden: bool },
 }
 
 /// Why a change can't be written, or `None`.
 pub fn refusal(change: &Change) -> Option<String> {
     match change {
-        Change::Rate { photos, .. } | Change::Heart { photos, .. } if photos.is_empty() => {
+        Change::Rate { photos, .. } | Change::Heart { photos, .. } | Change::Hide { photos, .. } if photos.is_empty() => {
             Some("geen foto's gekozen".into())
         }
         Change::Rate { stars, .. } if *stars > 5 => Some(format!("{stars} sterren kan niet: 0 tot 5")),
@@ -176,6 +195,9 @@ pub fn lines(change: &Change, ts: &str, dev: &str, who: &str) -> Vec<String> {
             .collect(),
         Change::Heart { photos, on } => {
             photos.iter().map(|p| head(if *on { "heart" } else { "unheart" }, p).to_string() + "\n").collect()
+        }
+        Change::Hide { photos, hidden } => {
+            photos.iter().map(|p| head(if *hidden { "hide" } else { "unhide" }, p).to_string() + "\n").collect()
         }
     }
 }
@@ -327,5 +349,28 @@ mod tests {
         append(dir.path(), "mbp-lynn", "lynn", &Change::Heart { photos: vec!["h".into()], on: true }).unwrap();
         assert_ne!(crate::lists::stamp(dir.path()).unwrap(), before);
         assert!(crate::lists::is_lists_file("marks/mbp-lynn.jsonl"));
+    }
+
+    #[test]
+    fn hiding_is_shared_and_the_last_one_decides() {
+        let lynn = line("2026-10-30T10:00:00+01:00", "mbp-lynn", "lynn", "hide", "h", "")
+            + &line("2026-10-30T10:00:00+01:00", "mbp-lynn", "lynn", "hide", "g", "");
+        let peter = line("2026-10-30T10:05:00+01:00", "mbp-peter", "peter", "unhide", "g", "");
+        let m = merged(&[("mbp-lynn", lynn.clone()), ("mbp-peter", peter)]);
+        assert_eq!(m.hidden["h"], Hidden { by: "lynn".into(), at: "2026-10-30T10:00:00+01:00".into() });
+        assert!(!m.hidden.contains_key("g"));
+        // an earlier unhide doesn't undo a later hide
+        let early = line("2026-10-30T09:00:00+01:00", "mbp-peter", "peter", "unhide", "h", "");
+        assert!(merged(&[("mbp-lynn", lynn), ("mbp-peter", early)]).hidden.contains_key("h"));
+    }
+
+    #[test]
+    fn writing_hide_and_unhide() {
+        let dir = registered_dir(&["mbp-lynn"]);
+        append(dir.path(), "mbp-lynn", "lynn", &Change::Hide { photos: vec!["a".into(), "b".into()], hidden: true }).unwrap();
+        append(dir.path(), "mbp-lynn", "lynn", &Change::Hide { photos: vec!["b".into()], hidden: false }).unwrap();
+        let s = load(Some(dir.path()), Path::new("/nowhere"));
+        assert_eq!(s.marks.hidden.keys().collect::<Vec<_>>(), vec!["a"]);
+        assert!(append(dir.path(), "mbp-lynn", "lynn", &Change::Hide { photos: vec![], hidden: true }).is_err());
     }
 }

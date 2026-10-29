@@ -1,7 +1,7 @@
 # Story S02: Stars and hearts on the tiles and in the lightbox
 
 **Feature:** `F013-ratings-and-hearts`
-**Status:** In progress: built and tested; to look at in the app once S03 sets the first marks
+**Status:** Done
 **Depends on:** S01
 
 ## Goal
@@ -46,3 +46,7 @@ lightbox shows them too.
 - `pnpm test`: the size at the smallest, a middle and the largest tile, the stars text, whose
   hearts, the tooltip lines; 69 tests. `tsc` and `pnpm build` clean.
 - Not seen in the app yet: there are no stars or hearts on the share until S03 sets them.
+
+### [2026-10-30] Checked
+
+- Peter in the app: "F013 werkt".
