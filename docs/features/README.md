@@ -152,7 +152,7 @@ no folder yet.
 |---|---|---|---|
 | 1 | [Browse the library](F001-browse-library/plan.md) | Done | CLI `index`, `previews` |
 | 2 | Filter by source (camera, Peter's or Lynn's iPhone) | Planned | 1 |
-| 3 | Lists: create and fill lists together, native (data contract section 5) | Planned | 6 |
+| 3 | [Lists](F003-lists/plan.md): create and fill lists together, native (data contract section 5) | In progress | 6, 8 |
 | 4 | [CI and signed releases](F004-ci-and-releases/plan.md), macOS first (reusing Atomic Bits' signing from `wikai`) | In progress (S01–S03 done; S04 built, v0.2.0 released) | 1 |
 | 5 | Start imports from the app via the CLI's `--json` output | Dropped: imports move into the app natively (D13), see 10 | — |
 | 6 | [Connect to the NAS](F006-nas-connection/plan.md): find or mount the shares (macOS first), register the device | Done on Peter's Mac; Lynn's Mac deferred | 1 |
@@ -161,4 +161,4 @@ no folder yet.
 | 9 | Open originals that are not on this laptop, from the NAS | Planned | 6 |
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |
 | 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
-| 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (before 3; S01–S02 done, S03–S04 built) | 6, 7, 8 |
+| 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (S01–S03 done, S04 built) | 6, 7, 8 |

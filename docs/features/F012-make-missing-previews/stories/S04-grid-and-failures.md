@@ -1,7 +1,7 @@
 # Story S04: The grid shows new previews as they are made; failures in the settings
 
 **Feature:** `F012-make-missing-previews`
-**Status:** In progress: built and tested; to check in the app during the first real run
+**Status:** In progress: tiles checked during the real run; the settings section still to look at
 **Depends on:** S03
 
 ## Goal

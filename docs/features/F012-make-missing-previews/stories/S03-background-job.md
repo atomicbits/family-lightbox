@@ -1,7 +1,7 @@
 # Story S03: The background job: make what is missing, locally and on the NAS
 
 **Feature:** `F012-make-missing-previews`
-**Status:** In progress: built and tested; the run on real data still to check
+**Status:** Done
 **Depends on:** S02
 
 ## Goal
@@ -76,3 +76,14 @@ can be paused and continues after a restart.
   4 hours.
 - The job is macOS only, like S01; the app's builder registers it unconditionally, which has to
   be gated once the app builds for Windows.
+
+### [2026-10-29] Checked on real data
+
+- Peter ran the app overnight and the next day (`pnpm tauri dev --release`): every photo and
+  video in the index now has a preview, 124 572 recorded, locally and on the NAS, except 103 that
+  failed: 42 GoPro `.LRV` files and 9 `.MOV` ("Cannot Open"), 50 JPEGs and 2 CR3 that macOS
+  can't read.
+- Browsing stayed usable; the grid jumping back was S04's, fixed there.
+- A reload of the window started the sync at launch again, which stops the job until the sync
+  has counted the previews on the NAS (minutes over SMB); fixed in 7cdad3f: the sync at launch
+  runs once per app process.
