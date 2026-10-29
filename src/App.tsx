@@ -374,7 +374,31 @@ export default function App() {
             {selected?.section === top && ` · ${selected.index + 1} / ${topSection.count}`}
           </span>
         )}
-        <span className="flex-1" />
+        {/* Texts that come and go fill the space up to the slider, aligned right, so the slider and
+            what follows stay put. */}
+        <div className="flex-1 min-w-0 flex items-center justify-end gap-3 overflow-hidden whitespace-nowrap">
+          {picked.size > 1 && (
+            <span className="text-blue-600" title={listId ? "⌫ of klik rechts haalt ze uit de lijst; Esc wist de keuze" : "sleep ze naar een lijst of klik rechts; Esc wist de keuze"}>
+              {picked.size} geselecteerd
+            </span>
+          )}
+          {lists.message && (
+            <span className={lists.message.error ? "text-amber-600" : "text-neutral-500"}>{lists.message.text}</span>
+          )}
+          {index.line && (
+            <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
+              {index.line.text}
+            </span>
+          )}
+          {device?.error && (
+            <button className="text-red-600" onClick={() => setShowSettings(true)}>
+              device.json klopt niet: zie instellingen
+            </button>
+          )}
+          <UpdateLine update={update} syncing={!!sync.state?.running} />
+          {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
+          <PreviewsLine previews={previews} />
+        </div>
         <label className="flex items-center gap-1.5 text-neutral-400" title="grootte van de miniaturen">
           <span className="text-xs">▫</span>
           <input
@@ -390,27 +414,6 @@ export default function App() {
           />
           <span className="text-base leading-none">□</span>
         </label>
-        {picked.size > 1 && (
-          <span className="text-blue-600" title={listId ? "⌫ of klik rechts haalt ze uit de lijst; Esc wist de keuze" : "sleep ze naar een lijst of klik rechts; Esc wist de keuze"}>
-            {picked.size} geselecteerd
-          </span>
-        )}
-        {lists.message && (
-          <span className={lists.message.error ? "text-amber-600" : "text-neutral-500"}>{lists.message.text}</span>
-        )}
-        {index.line && (
-          <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
-            {index.line.text}
-          </span>
-        )}
-        {device?.error && (
-          <button className="text-red-600" onClick={() => setShowSettings(true)}>
-            device.json klopt niet: zie instellingen
-          </button>
-        )}
-        <UpdateLine update={update} syncing={!!sync.state?.running} />
-        {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
-        <PreviewsLine previews={previews} />
         {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
         <button
           className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
