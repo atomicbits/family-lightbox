@@ -1,6 +1,6 @@
 // The lists in the UI (F003/S03, S04): the merged state from the Rust core, the list on screen
 // and its photos, and creating, renaming, archiving, adding and removing.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Item } from "./api";
 
@@ -27,6 +27,9 @@ export type ListsState = {
 export type Member = { photo: string; path: string | null; added_by: string; added_at: string };
 
 type Changed = { id: string; state: ListsState };
+
+/** How often the event files are checked for the other Mac's changes, while the window has focus. */
+export const WATCH_MS = 15_000;
 
 /** Why the lists can't be changed now, or null. */
 export function changeBlocked(s: ListsState | null): string | null {
@@ -123,6 +126,25 @@ export function useLists(): Lists {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // The other Mac's changes (F003/S04): while the window has focus, and when it gets it back,
+  // look whether an event file changed, and read the lists again when one did.
+  const lastStamp = useRef<string | null>(null);
+  useEffect(() => {
+    const check = () => {
+      if (!document.hasFocus()) return;
+      invoke<string | null>("lists_stamp")
+        .then((s) => {
+          if (lastStamp.current !== null && s !== lastStamp.current) refresh();
+          lastStamp.current = s;
+        })
+        .catch(() => {});
+    };
+    check();
+    const timer = setInterval(check, WATCH_MS);
+    window.addEventListener("focus", check);
+    return () => { clearInterval(timer); window.removeEventListener("focus", check); };
+  }, [refresh]);
 
   // the active list's photos, again whenever the lists change
   useEffect(() => { loadMembers(activeId); }, [activeId, state, loadMembers]);

@@ -1,7 +1,7 @@
 # Story S04: A list as a grid, and the other Mac's changes
 
 **Feature:** `F003-lists`
-**Status:** In progress: the list as a grid built; the other Mac's changes still to build
+**Status:** In progress: built and tested; the other Mac's changes to check once Lynn's Mac has the app
 **Depends on:** S03
 
 ## Goal
@@ -16,8 +16,8 @@ what the other Mac changes shows up within about 15 seconds.
   were. A photo whose hash isn't in the index (not synced yet) shows as a placeholder with its
   path hint.
 - **Who and when**: the lightbox and the tile's tooltip say "toegevoegd door Lynn, 20 okt".
-- **The other Mac**: while the window has focus, the app checks the sizes of the event files on
-  the share every 15 seconds and reads again when one grew; the sidebar, the marks and an open
+- **The other Mac**: while the window has focus, and when it gets it back, the app checks the
+  sizes and times of the event files every 15 seconds and reads the lists again when one changed; the sidebar, the marks and an open
   list update without losing the selection.
 - **Tests**: `cargo test` for detecting a grown file; `pnpm test` for the texts.
 
@@ -40,3 +40,19 @@ what the other Mac changes shows up within about 15 seconds.
 - One Rust test for `items_by_hash` (months, order, sidecars left out); 116 Rust tests, 65
   vitest tests, `tsc` and `pnpm build` clean.
 - Still to build: noticing the other Mac's changes within 15 seconds.
+
+### [2026-10-29] The other Mac's changes
+
+- `lists::stamp`: a fingerprint of `devices.json` and `events/*.jsonl` (names, sizes, times),
+  from the share or the local copy; the command `lists_stamp` returns it as text. Appending
+  always makes a file longer, so every event changes it.
+- `useLists` checks it every 15 s while the window has focus, and at once when it gets focus
+  back; on a change it reads the lists again, and the sidebar, the counts and a list on screen
+  follow. A list read again keeps the selection on the same photo (`reselect`, by path) and
+  clears the picks, whose positions may have moved.
+- Reading everything again instead of only what was appended: a few thousand events merge in
+  milliseconds, so it isn't worth the bookkeeping.
+- One Rust test for the stamp (no events folder, unchanged, after an append); 117 Rust tests,
+  65 vitest tests, `tsc` and `pnpm build` clean.
+- To check with two Macs, once Lynn's has the app (F004/S05): a change on one shows on the other
+  within 15 seconds.

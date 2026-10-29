@@ -277,6 +277,29 @@ pub fn load(nas: Option<&Path>, local: &Path) -> (ListsState, BTreeMap<String, L
     }
 }
 
+/// A fingerprint of the devices and event files: their names, sizes and times. It changes when
+/// any device appends an event, so the app knows when to read the lists again (F003/S04).
+pub fn stamp(lists: &Path) -> Option<u64> {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    let mut files: Vec<(String, u64, Option<std::time::SystemTime>)> = Vec::new();
+    let mut add = |name: String, path: &Path| {
+        if let Ok(m) = fs::metadata(path) {
+            files.push((name, m.len(), m.modified().ok()));
+        }
+    };
+    add(DEVICES_FILE.into(), &lists.join(DEVICES_FILE));
+    for e in fs::read_dir(lists.join(EVENTS_DIR)).ok()?.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if name.ends_with(".jsonl") {
+            add(name, &e.path());
+        }
+    }
+    files.sort();
+    files.hash(&mut h);
+    Some(h.finish())
+}
+
 /// What the sync copies from `Lists` (F003/S01): the devices, the event files and the summaries.
 pub fn is_lists_file(rel: &str) -> bool {
     let parts: Vec<&str> = rel.split('/').collect();
@@ -738,5 +761,18 @@ mod tests {
         assert_eq!(v["photos"][0]["added_by"], "lynn");
         assert!(!dir.path().join("2026/herfstwandeling.json.tmp-mbp-peter").exists());
         assert!(is_lists_file("2026/herfstwandeling.json"));
+    }
+
+    #[test]
+    fn the_stamp_changes_when_a_device_appends() {
+        let dir = registered_dir(&["mbp-lynn"]);
+        assert_eq!(stamp(dir.path()), None, "no events folder yet");
+        let create = Change::Create { list: "2026/ski".into(), name: "Ski".into() };
+        append(dir.path(), "mbp-lynn", "lynn", &create, &BTreeMap::new()).unwrap();
+        let before = stamp(dir.path()).unwrap();
+        assert_eq!(stamp(dir.path()), Some(before));
+        let add = Change::Add { list: "2026/ski".into(), photos: vec![("h".into(), None)] };
+        append(dir.path(), "mbp-lynn", "lynn", &add, &merged_of(dir.path())).unwrap();
+        assert_ne!(stamp(dir.path()), Some(before));
     }
 }

@@ -442,6 +442,21 @@ fn load_lists(paths: &Paths) -> (lists::ListsState, std::collections::BTreeMap<S
     lists::load(nas.as_deref(), &paths.lists)
 }
 
+/// A fingerprint of the event files where the lists are read from, to notice the other Mac's
+/// changes (F003/S04); as text, since a u64 doesn't fit a JavaScript number.
+#[tauri::command]
+async fn lists_stamp(paths: State<'_, Paths>) -> Result<Option<String>, String> {
+    let paths = paths.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (settings, _) = config::load_settings(&paths.config);
+        let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+        let dir = mounts::NasMounts::chosen(&found.lists).map(|m| PathBuf::from(&m.mount_point)).unwrap_or(paths.lists.clone());
+        lists::stamp(&dir).map(|s| s.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// All lists, without their photos. On a blocking thread: the share may be slow to answer.
 #[tauri::command]
 async fn lists_state(paths: State<'_, Paths>) -> Result<lists::ListsState, String> {
@@ -713,7 +728,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            lists_state, list_photos, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            lists_state, lists_stamp, list_photos, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

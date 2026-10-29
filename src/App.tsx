@@ -115,11 +115,27 @@ export default function App() {
   // A list shown instead of the library (F003/S04), loaded again when the lists or the index change.
   const listId = lists.active?.id ?? null;
   const [listView, setListView] = useState<ListView | null>(null);
+  const listViewRef = useRef(listView);
+  listViewRef.current = listView;
   const builds = index.state?.builds ?? 0;
   useEffect(() => {
     if (!listId) return setListView(null);
     invoke<{ items: (Item & { month: string })[]; missing: number }>("list_items", { id: listId })
-      .then((r) => setListView(toListView(listId, r.items, r.missing)))
+      .then((r) => {
+        const next = toListView(listId, r.items, r.missing);
+        const prev = listViewRef.current;
+        // the same list again (a change here or on the other Mac): keep the selection on its photo
+        if (prev?.id === listId) {
+          setPicked(new Set());
+          setSelected((sel) => {
+            const month = sel && prev.sections[sel.section]?.month;
+            if (!sel || !month) return sel;
+            const path = prev.byMonth.get(month)?.[sel.index]?.path ?? null;
+            return reselect({ month, index: sel.index, path }, next.sections, next.byMonth.get(month));
+          });
+        }
+        setListView(next);
+      })
       .catch((e) => lists.say(String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listId, lists.state, builds]);
