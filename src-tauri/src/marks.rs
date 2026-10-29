@@ -1,7 +1,8 @@
 //! Stars and hearts (feature 13, data contract 5.5): like the lists, every device appends events to
 //! its own file, `Lists/marks/<device>.jsonl`, and every reader merges them the same way. Stars are
 //! shared (the last rating wins); a heart belongs to a person (`who`); hiding is shared, the last
-//! `hide` or `unhide` decides (F014/S01). This module reads, merges and writes them (F013/S01).
+//! `hide` or `unhide` decides (F014/S01); a photo's stack too, by its last `stack` or `unstack`
+//! (F015/S01). This module reads, merges and writes them (F013/S01).
 
 use crate::lists::{complete_lines, moment, registered, DEVICES_FILE};
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,9 @@ pub enum Op {
     Unheart,
     Hide,
     Unhide,
+    /// Into this stack (F015/S01).
+    Stack(String),
+    Unstack,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +45,7 @@ struct Raw {
     op: Option<String>,
     photo: Option<String>,
     stars: Option<i64>,
+    stack: Option<String>,
 }
 
 fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
@@ -57,6 +62,8 @@ fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
         "unheart" => Op::Unheart,
         "hide" => Op::Hide,
         "unhide" => Op::Unhide,
+        "stack" => Op::Stack(r.stack.filter(|s| !s.trim().is_empty())?),
+        "unstack" => Op::Unstack,
         _ => return None,
     };
     Some(Event { ts, at, dev: device.to_string(), who: r.who.filter(|w| !w.is_empty())?, photo, op, line: n })
@@ -92,6 +99,8 @@ pub struct Marks {
     pub hearts: HashMap<String, BTreeMap<String, String>>,
     /// Hidden photos, with who hid them and when (F014/S01).
     pub hidden: HashMap<String, Hidden>,
+    /// Each photo in a stack, with its stack's id; stacks of one photo left out (F015/S01).
+    pub stacks: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -130,9 +139,28 @@ pub fn merge(mut events: Vec<Event>) -> Marks {
             Op::Unhide => {
                 m.hidden.remove(&e.photo);
             }
+            Op::Stack(id) => {
+                m.stacks.insert(e.photo, id);
+            }
+            Op::Unstack => {
+                m.stacks.remove(&e.photo);
+            }
         }
     }
+    // a stack with one photo left is no stack
+    let mut size: HashMap<&str, usize> = HashMap::new();
+    for id in m.stacks.values() {
+        *size.entry(id.as_str()).or_default() += 1;
+    }
+    let single: std::collections::HashSet<String> =
+        size.into_iter().filter(|(_, n)| *n < 2).map(|(id, _)| id.to_string()).collect();
+    m.stacks.retain(|_, id| !single.contains(id));
     m
+}
+
+/// A new stack's id: the device and the moment, unique without coordination.
+pub fn new_stack_id(device: &str) -> String {
+    format!("{device}-{}", chrono::Local::now().format("%Y%m%dT%H%M%S%3f"))
 }
 
 #[derive(Debug, Default)]
@@ -166,15 +194,24 @@ pub enum Change {
     Rate { photos: Vec<String>, stars: u8 },
     Heart { photos: Vec<String>, on: bool },
     Hide { photos: Vec<String>, hidden: bool },
+    Stack { photos: Vec<String>, stack: String },
+    Unstack { photos: Vec<String> },
 }
 
 /// Why a change can't be written, or `None`.
 pub fn refusal(change: &Change) -> Option<String> {
     match change {
-        Change::Rate { photos, .. } | Change::Heart { photos, .. } | Change::Hide { photos, .. } if photos.is_empty() => {
+        Change::Rate { photos, .. }
+        | Change::Heart { photos, .. }
+        | Change::Hide { photos, .. }
+        | Change::Stack { photos, .. }
+        | Change::Unstack { photos }
+            if photos.is_empty() =>
+        {
             Some("geen foto's gekozen".into())
         }
         Change::Rate { stars, .. } if *stars > 5 => Some(format!("{stars} sterren kan niet: 0 tot 5")),
+        Change::Stack { stack, .. } if stack.trim().is_empty() => Some("een reeks zonder naam".into()),
         _ => None,
     }
 }
@@ -199,6 +236,15 @@ pub fn lines(change: &Change, ts: &str, dev: &str, who: &str) -> Vec<String> {
         Change::Hide { photos, hidden } => {
             photos.iter().map(|p| head(if *hidden { "hide" } else { "unhide" }, p).to_string() + "\n").collect()
         }
+        Change::Stack { photos, stack } => photos
+            .iter()
+            .map(|p| {
+                let mut v = head("stack", p);
+                v["stack"] = json!(stack);
+                v.to_string() + "\n"
+            })
+            .collect(),
+        Change::Unstack { photos } => photos.iter().map(|p| head("unstack", p).to_string() + "\n").collect(),
     }
 }
 
@@ -372,5 +418,38 @@ mod tests {
         let s = load(Some(dir.path()), Path::new("/nowhere"));
         assert_eq!(s.marks.hidden.keys().collect::<Vec<_>>(), vec!["a"]);
         assert!(append(dir.path(), "mbp-lynn", "lynn", &Change::Hide { photos: vec![], hidden: true }).is_err());
+    }
+
+    #[test]
+    fn stacks_per_photo_the_last_event_wins_and_one_photo_is_no_stack() {
+        let x = r#","stack":"mbp-peter-1""#;
+        let peter = [
+            line("2026-10-30T10:00:00+01:00", "mbp-peter", "peter", "stack", "a", x),
+            line("2026-10-30T10:00:00+01:00", "mbp-peter", "peter", "stack", "b", x),
+            line("2026-10-30T10:00:00+01:00", "mbp-peter", "peter", "stack", "c", x),
+            line("2026-10-30T10:00:00+01:00", "mbp-peter", "peter", "stack", "d", r#","stack":"mbp-peter-2""#),
+        ]
+        .concat();
+        let lynn = line("2026-10-30T11:00:00+01:00", "mbp-lynn", "lynn", "unstack", "c", "");
+        let m = merged(&[("mbp-peter", peter), ("mbp-lynn", lynn)]);
+        let mut got: Vec<_> = m.stacks.iter().map(|(p, s)| (p.as_str(), s.as_str())).collect();
+        got.sort();
+        // c taken out later by lynn; d alone in its stack, so no stack
+        assert_eq!(got, vec![("a", "mbp-peter-1"), ("b", "mbp-peter-1")]);
+        let bad = line("2026-10-30T10:00:00+01:00", "a", "x", "stack", "h", "");
+        assert_eq!(parse_file(&bad, "a").1, 1, "a stack without an id");
+    }
+
+    #[test]
+    fn writing_stacks() {
+        let dir = registered_dir(&["mbp-lynn"]);
+        let id = new_stack_id("mbp-lynn");
+        assert!(id.starts_with("mbp-lynn-20"), "{id}");
+        append(dir.path(), "mbp-lynn", "lynn", &Change::Stack { photos: vec!["a".into(), "b".into(), "c".into()], stack: id.clone() }).unwrap();
+        append(dir.path(), "mbp-lynn", "lynn", &Change::Unstack { photos: vec!["c".into()] }).unwrap();
+        let s = load(Some(dir.path()), Path::new("/nowhere"));
+        assert_eq!((s.marks.stacks.len(), s.marks.stacks["a"].as_str()), (2, id.as_str()));
+        let empty = Change::Stack { photos: vec!["a".into()], stack: " ".into() };
+        assert!(append(dir.path(), "mbp-lynn", "lynn", &empty).is_err());
     }
 }

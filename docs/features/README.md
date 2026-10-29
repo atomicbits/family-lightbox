@@ -164,4 +164,4 @@ no folder yet.
 | 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (S01–S03 done, S04 built) | 6, 7, 8 |
 | 13 | [Ratings and hearts](F013-ratings-and-hearts/plan.md): 1–5 stars shared, a heart per person, on the tiles; undo with a message, a button and ⌘Z | Done | 3 |
 | 14 | [Hiding photos](F014-hide-photos/plan.md): hide practical photos for both of us, from the right-click menu, with undo; show them per month or year until a restart | In progress (S01 done, S02–S04 built) | 13 |
-| 15 | [Stacks](F015-stacks/plan.md): near-identical photos in a stack, folded to the ones that matter, unfolded with a click; shared | In design | 13, 14 |
+| 15 | [Stacks](F015-stacks/plan.md): near-identical photos in a stack, folded to the ones that matter, unfolded with a click; shared | In progress (S01 done) | 13, 14 |

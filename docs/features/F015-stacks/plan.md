@@ -1,6 +1,6 @@
 # Feature 15: Stacks (reeksen)
 
-**Status:** In design
+**Status:** In progress (plan accepted 2026-10-30; S01 done)
 **Depends on:** Feature 13 (marks: stars and hearts, the message with undo), feature 14 (the right-click menu on photos, hidden photos)
 **Folder:** `F015-stacks`
 
@@ -36,8 +36,9 @@ restarts; the stacks themselves are shared, like stars and hearts.
 - **Taking out**: right-click on a photo in a stack, *Uit de reeks halen*; a stack with one photo
   left is no stack any more.
 - **Shared**: stacks are kept in the marks files, followed by the other Mac within 15 seconds.
-- **Folded by default**: the stack shows the photos with a heart or 4–5 stars, or else its first
-  photo (by date taken); together, at the place of the stack's first photo.
+- **Folded by default**: the stack shows the photos with a heart or 4–5 stars; without those, the
+  photos with the most stars; without any stars or hearts, its first photo (by date taken);
+  together, at the place of the stack's first photo.
 - **Unfolded**: all photos of the stack, together, in the order taken; folding and unfolding is
   local and forgotten when the app restarts.
 - **Looks**: a colored border and a light background of the same color around the stack's tiles;
@@ -69,16 +70,19 @@ restarts; the stacks themselves are shared, like stars and hearts.
   stacks folded and unfolded, which photos a folded stack shows, the menu items for a selection,
   and undo.
 
-## Stories (proposal)
+## Stories
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-the-data.md) | The data: `stack` and `unstack` in the marks files and the contract, merged, written, read | Planned | — |
+| [S01](stories/S01-the-data.md) | The data: `stack` and `unstack` in the marks files and the contract, merged, written, read | Done | — |
 | [S02](stories/S02-the-grid.md) | The grid: a month's photos with stacks together, folded or unfolded; which photos a folded stack shows; the counts | Planned | S01 |
 | [S03](stories/S03-the-looks.md) | The looks: border, background, the stronger border when selected, the symbol that folds and unfolds | Planned | S02 |
 | [S04](stories/S04-making-and-changing.md) | Making, adding to and taking out of a stack from the right-click menu, with the message and undo | Planned | S03 |
 
-## Open points
+## Decisions
+
+Peter accepted all eleven proposals on 2026-10-30, with point 4 adjusted as written there.
+
 
 1. **The data.** Proposal: in the marks files, `{"op":"stack","photo":…,"stack":"<id>"}` puts a
    photo in a stack and `{"op":"unstack","photo":…}` takes it out; per photo the last one
@@ -88,8 +92,9 @@ restarts; the stacks themselves are shared, like stars and hearts.
 2. **Making a stack.** Proposal: right-click on two or more selected photos, *Reeks maken*; not
    offered when one of them is in a stack already (then *Aan de reeks toevoegen* applies).
 3. **The first photo.** Proposal: the earliest taken; with the same time, the first by path.
-4. **Which photos a folded stack shows.** As asked: those with any heart or with 4 or 5 stars, in
-   the order taken; none of those: the first photo.
+4. **Which photos a folded stack shows.** Those with any heart or with 4 or 5 stars, in the order
+   taken; none of those, the photos with the most stars (all the 3-star ones, say); no stars or
+   hearts at all, the first photo. (Peter's adjustment on 2026-10-30.)
 5. **Where the stack stands.** Proposal: at the place of its first photo in that month; a stack
    with photos in two months (a shoot around midnight) stands in the month of its first photo,
    with all its photos.
