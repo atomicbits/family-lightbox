@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLayout, moveAcross, rowOf, sameSections, sectionsInRange } from "./timeline";
+import { buildLayout, moveAcross, pickAfterClick, rangeBetween, rowOf, sameSections, sectionsInRange, selKey } from "./timeline";
 
 // three months: 10 items, 1 item, 6 items; 4 columns
 //   header 0 | 0 1 2 3 | 4 5 6 7 | 8 9
@@ -82,5 +82,29 @@ describe("sameSections", () => {
     expect(sameSections(a, [{ month: "2026/07", count: 3 }, { month: "2012/scans", count: 1 }])).toBe(true);
     expect(sameSections(a, [{ month: "2026/07", count: 4 }, { month: "2012/scans", count: 1 }])).toBe(false);
     expect(sameSections(a, a.slice(0, 1))).toBe(false);
+  });
+});
+
+describe("picking several tiles", () => {
+  const counts = [3, 2, 4];
+  it("takes a range across sections, either way", () => {
+    const keys = (a: [number, number], b: [number, number]) =>
+      rangeBetween({ section: a[0], index: a[1] }, { section: b[0], index: b[1] }, counts).map(selKey);
+    expect(keys([0, 1], [2, 1])).toEqual(["0:1", "0:2", "1:0", "1:1", "2:0", "2:1"]);
+    expect(keys([2, 1], [0, 1])).toEqual(keys([0, 1], [2, 1]));
+    expect(keys([1, 1], [1, 1])).toEqual(["1:1"]);
+  });
+
+  it("shift picks the range from the anchor, ⌘ adds and removes, a click starts over", () => {
+    const none = new Set<string>();
+    const a = { section: 0, index: 2 };
+    const shift = pickAfterClick(none, a, a, { section: 1, index: 1 }, { shift: true, meta: false }, counts);
+    expect([...shift.picked]).toEqual(["0:2", "1:0", "1:1"]);
+    expect(shift.anchor).toEqual(a);
+    const meta = pickAfterClick(none, a, a, { section: 2, index: 3 }, { shift: false, meta: true }, counts);
+    expect([...meta.picked].sort()).toEqual(["0:2", "2:3"]);
+    const off = pickAfterClick(meta.picked, meta.anchor, { section: 2, index: 3 }, { section: 2, index: 3 }, { shift: false, meta: true }, counts);
+    expect([...off.picked]).toEqual(["0:2"]);
+    expect(pickAfterClick(meta.picked, a, a, { section: 1, index: 0 }, { shift: false, meta: false }, counts).picked.size).toBe(0);
   });
 });

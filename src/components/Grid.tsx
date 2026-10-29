@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
@@ -12,7 +12,8 @@ type Props = {
   /** A month's items, or undefined while it isn't loaded yet. */
   itemsOf: (month: string) => Item[] | undefined;
   selected: Sel | null;
-  onSelect: (sel: Sel) => void;
+  /** A click, with shift or ⌘ held for picking several (F003/S05). */
+  onSelect: (sel: Sel, mods: { shift: boolean; meta: boolean }) => void;
   onOpen: (sel: Sel) => void;
   /** Reports the column count, so the arrow keys can move a row up or down. */
   onColumns?: (cols: number) => void;
@@ -26,13 +27,15 @@ type Props = {
   tile: number;
   /** The photos of the active list by hash, to mark their tiles (F003/S03). */
   marked?: Map<string, Member> | null;
+  /** Tiles picked besides the selected one, as `section:index`. */
+  picked?: Set<string>;
 };
 
 const GAP = 8;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked }: Props) {
+export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -143,7 +146,8 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                     size={tile}
                     active={active}
                     member={marked?.get(item.hash) ?? null}
-                    onClick={() => onSelect(sel)}
+                    picked={picked?.has(`${row.section}:${index}`) ?? false}
+                    onClick={(e) => onSelect(sel, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
                     onDoubleClick={() => onOpen(sel)}
                   />
                 ) : (
@@ -162,8 +166,9 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   );
 }
 
-function Tile({ item, size, active, member, onClick, onDoubleClick }: {
-  item: Item; size: number; active: boolean; member: Member | null; onClick: () => void; onDoubleClick: () => void;
+function Tile({ item, size, active, member, picked, onClick, onDoubleClick }: {
+  item: Item; size: number; active: boolean; member: Member | null; picked: boolean;
+  onClick: (e: MouseEvent) => void; onDoubleClick: () => void;
 }) {
   return (
     <div
@@ -172,10 +177,11 @@ function Tile({ item, size, active, member, onClick, onDoubleClick }: {
       title={member ? `${fileName(item.path)}\n${addedText(member)}` : fileName(item.path)}
       className={
         "relative rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
-        (active ? "ring-3 ring-blue-500" : "")
+        (active ? "ring-3 ring-blue-500" : picked ? "ring-3 ring-blue-300" : "")
       }
       style={{ width: size, height: size }}
     >
+      {picked && <span className="absolute inset-0 bg-blue-500/25 pointer-events-none" />}
       {item.preview ? (
         <img
           src={previewUrl(item.path, true)}

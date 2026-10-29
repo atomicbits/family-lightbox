@@ -1,7 +1,7 @@
 # Story S05: Selecting several photos and adding or removing them together
 
 **Feature:** `F003-lists`
-**Status:** Planned
+**Status:** In progress: built and tested; to try in the app
 **Depends on:** S03
 
 ## Goal
@@ -17,11 +17,30 @@ all of them in the active list (or takes them out, when all are in it already).
   removes them. One event per photo, written in one go.
 - **Tests**: `pnpm test` for the selection ranges across sections and the add-or-remove decision.
 
+## How
+
+- `timeline.ts`: `rangeBetween` (every tile between two, across sections), `pickAfterClick`
+  (shift: the range from the anchor; ⌘ or Ctrl: add or remove one, keeping the tile that was
+  selected; a plain click: start over), `selKey` / `parseKey`.
+- `App.tsx`: the picked tiles as `section:index` and the anchor; shift-arrows extend the range,
+  plain arrows clear it, Esc clears it; the header says "N geselecteerd". After an index rebuild
+  the picks are cleared, since positions may have moved.
+- `+` with more than one picked: the items are gathered (months not loaded yet are fetched), and
+  `manyChange` adds those not in the active list, or removes all when all are in it, as one
+  `list_add` or `list_remove`, so one `write` on the NAS.
+- `Grid.tsx`: picked tiles get a light blue ring and tint.
+
 ## Files affected
 
-- `src/lib/timeline.ts`, `src/App.tsx`, `src/components/Grid.tsx`, `src-tauri/src/lists.rs`
-  (several events in one write).
+- `src/lib/timeline.ts` and its tests, `src/lib/lists.ts` and its tests, `src/App.tsx`,
+  `src/components/Grid.tsx`. Several events in one write were already in S02.
 
 ## Progress log
 
 ### [2026-10-29] Written
+
+### [2026-10-29] Built
+
+- Moved ahead of S04: Peter tried shift-click and ⌘-click in the grid while trying S03.
+- `pnpm test`: ranges across sections in both directions, the three kinds of click, adding the
+  missing ones or removing all; 65 tests. `tsc` and `pnpm build` clean.

@@ -65,6 +65,13 @@ export function addedText(m: Member): string {
   return `toegevoegd door ${m.added_by}, ${when}`;
 }
 
+/** For several photos: add those not in the list, or remove all when all are in it already. */
+export function manyChange(items: Item[], members: Map<string, Member>): { op: "add" | "remove"; items: Item[] } {
+  const unique = [...new Map(items.map((i) => [i.hash, i])).values()];
+  const missing = unique.filter((i) => !members.has(i.hash));
+  return missing.length === 0 ? { op: "remove", items: unique } : { op: "add", items: missing };
+}
+
 export type Lists = {
   state: ListsState | null;
   active: ListInfo | null;
@@ -79,6 +86,8 @@ export type Lists = {
   archive: (id: string, archived: boolean) => Promise<boolean>;
   /** Puts the item in the active list, or takes it out when it is in it. */
   toggle: (item: Item) => Promise<void>;
+  /** The same for several photos at once, in one write (F003/S05). */
+  toggleMany: (items: Item[]) => Promise<void>;
 };
 
 export function useLists(): Lists {
@@ -149,5 +158,14 @@ export function useLists(): Lists {
     else await change("list_add", { id: active.id, photos: [{ photo: item.hash, path: item.path }] });
   }, [active, blocked, members, change, say]);
 
-  return { state, active, members, blocked, message, refresh, setActive, create, rename, archive, toggle };
+  const toggleMany = useCallback(async (items: Item[]) => {
+    if (!active) return say("kies eerst een lijst in de zijbalk");
+    if (blocked) return say(blocked);
+    const c = manyChange(items, members);
+    if (c.items.length === 0) return;
+    if (c.op === "remove") await change("list_remove", { id: active.id, photos: c.items.map((i) => i.hash) });
+    else await change("list_add", { id: active.id, photos: c.items.map((i) => ({ photo: i.hash, path: i.path })) });
+  }, [active, blocked, members, change, say]);
+
+  return { state, active, members, blocked, message, refresh, setActive, create, rename, archive, toggle, toggleMany };
 }

@@ -20,7 +20,7 @@ import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
 import { listen } from "@tauri-apps/api/event";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
 import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
-import { moveAcross, sameSections, type Sel, type Section } from "./lib/timeline";
+import { moveAcross, parseKey, pickAfterClick, rangeBetween, sameSections, selKey, type Sel, type Section } from "./lib/timeline";
 
 const toSections = (months: MonthSummary[]): Section[] =>
   months.map((m) => ({ month: m.month, count: m.photos + m.videos }));
@@ -29,6 +29,9 @@ export default function App() {
   const [months, setMonths] = useState<MonthSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Sel | null>(null);
+  // Several tiles picked with shift or ⌘ (F003/S05), and where a shift range starts.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [anchor, setAnchor] = useState<Sel | null>(null);
   const [open, setOpen] = useState(false);
   const [top, setTop] = useState(0);
   const [jump, setJump] = useState<{ section: number; nonce: number } | null>(null);
@@ -156,7 +159,32 @@ export default function App() {
     [cols, counts],
   );
 
-  // toetsenbord op het raster: pijltjes, spatie/enter opent, Esc sluit
+  const select = useCallback((sel: Sel, mods: { shift: boolean; meta: boolean }) => {
+    const r = pickAfterClick(picked, anchor, selected, sel, mods, counts);
+    setPicked(r.picked);
+    setAnchor(r.anchor);
+    setSelected(sel);
+  }, [picked, anchor, selected, counts]);
+
+  // The picked tiles as items; months not loaded yet are fetched first.
+  const pickedItems = useCallback(async (): Promise<Item[]> => {
+    const out: Item[] = [];
+    for (const k of picked) {
+      const { section, index } = parseKey(k);
+      const month = sections[section]?.month;
+      if (!month) continue;
+      let items = cache.current.get(month);
+      if (!items) {
+        items = await api.items(month);
+        cache.current.set(month, items);
+      }
+      if (items[index]) out.push(items[index]);
+    }
+    return out;
+  }, [picked, sections]);
+
+  // toetsenbord op het raster: pijltjes (met shift: een reeks), spatie/enter opent, Esc wist de
+  // keuze, + zet in de actieve lijst
   const dialog = showSettings || confirming || (device !== null && device.device === null && device.error === null);
   useEffect(() => {
     if (open || dialog) return;
@@ -165,13 +193,30 @@ export default function App() {
       const m = ARROWS[e.key];
       if (m) {
         e.preventDefault(); // otherwise up/down scroll the grid instead of moving the selection
-        move(m);
-      } else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
-      else if ((e.key === "+" || e.key === "=") && current) { e.preventDefault(); lists.toggle(current); }
+        if (e.shiftKey && selected) {
+          const next = moveAcross(selected, m, cols, counts);
+          if (next) {
+            const from = anchor ?? selected;
+            setAnchor(from);
+            setPicked(new Set(rangeBetween(from, next, counts).map(selKey)));
+            setSelected(next);
+          }
+        } else {
+          setPicked(new Set());
+          setAnchor(null);
+          move(m);
+        }
+      } else if (e.key === "Escape" && picked.size > 0) { setPicked(new Set()); setAnchor(null); }
+      else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
+      else if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        if (picked.size > 1) pickedItems().then(lists.toggleMany).catch((err) => setError(String(err)));
+        else if (current) lists.toggle(current);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, dialog, selected, move, current, lists.toggle]);
+  }, [open, dialog, selected, anchor, picked, cols, counts, move, current, lists.toggle, lists.toggleMany, pickedItems]);
 
   // After every rebuild: months again, an empty cache, and the selection and the month at the
   // top kept where they were.
@@ -196,6 +241,7 @@ export default function App() {
         setWaitingForIndex(false);
         setMonths(m);
         setSelected(reselect(anchor, next, items));
+        setPicked(new Set());
         const t = next.findIndex((x) => x.month === topMonth);
         if (t >= 0 && t !== top) setJump({ section: t, nonce: Date.now() });
       } catch (e) {
@@ -241,6 +287,11 @@ export default function App() {
           />
           <span className="text-base leading-none">□</span>
         </label>
+        {picked.size > 1 && (
+          <span className="text-blue-600" title="+ zet ze in de actieve lijst (of haalt ze eruit), Esc wist de keuze">
+            {picked.size} geselecteerd
+          </span>
+        )}
         {lists.message && <span className="text-amber-600">{lists.message}</span>}
         {index.line && (
           <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
@@ -287,7 +338,8 @@ export default function App() {
               sections={sections}
               itemsOf={itemsOf}
               selected={selected}
-              onSelect={setSelected}
+              onSelect={select}
+              picked={picked}
               onOpen={(s) => { setSelected(s); setOpen(true); }}
               onColumns={setCols}
               onNeed={need}

@@ -75,3 +75,46 @@ export function moveAcross(sel: Sel | null, move: Move, cols: number, counts: nu
     }
   }
 }
+
+/** A tile as a key for a set of picked tiles (F003/S05). */
+export const selKey = (s: Sel): string => `${s.section}:${s.index}`;
+
+export function parseKey(key: string): Sel {
+  const [section, index] = key.split(":").map(Number);
+  return { section, index };
+}
+
+/** Every tile from `a` to `b`, in either direction, across sections. */
+export function rangeBetween(a: Sel, b: Sel, counts: number[]): Sel[] {
+  const before = (x: Sel, y: Sel) => x.section < y.section || (x.section === y.section && x.index <= y.index);
+  const [from, to] = before(a, b) ? [a, b] : [b, a];
+  const out: Sel[] = [];
+  for (let s = from.section; s <= to.section; s++) {
+    const first = s === from.section ? from.index : 0;
+    const last = s === to.section ? to.index : (counts[s] ?? 0) - 1;
+    for (let i = first; i <= last; i++) out.push({ section: s, index: i });
+  }
+  return out;
+}
+
+/** What a click does to the picked tiles: shift picks the range from the anchor, ⌘ adds or
+ * removes one (keeping the tile that was selected), a plain click picks nothing extra. */
+export function pickAfterClick(
+  picked: Set<string>,
+  anchor: Sel | null,
+  selected: Sel | null,
+  sel: Sel,
+  mods: { shift: boolean; meta: boolean },
+  counts: number[],
+): { picked: Set<string>; anchor: Sel } {
+  if (mods.shift && anchor) return { picked: new Set(rangeBetween(anchor, sel, counts).map(selKey)), anchor };
+  if (mods.meta) {
+    const next = new Set(picked);
+    if (next.size === 0 && selected) next.add(selKey(selected));
+    const k = selKey(sel);
+    if (next.has(k)) next.delete(k);
+    else next.add(k);
+    return { picked: next, anchor: sel };
+  }
+  return { picked: new Set(), anchor: sel };
+}
