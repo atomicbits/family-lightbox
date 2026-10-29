@@ -464,6 +464,123 @@ async fn list_photos(id: String, paths: State<'_, Paths>) -> Result<Vec<lists::M
     .map_err(|e| e.to_string())?
 }
 
+/// Lists whose summary is to be written (F003/S02).
+#[derive(Default)]
+pub struct Summaries(std::sync::Mutex<std::collections::HashSet<String>>);
+
+/// How long after a change the summaries are written, so a run of adds writes them once.
+const SUMMARY_DELAY: std::time::Duration = std::time::Duration::from_secs(3);
+
+fn write_summaries(app: &tauri::AppHandle) {
+    let ids: Vec<String> = app.state::<Summaries>().0.lock().map(|mut p| p.drain().collect()).unwrap_or_default();
+    if ids.is_empty() {
+        return;
+    }
+    let paths = app.state::<Paths>().inner().clone();
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let (Some(nas), Ok(Some(device))) = (mounts::NasMounts::chosen(&found.lists), config::load_device(&paths.config)) else {
+        return;
+    };
+    let nas = PathBuf::from(&nas.mount_point);
+    let Ok(read) = lists::read(&nas) else { return };
+    let merged = lists::merge(read.events);
+    let index = rusqlite::Connection::open_with_flags(paths.index(), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).ok();
+    let path_of = |hash: &str| -> Option<String> {
+        index.as_ref()?.query_row(
+            "SELECT path FROM items WHERE hash = ?1 ORDER BY folder DESC LIMIT 1", [hash], |r| r.get(0),
+        ).ok()
+    };
+    for list in ids.iter().filter_map(|id| merged.get(id)) {
+        if let Err(e) = lists::write_summary(&nas, &device.name, list, &path_of) {
+            eprintln!("{e}");
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct ListChanged {
+    /// The list that changed (for a new list, its new id).
+    pub id: String,
+    pub state: lists::ListsState,
+}
+
+/// Writes one change on the `Lists` share and answers with the lists as they are now. Without the
+/// share, or without a device, it refuses: changes are only written on the NAS (data contract 5.2).
+fn change_list(app: &tauri::AppHandle, make: impl FnOnce(&std::collections::BTreeMap<String, lists::List>) -> lists::Change) -> Result<ListChanged, String> {
+    let paths = app.state::<Paths>().inner().clone();
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let nas = mounts::NasMounts::chosen(&found.lists)
+        .map(|m| PathBuf::from(&m.mount_point))
+        .ok_or("Lijsten is niet verbonden: lijsten wijzigen kan alleen met de NAS")?;
+    let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+    let merged = lists::merge(lists::read(&nas)?.events);
+    let change = make(&merged);
+    lists::append(&nas, &device.name, &device.owner, &change, &merged)?;
+    let id = match &change {
+        lists::Change::Create { list, .. }
+        | lists::Change::Add { list, .. }
+        | lists::Change::Remove { list, .. }
+        | lists::Change::Rename { list, .. }
+        | lists::Change::Archive { list, .. } => list.clone(),
+    };
+    if let Ok(mut p) = app.state::<Summaries>().0.lock() {
+        p.insert(id.clone());
+    }
+    let later = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(SUMMARY_DELAY);
+        write_summaries(&later);
+    });
+    Ok(ListChanged { id, state: lists::load(Some(&nas), &paths.lists).0 })
+}
+
+/// Runs a list change on a blocking thread: the share may be slow.
+async fn on_blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn list_create(name: String, year: i32, app: tauri::AppHandle) -> Result<ListChanged, String> {
+    on_blocking(move || {
+        change_list(&app, |merged| {
+            let list = lists::new_id(year, &name, &|id| merged.contains_key(id));
+            lists::Change::Create { list, name: name.trim().to_string() }
+        })
+    })
+    .await
+}
+
+#[derive(serde::Deserialize)]
+pub struct PhotoRef {
+    pub photo: String,
+    pub path: Option<String>,
+}
+
+#[tauri::command]
+async fn list_add(id: String, photos: Vec<PhotoRef>, app: tauri::AppHandle) -> Result<ListChanged, String> {
+    on_blocking(move || {
+        change_list(&app, |_| lists::Change::Add { list: id, photos: photos.into_iter().map(|p| (p.photo, p.path)).collect() })
+    })
+    .await
+}
+
+#[tauri::command]
+async fn list_remove(id: String, photos: Vec<String>, app: tauri::AppHandle) -> Result<ListChanged, String> {
+    on_blocking(move || change_list(&app, |_| lists::Change::Remove { list: id, photos })).await
+}
+
+#[tauri::command]
+async fn list_rename(id: String, name: String, app: tauri::AppHandle) -> Result<ListChanged, String> {
+    on_blocking(move || change_list(&app, |_| lists::Change::Rename { list: id, name: name.trim().to_string() })).await
+}
+
+#[tauri::command]
+async fn list_archive(id: String, archived: bool, app: tauri::AppHandle) -> Result<ListChanged, String> {
+    on_blocking(move || change_list(&app, |_| lists::Change::Archive { list: id, archived })).await
+}
+
 #[tauri::command]
 fn months(paths: State<Paths>) -> Result<Vec<MonthSummary>, String> {
     Db::open(&paths.index())?.months()
@@ -551,6 +668,7 @@ pub fn run() {
         .manage(runner::SyncRunner::default())
         .manage(index::IndexRunner::default())
         .manage(update::UpdateState::default())
+        .manage(Summaries::default())
         .manage(previews_job::MakeRunner::default())
         .register_uri_scheme_protocol("preview", move |_ctx, request| {
             preview_response(&previews_root, request.uri().path())
@@ -559,7 +677,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            lists_state, list_photos,
+            lists_state, list_photos, list_create, list_add, list_remove, list_rename, list_archive,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

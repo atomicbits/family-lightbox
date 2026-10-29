@@ -288,6 +288,202 @@ pub fn is_lists_file(rel: &str) -> bool {
     }
 }
 
+// ── Writing (F003/S02) ─────────────────────────────────────────────────────────────────────────
+
+/// At most this many characters in a list's name.
+pub const NAME_MAX: usize = 100;
+const SLUG_MAX: usize = 60;
+
+/// A slug from a name: lowercase, accents removed, everything but letters and digits a `-`.
+pub fn slug(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.chars().flat_map(char::to_lowercase) {
+        let plain = match c {
+            'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' => "a",
+            'æ' => "ae",
+            'ç' | 'č' | 'ć' => "c",
+            'è' | 'é' | 'ê' | 'ë' | 'ē' | 'ę' | 'ě' => "e",
+            'ì' | 'í' | 'î' | 'ï' | 'ī' => "i",
+            'ñ' | 'ń' | 'ň' => "n",
+            'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' => "o",
+            'œ' => "oe",
+            'ß' => "ss",
+            'š' | 'ś' => "s",
+            'ù' | 'ú' | 'û' | 'ü' | 'ū' | 'ů' => "u",
+            'ý' | 'ÿ' => "y",
+            'ž' | 'ź' | 'ż' => "z",
+            'ł' => "l",
+            c if c.is_ascii_alphanumeric() => {
+                out.push(c);
+                continue;
+            }
+            _ => "-",
+        };
+        out.push_str(plain);
+    }
+    let mut slug = String::new();
+    for part in out.split('-').filter(|p| !p.is_empty()) {
+        if !slug.is_empty() {
+            slug.push('-');
+        }
+        slug.push_str(part);
+    }
+    let mut slug: String = slug.chars().take(SLUG_MAX).collect();
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+    if slug.is_empty() { "lijst".to_string() } else { slug }
+}
+
+/// `<year>/<slug>`, with `-2`, `-3`, … when that id is taken.
+pub fn new_id(year: i32, name: &str, taken: &dyn Fn(&str) -> bool) -> String {
+    let base = format!("{year:04}/{}", slug(name));
+    (1..)
+        .map(|n| if n == 1 { base.clone() } else { format!("{base}-{n}") })
+        .find(|id| !taken(id))
+        .expect("an unused id")
+}
+
+/// A change to a list, as the UI asks for it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Change {
+    Create { list: String, name: String },
+    Add { list: String, photos: Vec<(String, Option<String>)> },
+    Remove { list: String, photos: Vec<String> },
+    Rename { list: String, name: String },
+    Archive { list: String, archived: bool },
+}
+
+impl Change {
+    fn list(&self) -> &str {
+        match self {
+            Change::Create { list, .. }
+            | Change::Add { list, .. }
+            | Change::Remove { list, .. }
+            | Change::Rename { list, .. }
+            | Change::Archive { list, .. } => list,
+        }
+    }
+}
+
+/// The lines this change appends, each ending in `\n` (data contract 5.2).
+pub fn lines(change: &Change, ts: &str, dev: &str, who: &str) -> Vec<String> {
+    use serde_json::json;
+    let head = |op: &str, list: &str| json!({"v": 1, "ts": ts, "dev": dev, "who": who, "op": op, "list": list});
+    let with = |mut v: serde_json::Value, key: &str, val: &str| {
+        v[key] = json!(val);
+        v
+    };
+    let values: Vec<serde_json::Value> = match change {
+        Change::Create { list, name } => vec![with(head("create", list), "name", name)],
+        Change::Rename { list, name } => vec![with(head("rename", list), "name", name)],
+        Change::Archive { list, archived } => vec![head(if *archived { "archive" } else { "unarchive" }, list)],
+        Change::Add { list, photos } => photos
+            .iter()
+            .map(|(photo, path)| {
+                let v = with(head("add", list), "photo", photo);
+                match path {
+                    Some(p) => with(v, "path", p),
+                    None => v,
+                }
+            })
+            .collect(),
+        Change::Remove { list, photos } => photos.iter().map(|p| with(head("remove", list), "photo", p)).collect(),
+    };
+    values.into_iter().map(|v| v.to_string() + "\n").collect()
+}
+
+/// Now, as `2026-10-20T19:42:11+02:00`.
+pub fn now() -> String {
+    chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%:z").to_string()
+}
+
+/// Why a change can't be written, or `None`.
+pub fn refusal(change: &Change, lists: &BTreeMap<String, List>) -> Option<String> {
+    let name_problem = |name: &str| {
+        let n = name.trim().chars().count();
+        if n == 0 {
+            Some("de naam is leeg".to_string())
+        } else if n > NAME_MAX {
+            Some(format!("de naam is langer dan {NAME_MAX} tekens"))
+        } else {
+            None
+        }
+    };
+    match change {
+        Change::Create { list, name } => {
+            name_problem(name).or_else(|| (!valid_id(list)).then(|| format!("ongeldige lijst: {list}")))
+        }
+        _ if !lists.contains_key(change.list()) => Some(format!("onbekende lijst: {}", change.list())),
+        Change::Rename { name, .. } => name_problem(name),
+        Change::Add { photos, .. } if photos.is_empty() => Some("geen foto's gekozen".into()),
+        Change::Remove { photos, .. } if photos.is_empty() => Some("geen foto's gekozen".into()),
+        _ => None,
+    }
+}
+
+/// Appends the change to this device's own event file on the share: all its lines in one `write`,
+/// then `fsync` (data contract 5.2). Refused when this device isn't registered.
+pub fn append(lists: &Path, device: &str, owner: &str, change: &Change, merged: &BTreeMap<String, List>) -> Result<(), String> {
+    use std::io::Write;
+    if let Some(why) = refusal(change, merged) {
+        return Err(why);
+    }
+    if !registered(lists)?.contains(device) {
+        return Err(format!("dit toestel ({device}) staat niet in {DEVICES_FILE}"));
+    }
+    let dir = lists.join(EVENTS_DIR);
+    fs::create_dir_all(&dir).map_err(|e| format!("{} maken mislukt: {e}", dir.display()))?;
+    let path = dir.join(format!("{device}.jsonl"));
+    let text = lines(change, &now(), device, owner).concat();
+    let mut f = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|e| format!("{} openen mislukt: {e}", path.display()))?;
+    f.write_all(text.as_bytes()).map_err(|e| format!("lijst bijwerken mislukt: {e}"))?;
+    f.sync_all().map_err(|e| format!("lijst bijwerken mislukt: {e}"))
+}
+
+/// The summary of one list (data contract 5.4); `path_of` gives the current path of a hash from
+/// the index, where it is known.
+pub fn summary(list: &List, path_of: &dyn Fn(&str) -> Option<String>) -> serde_json::Value {
+    let mut photos: Vec<(Option<String>, &Member)> =
+        list.photos.values().map(|m| (path_of(&m.photo).or_else(|| m.path.clone()), m)).collect();
+    photos.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.photo.cmp(&b.1.photo)));
+    serde_json::json!({
+        "contract_version": "1.0",
+        "list": list.id,
+        "name": list.name,
+        "year": list.year,
+        "archived": list.archived,
+        "created_by": list.created_by,
+        "created_at": list.created_at,
+        "updated_at": list.updated_at,
+        "updated_by": list.updated_by,
+        "count": photos.len(),
+        "photos": photos.iter().map(|(path, m)| serde_json::json!({
+            "photo": m.photo, "path": path, "added_by": m.added_by, "added_at": m.added_at,
+        })).collect::<Vec<_>>(),
+    })
+}
+
+/// Writes `Lists/<year>/<slug>.json` through a temporary name of this device and a rename.
+pub fn write_summary(lists: &Path, device: &str, list: &List, path_of: &dyn Fn(&str) -> Option<String>) -> Result<(), String> {
+    let (year, slug) = list.id.split_once('/').ok_or_else(|| format!("ongeldige lijst: {}", list.id))?;
+    let dir = lists.join(year);
+    fs::create_dir_all(&dir).map_err(|e| format!("{} maken mislukt: {e}", dir.display()))?;
+    let target = dir.join(format!("{slug}.json"));
+    let tmp = dir.join(format!("{slug}.json.tmp-{device}"));
+    let body = serde_json::to_string_pretty(&summary(list, path_of)).map_err(|e| e.to_string())? + "\n";
+    fs::write(&tmp, body)
+        .and_then(|_| fs::rename(&tmp, &target))
+        .map_err(|e| {
+            let _ = fs::remove_file(&tmp);
+            format!("samenvatting {} niet geschreven: {e}", target.display())
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -446,5 +642,101 @@ mod tests {
         for no in ["devices.json.tmp-mbp-lynn", "events/.jsonl", "events/x.txt", "notes.json", "2026/sub/x.json", "abcd/x.json"] {
             assert!(!is_lists_file(no), "{no}");
         }
+    }
+
+    fn registered_dir(devices: &[&str]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let list: Vec<_> = devices.iter().map(|d| serde_json::json!({"name": d, "owner": "x"})).collect();
+        fs::write(dir.path().join(DEVICES_FILE), serde_json::json!({"devices": list}).to_string()).unwrap();
+        dir
+    }
+
+    fn merged_of(dir: &Path) -> BTreeMap<String, List> {
+        merge(read(dir).unwrap().events)
+    }
+
+    #[test]
+    fn slugs_and_unique_ids() {
+        assert_eq!(slug("Herfstwandeling Ardennen"), "herfstwandeling-ardennen");
+        assert_eq!(slug("  Zomer — Côte d'Azur!  "), "zomer-cote-d-azur");
+        assert_eq!(slug("Kerstfeest 2026 (bij oma)"), "kerstfeest-2026-bij-oma");
+        assert_eq!(slug("Æble & Straße"), "aeble-strasse");
+        assert_eq!(slug("!!!"), "lijst");
+        assert_eq!(slug(&"a b ".repeat(40)).len(), 59);
+        let taken = |id: &str| id == "2026/ski" || id == "2026/ski-2";
+        assert_eq!(new_id(2026, "Ski", &taken), "2026/ski-3");
+        assert_eq!(new_id(2025, "Ski", &taken), "2025/ski");
+    }
+
+    #[test]
+    fn a_change_is_one_line_per_event_in_the_contracts_shape() {
+        let ts = "2026-10-20T19:42:30+02:00";
+        let add = Change::Add { list: "2026/l".into(), photos: vec![("sha256:a".into(), Some("2026/10/a.CR3".into())), ("sha256:b".into(), None)] };
+        assert_eq!(
+            lines(&add, ts, "mbp-lynn", "lynn"),
+            vec![
+                format!(r#"{{"v":1,"ts":"{ts}","dev":"mbp-lynn","who":"lynn","op":"add","list":"2026/l","photo":"sha256:a","path":"2026/10/a.CR3"}}"#) + "\n",
+                format!(r#"{{"v":1,"ts":"{ts}","dev":"mbp-lynn","who":"lynn","op":"add","list":"2026/l","photo":"sha256:b"}}"#) + "\n",
+            ]
+        );
+        let archive = Change::Archive { list: "2026/l".into(), archived: false };
+        assert!(lines(&archive, ts, "d", "w")[0].contains(r#""op":"unarchive","list":"2026/l"}"#));
+        // what is written reads back as the same events
+        let text = lines(&add, ts, "mbp-lynn", "lynn").concat();
+        assert_eq!(parse_file(&text, "mbp-lynn").0.len(), 2);
+        let n = now();
+        assert!(DateTime::parse_from_rfc3339(&n).is_ok(), "{n}");
+    }
+
+    #[test]
+    fn appending_writes_and_reads_back() {
+        let dir = registered_dir(&["mbp-lynn"]);
+        let create = Change::Create { list: "2026/ski".into(), name: "Ski".into() };
+        append(dir.path(), "mbp-lynn", "lynn", &create, &BTreeMap::new()).unwrap();
+        let merged = merged_of(dir.path());
+        let add = Change::Add { list: "2026/ski".into(), photos: vec![("h1".into(), None), ("h2".into(), None)] };
+        append(dir.path(), "mbp-lynn", "lynn", &add, &merged).unwrap();
+        let text = fs::read_to_string(dir.path().join("events/mbp-lynn.jsonl")).unwrap();
+        assert_eq!(text.lines().count(), 3);
+        assert!(text.ends_with('\n'));
+        let l = &merged_of(dir.path())["2026/ski"];
+        assert_eq!((l.name.as_str(), l.photos.len(), l.created_by.as_str()), ("Ski", 2, "lynn"));
+    }
+
+    #[test]
+    fn refusals() {
+        let dir = registered_dir(&["mbp-lynn"]);
+        let none = BTreeMap::new();
+        let create = |name: &str| Change::Create { list: "2026/x".into(), name: name.into() };
+        assert_eq!(append(dir.path(), "mbp-lynn", "lynn", &create("  "), &none).unwrap_err(), "de naam is leeg");
+        assert!(append(dir.path(), "mbp-lynn", "lynn", &create(&"x".repeat(101)), &none).unwrap_err().contains("langer dan 100"));
+        assert!(append(dir.path(), "mbp-other", "x", &create("Ski"), &none).unwrap_err().contains("staat niet in devices.json"));
+        let add = Change::Add { list: "2026/nope".into(), photos: vec![("h".into(), None)] };
+        assert_eq!(append(dir.path(), "mbp-lynn", "lynn", &add, &none).unwrap_err(), "onbekende lijst: 2026/nope");
+        append(dir.path(), "mbp-lynn", "lynn", &create("Ski"), &none).unwrap();
+        let merged = merged_of(dir.path());
+        let empty = Change::Add { list: "2026/x".into(), photos: vec![] };
+        assert_eq!(append(dir.path(), "mbp-lynn", "lynn", &empty, &merged).unwrap_err(), "geen foto's gekozen");
+        assert!(!dir.path().join("events/mbp-other.jsonl").exists());
+    }
+
+    #[test]
+    fn the_summary_follows_the_contract_and_prefers_the_index_path() {
+        let dir = registered_dir(&["mbp-lynn", "mbp-peter"]);
+        fs::create_dir(dir.path().join(EVENTS_DIR)).unwrap();
+        fs::write(dir.path().join("events/mbp-lynn.jsonl"), LYNN).unwrap();
+        fs::write(dir.path().join("events/mbp-peter.jsonl"), PETER).unwrap();
+        let merged = merged_of(dir.path());
+        let l = &merged["2026/herfstwandeling"];
+        let moved = |h: &str| (h == "sha256:c71e").then(|| "2026/10/moved/CO7A9412.CR3".to_string());
+        write_summary(dir.path(), "mbp-peter", l, &moved).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.path().join("2026/herfstwandeling.json")).unwrap()).unwrap();
+        assert_eq!(v["name"], "Herfstwandeling Ardennen");
+        assert_eq!((v["count"].as_u64(), v["archived"].as_bool(), v["year"].as_i64()), (Some(1), Some(true), Some(2026)));
+        assert_eq!(v["updated_by"], "mbp-peter");
+        assert_eq!(v["photos"][0]["path"], "2026/10/moved/CO7A9412.CR3");
+        assert_eq!(v["photos"][0]["added_by"], "lynn");
+        assert!(!dir.path().join("2026/herfstwandeling.json.tmp-mbp-peter").exists());
+        assert!(is_lists_file("2026/herfstwandeling.json"));
     }
 }

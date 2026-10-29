@@ -236,6 +236,8 @@ Derived from 5.3, written by whoever merges last, atomically. Meant for people, 
 ```
 
 - `photos` is sorted by `path`, then by `photo`.
+- The slug of a new list (FamilyLightbox F003/S02): its name in lowercase, accents removed, every run of characters other than `a–z` and `0–9` one `-`, at most 60 characters, `lijst` when nothing is left; `-2`, `-3`, … when `<year>/<slug>` exists already. The id never changes after `create`; `rename` only changes the name.
+- A summary is written through a temporary name `<slug>.json.tmp-<device>` and a rename.
 - `path` is the path from the most recent manifest in which the hash appears; if the hash is in no manifest, the hint from the `add` event.
 - A summary is never the source: when in doubt, merge again from the events.
 
@@ -331,6 +333,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 
 | Version | Date | What |
 |---|---|---|
+| 1.2 (addition) | 2026-10-29 | Section 5.4: how FamilyLightbox makes the slug of a new list, and the temporary name of a summary (F003/S02). Event format unchanged. |
 | 1.2 (addition) | 2026-10-29 | Section 8: the app's sync copies `Lists` to the local copy, for reading without the NAS (F003/S01). Section 5 unchanged. |
 | 1.2 (addition) | 2026-10-28 | Sections 1 and 8: FamilyLightbox writes the previews it makes to the `Previews` share, through a temporary name and a rename (F012/S03). Manifest format unchanged. |
 | 1.2 (addition) | 2026-10-28 | Section 7: `familylightbox-previews.sqlite`, the app's own record of which hash each preview was made from (F012/S02). Not part of the contract. |

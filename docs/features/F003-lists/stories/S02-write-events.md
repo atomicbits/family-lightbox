@@ -1,7 +1,7 @@
 # Story S02: Write events to this Mac's own file on the NAS, and the summaries
 
 **Feature:** `F003-lists`
-**Status:** Planned
+**Status:** Done
 **Depends on:** S01
 
 ## Goal
@@ -32,8 +32,13 @@ contract 5.2, and the summaries of the lists that changed are written a few seco
 
 ## How
 
-- In `lists.rs`: `append(lists_dir, device, owner, op)`, `slug(name)`, `summary(list, index)`.
-- Commands `list_create`, `list_add`, `list_remove`, `list_rename`, `list_archive`.
+- In `lists.rs`: `Change`, `lines`, `refusal`, `append`, `slug`, `new_id`, `summary` and
+  `write_summary`. `add` and `remove` take several photos, written in one `write` (for S05).
+- Commands `list_create(name, year)`, `list_add(id, photos)`, `list_remove(id, photos)`,
+  `list_rename`, `list_archive(id, archived)`, on a blocking thread; each answers with the list's
+  id and the merged state read again from the share.
+- The summaries: the changed list goes into a set; 3 seconds later the summaries of the set are
+  written, with the path of each hash from the app's index.
 
 ## Files affected
 
@@ -42,3 +47,13 @@ contract 5.2, and the summaries of the lists that changed are written a few seco
 ## Progress log
 
 ### [2026-10-29] Written
+
+### [2026-10-29] Built
+
+- 5 tests in `lists.rs`: slugs (accents, punctuation, length, empty) and unique ids; the lines
+  in the contract's shape, which read back as the same events; appending and reading back; every
+  refusal (empty or too long name, unregistered device, unknown list, no photos), with nothing
+  written; the summary (fields, the index path preferred over the hint, no temporary file left).
+  115 Rust tests, clippy clean.
+- Not tried against the real share on purpose: events are never removed, so a test list would
+  stay in the history. The first real list is made from the app once S03 is in.
