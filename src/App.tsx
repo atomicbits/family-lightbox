@@ -417,12 +417,6 @@ export default function App() {
             {topSection ? `${monthLabel(topSection.month)} ${yearOf(topSection.month)}` : "FamilyLightbox"}
           </span>
         )}
-        {!listId && topSection && (
-          <span className="text-neutral-400">
-            {topSection.count} {topSection.count === 1 ? "item" : "items"}
-            {selected?.section === top && ` · ${selected.index + 1} / ${topSection.count}`}
-          </span>
-        )}
         {selHashes.length > 0 && (
           <MarksBar
             label={selHashes.length > 1 ? photosText(selHashes.length) : current ? fileName(current.path) : ""}
