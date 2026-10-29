@@ -469,91 +469,66 @@ export default function App() {
 
   return (
     <div className="relative h-full flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
-      <header className="flex items-center gap-3 px-4 h-10 border-b border-neutral-200 dark:border-neutral-800 text-sm">
-        {listId && lists.active ? (
-          <>
-            <button className="text-neutral-400 hover:text-neutral-600" title="terug naar alle foto's" onClick={() => lists.setActive(null)}>
-              ← Alle foto's
-            </button>
-            <span className="font-semibold">{lists.active.name}</span>
-            <span className="text-neutral-400">
-              {listView ? photosText(listView.total) : "laden…"}
-              {topSection && ` · ${monthLabel(topSection.month)} ${yearOf(topSection.month)}`}
-              {listView && listView.missing > 0 && ` · ${listView.missing} nog niet op deze Mac`}
-            </span>
-          </>
-        ) : (
-          <span className="font-semibold">
-            {topSection ? `${monthLabel(topSection.month)} ${yearOf(topSection.month)}` : "FamilyLightbox"}
-          </span>
-        )}
-        {selHashes.length > 0 && (
-          <MarksBar
-            label={selHashes.length > 1 ? photosText(selHashes.length) : ""}
-            hashes={selHashes}
-            marks={marks.state}
-            me={me}
-            blocked={blockedMarks}
-            onRate={(stars) => applyMarks(selKeys, { stars })}
-            onHeart={(heart) => applyMarks(selKeys, { heart })}
-          />
-        )}
-        {/* Texts that come and go fill the space up to the slider, aligned right, so the slider and
-            what follows stay put. */}
-        <div className="flex-1 min-w-0 flex items-center justify-end gap-3 overflow-hidden whitespace-nowrap">
-          {picked.size > 1 && (
-            <span className="text-blue-600" title={listId ? "⌫ of klik rechts haalt ze uit de lijst; Esc wist de keuze" : "sleep ze naar een lijst of klik rechts; Esc wist de keuze"}>
-              {picked.size} geselecteerd
+      {/* Header: where you are on the left, the stars and heart of the selection in the middle,
+          the tile size and undo on the right (F013). */}
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 h-10 border-b border-neutral-200 dark:border-neutral-800 text-sm">
+        <div className="flex items-center gap-3 min-w-0 overflow-hidden whitespace-nowrap">
+          {listId && lists.active ? (
+            <>
+              <button className="text-neutral-400 hover:text-neutral-600" title="terug naar alle foto's" onClick={() => lists.setActive(null)}>
+                ← Alle foto's
+              </button>
+              <span className="font-semibold">{lists.active.name}</span>
+              <span className="text-neutral-400 truncate">
+                {listView ? photosText(listView.total) : "laden…"}
+                {topSection && ` · ${monthLabel(topSection.month)} ${yearOf(topSection.month)}`}
+                {listView && listView.missing > 0 && ` · ${listView.missing} nog niet op deze Mac`}
+              </span>
+            </>
+          ) : (
+            <span className="font-semibold">
+              {topSection ? `${monthLabel(topSection.month)} ${yearOf(topSection.month)}` : "FamilyLightbox"}
             </span>
           )}
-          {lists.message && (
-            <span className={lists.message.error ? "text-amber-600" : "text-neutral-500"}>{lists.message.text}</span>
-          )}
-          {index.line && (
-            <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
-              {index.line.text}
-            </span>
-          )}
-          {device?.error && (
-            <button className="text-red-600" onClick={() => setShowSettings(true)}>
-              device.json klopt niet: zie instellingen
-            </button>
-          )}
-          <UpdateLine update={update} syncing={!!sync.state?.running} />
-          {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
-          <PreviewsLine previews={previews} />
         </div>
-        <label className="flex items-center gap-1.5 text-neutral-400" title="grootte van de miniaturen">
-          <span className="text-xs">▫</span>
-          <input
-            type="range"
-            min={TILE_MIN}
-            max={TILE_MAX}
-            step={8}
-            value={tile}
-            onChange={(e) => changeTile(Number(e.target.value))}
-            // let go of focus after dragging, so the arrow keys move through the photos again
-            onPointerUp={(e) => e.currentTarget.blur()}
-            className="w-28 accent-neutral-500"
-          />
-          <span className="text-base leading-none">□</span>
-        </label>
-        {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
-        <button
-          className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 disabled:opacity-30 disabled:hover:bg-transparent"
-          disabled={!undo.top}
-          title={undo.top ? `Ongedaan maken: ${undo.top.text} (⌘Z)` : "niets om ongedaan te maken"}
-          onClick={doUndo}
-        >
-          ↶
-        </button>
-        <button
-          className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
-          title="Instellingen"
-          onClick={() => setShowSettings(true)}
-        >
-          ⚙
-        </button>
+        <div className="flex items-center justify-center">
+          {selHashes.length > 0 && (
+            <MarksBar
+              label={selHashes.length > 1 ? photosText(selHashes.length) : ""}
+              hashes={selHashes}
+              marks={marks.state}
+              me={me}
+              blocked={blockedMarks}
+              onRate={(stars) => applyMarks(selKeys, { stars })}
+              onHeart={(heart) => applyMarks(selKeys, { heart })}
+            />
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <label className="flex items-center gap-1.5 text-neutral-400" title="grootte van de miniaturen">
+            <span className="text-xs">▫</span>
+            <input
+              type="range"
+              min={TILE_MIN}
+              max={TILE_MAX}
+              step={8}
+              value={tile}
+              onChange={(e) => changeTile(Number(e.target.value))}
+              // let go of focus after dragging, so the arrow keys move through the photos again
+              onPointerUp={(e) => e.currentTarget.blur()}
+              className="w-28 accent-neutral-500"
+            />
+            <span className="text-base leading-none">□</span>
+          </label>
+          <button
+            className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 disabled:opacity-30 disabled:hover:bg-transparent"
+            disabled={!undo.top}
+            title={undo.top ? `Ongedaan maken: ${undo.top.text} (⌘Z)` : "niets om ongedaan te maken"}
+            onClick={doUndo}
+          >
+            ↶
+          </button>
+        </div>
       </header>
       {error || waitingForIndex ? (
         <div className="flex-1 grid place-items-center p-8 text-center whitespace-pre-wrap text-neutral-500">
@@ -640,6 +615,36 @@ export default function App() {
           ))}
         </div>
       )}
+      {/* Footer: what runs in the background and messages on the left, the NAS and the settings on
+          the right. */}
+      <footer className="flex items-center gap-3 px-4 h-7 border-t border-neutral-200 dark:border-neutral-800 text-xs">
+        <div className="flex-1 min-w-0 flex items-center gap-3 overflow-hidden whitespace-nowrap">
+          {lists.message && (
+            <span className={lists.message.error ? "text-amber-600" : "text-neutral-500"}>{lists.message.text}</span>
+          )}
+          {index.line && (
+            <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
+              {index.line.text}
+            </span>
+          )}
+          {device?.error && (
+            <button className="text-red-600" onClick={() => setShowSettings(true)}>
+              device.json klopt niet: zie instellingen
+            </button>
+          )}
+          <UpdateLine update={update} syncing={!!sync.state?.running} />
+          {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
+          <PreviewsLine previews={previews} />
+        </div>
+        {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
+        <button
+          className="px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
+          title="Instellingen"
+          onClick={() => setShowSettings(true)}
+        >
+          ⚙ Instellingen
+        </button>
+      </footer>
       {toast && <Toast text={toast.text} onUndo={toast.undoable ? doUndo : null} onClose={() => setToast(null)} />}
       {menu && (
         <PhotoMenu
