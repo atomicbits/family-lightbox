@@ -1,7 +1,7 @@
 # Story S03: Setting stars and hearts for the selection
 
 **Feature:** `F013-ratings-and-hearts`
-**Status:** Planned
+**Status:** In progress: built and tested; to try in the app
 **Depends on:** S02
 
 ## Goal
@@ -24,6 +24,17 @@ photos they apply to; a click sets them for all. Keys and the lightbox do the sa
 - **Tests** (`pnpm test`): the shared rating and the heart state for a selection, what a click
   does.
 
+## How
+
+- `marks.ts`: `sharedStars`, `heartState`, `starsAfterClick`, `heartAfterClick`, `marksBlocked`
+  (no NAS, a problem, or no owner) and `changeText` for the message.
+- `MarksBar.tsx`: the label, a dimmed "–" when the ratings differ, five star buttons and the heart
+  (♡ none, ♥ all, a lighter ♥ some); in the header after the month, and in the lightbox's bar.
+- `App.tsx`: the selection is the picked tiles or the selected one; a change gathers their items
+  (fetching months not loaded yet), writes one `marks_rate` or `marks_heart` for the unique
+  hashes, and says what happened in the header (S04 turns that into the message with undo).
+  The keys `0`–`5` and `H` work in the grid and the lightbox, without ⌘, Ctrl or ⌥.
+
 ## Files affected
 
 - `src/App.tsx`, `src/components/MarksBar.tsx` (new), `src/components/Lightbox.tsx`,
@@ -32,3 +43,9 @@ photos they apply to; a click sets them for all. Keys and the lightbox do the sa
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `pnpm test`: the shared rating (same, different, none, partly none), the heart state, what a
+  click does, when it is blocked, the texts; 73 tests. `tsc` and `pnpm build` clean.
+- To try in the app, which also shows S02 for the first time.

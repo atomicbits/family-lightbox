@@ -43,6 +43,42 @@ export function marksLines(rating: Rating | undefined, hearts: Record<string, st
   return lines;
 }
 
+/** The rating all these photos share (0: none of them has one), or null when they differ. */
+export function sharedStars(hashes: string[], ratings: Record<string, Rating>): number | null {
+  const values = new Set(hashes.map((h) => ratings[h]?.stars ?? 0));
+  return values.size === 1 ? [...values][0] : null;
+}
+
+/** Whether this person's heart is on all, some or none of these photos. */
+export function heartState(hashes: string[], hearts: Record<string, Record<string, string>>, me: string | null): "all" | "some" | "none" {
+  const n = me ? hashes.filter((h) => hearts[h]?.[me] !== undefined).length : 0;
+  return n === 0 ? "none" : n === hashes.length ? "all" : "some";
+}
+
+/** A click on a star: that rating for all of them, or none when they all have it already. */
+export const starsAfterClick = (shared: number | null, clicked: number): number => (shared === clicked ? 0 : clicked);
+
+/** A click on the heart: on for all of them, or off for all when it was on all. */
+export const heartAfterClick = (state: "all" | "some" | "none"): boolean => state !== "all";
+
+/** Why stars and hearts can't be changed now, or null. */
+export function marksBlocked(s: MarksState, me: string | null): string | null {
+  if (s.problem) return s.problem;
+  if (s.source !== "nas") return "sterren en hartjes wijzigen kan alleen met de NAS";
+  if (!me) return "dit toestel heeft nog geen eigenaar";
+  return null;
+}
+
+/** "12 foto's: 3 sterren", "1 foto: sterren weg", "hartje op 3 foto's", "hartje weg bij 1 foto". */
+export function changeText(n: number, change: { stars: number } | { heart: boolean }): string {
+  const photos = n === 1 ? "1 foto" : `${n} foto's`;
+  if ("stars" in change) {
+    if (change.stars === 0) return `${photos}: sterren weg`;
+    return `${photos}: ${change.stars} ${change.stars === 1 ? "ster" : "sterren"}`;
+  }
+  return change.heart ? `hartje op ${photos}` : `hartje weg bij ${photos}`;
+}
+
 export const NO_MARKS: MarksState = { source: "none", ratings: {}, hearts: {}, ignored: 0, problem: null };
 
 export type Marks = {

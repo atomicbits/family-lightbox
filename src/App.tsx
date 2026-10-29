@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, config, type DeviceState, type Item, type MonthSummary } from "./lib/api";
 import { invoke } from "@tauri-apps/api/core";
-import { monthLabel, yearOf } from "./lib/months";
+import { fileName, monthLabel, yearOf } from "./lib/months";
 import MonthList from "./components/MonthList";
 import Grid from "./components/Grid";
 import Lightbox from "./components/Lightbox";
@@ -18,7 +18,8 @@ import PreviewsLine from "./components/PreviewsLine";
 import ListsPanel from "./components/ListsPanel";
 import PhotoMenu from "./components/PhotoMenu";
 import { photosText, useLists } from "./lib/lists";
-import { useMarks } from "./lib/marks";
+import { changeText, marksBlocked, useMarks } from "./lib/marks";
+import MarksBar from "./components/MarksBar";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
 import { listen } from "@tauri-apps/api/event";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
@@ -249,6 +250,34 @@ export default function App() {
   }, [sections, listId, listView]);
   const pickedItems = useCallback(() => itemsAt(picked), [itemsAt, picked]);
 
+  // Stars and hearts for the selection (F013/S03): the picked tiles, or the selected one.
+  const me = device?.device?.owner ?? null;
+  const blockedMarks = marksBlocked(marks.state, me);
+  const selKeys = useMemo(() => (picked.size > 1 ? [...picked] : selected ? [selKey(selected)] : []), [picked, selected]);
+  const selHashes = selKeys
+    .map((k) => { const { section, index } = parseKey(k); return itemsOf(sections[section]?.month)?.[index]?.hash; })
+    .filter((h): h is string => !!h);
+  const applyMarks = useCallback(async (keys: string[], change: { stars: number } | { heart: boolean }) => {
+    if (blockedMarks) return lists.say(blockedMarks);
+    try {
+      const hashes = [...new Set((await itemsAt(keys)).map((i) => i.hash))];
+      if (hashes.length === 0) return;
+      if ("stars" in change) await marks.rate(hashes, change.stars);
+      else await marks.heart(hashes, change.heart);
+      lists.say(changeText(hashes.length, change), false);
+    } catch (e) {
+      lists.say(String(e));
+    }
+  }, [blockedMarks, itemsAt, marks.rate, marks.heart, lists.say]);
+  // 1–5 and 0 set the stars, H the heart; true when the key was one of them
+  const markKey = useCallback((e: KeyboardEvent, keys: string[], hearted: boolean): boolean => {
+    if (e.metaKey || e.ctrlKey || e.altKey || keys.length === 0) return false;
+    if (/^[0-5]$/.test(e.key)) { e.preventDefault(); applyMarks(keys, { stars: Number(e.key) }); return true; }
+    if (e.key === "h" || e.key === "H") { e.preventDefault(); applyMarks(keys, { heart: !hearted }); return true; }
+    return false;
+  }, [applyMarks]);
+  const allHearted = !!me && selHashes.length > 0 && selHashes.every((h) => marks.state.hearts[h]?.[me] !== undefined);
+
   // What a drag or the menu acts on: the picked tiles when this one is among them, else only it.
   const actOn = useCallback((sel: Sel): string[] => {
     const k = selKey(sel);
@@ -291,6 +320,8 @@ export default function App() {
           setAnchor(null);
           move(m);
         }
+      } else if (markKey(e, selKeys, allHearted)) {
+        // stars or heart
       } else if (e.key === "Escape" && picked.size > 0) { setPicked(new Set()); setAnchor(null); }
       else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
       else if ((e.key === "Backspace" || e.key === "Delete") && listId) {
@@ -305,7 +336,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, dialog, selected, anchor, picked, cols, counts, move, current, listId, lists.removeFrom, lists.say, pickedItems]);
+  }, [open, dialog, selected, anchor, picked, cols, counts, move, current, listId, lists.removeFrom, lists.say, pickedItems, markKey, selKeys, allHearted]);
 
   // After every rebuild: months again, an empty cache, and the selection and the month at the
   // top kept where they were.
@@ -391,6 +422,17 @@ export default function App() {
             {topSection.count} {topSection.count === 1 ? "item" : "items"}
             {selected?.section === top && ` · ${selected.index + 1} / ${topSection.count}`}
           </span>
+        )}
+        {selHashes.length > 0 && (
+          <MarksBar
+            label={selHashes.length > 1 ? photosText(selHashes.length) : current ? fileName(current.path) : ""}
+            hashes={selHashes}
+            marks={marks.state}
+            me={me}
+            blocked={blockedMarks}
+            onRate={(stars) => applyMarks(selKeys, { stars })}
+            onHeart={(heart) => applyMarks(selKeys, { heart })}
+          />
         )}
         {/* Texts that come and go fill the space up to the slider, aligned right, so the slider and
             what follows stay put. */}
@@ -504,7 +546,20 @@ export default function App() {
               member={listId ? lists.members.get(current.hash) ?? null : null}
               rating={marks.state.ratings[current.hash]}
               hearts={marks.state.hearts[current.hash]}
-              me={device?.device?.owner ?? null}
+              me={me}
+              bar={
+                <MarksBar
+                  label=""
+                  hashes={[current.hash]}
+                  marks={marks.state}
+                  me={me}
+                  blocked={blockedMarks}
+                  dark
+                  onRate={(stars) => applyMarks([selKey(selected)], { stars })}
+                  onHeart={(heart) => applyMarks([selKey(selected)], { heart })}
+                />
+              }
+              onMarkKey={(e) => markKey(e, [selKey(selected)], !!me && marks.state.hearts[current.hash]?.[me] !== undefined)}
             />
           ) : (
             <div className="absolute inset-0 z-20 bg-black/95 grid place-items-center text-neutral-400" onClick={() => setOpen(false)}>

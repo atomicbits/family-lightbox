@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Item } from "../lib/api";
 import { api, previewUrl } from "../lib/api";
 import { fileName, takenLabel } from "../lib/months";
 import { addedText, type Member } from "../lib/lists";
-import { heartView, starsText, type Rating } from "../lib/marks";
+import { heartView, type Rating } from "../lib/marks";
 
 type Props = {
   item: Item;
@@ -20,10 +20,13 @@ type Props = {
   rating?: Rating;
   hearts?: Record<string, string>;
   me: string | null;
+  /** The stars and heart to set (F013/S03), and their keys: true when the key was one of them. */
+  bar: ReactNode;
+  onMarkKey: (e: KeyboardEvent) => boolean;
 };
 
 /** Eén foto groot (de 2048 px-preview), met pijltjes, en knoppen naar het origineel. */
-export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me }: Props) {
+export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me, bar, onMarkKey }: Props) {
   const heart = heartView(hearts, me);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -32,10 +35,11 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
       if (e.key === "Escape" || e.key === " ") { e.preventDefault(); onClose(); }
       else if (e.key === "ArrowRight") onStep(1);
       else if (e.key === "ArrowLeft") onStep(-1);
+      else onMarkKey(e);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, onStep]);
+  }, [onClose, onStep, onMarkKey]);
 
   useEffect(() => setMessage(null), [item.path]);
 
@@ -72,11 +76,7 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
         {item.source && <span className="text-neutral-400">{item.source}</span>}
         <span className="flex-1" />
         {message && <span className="text-amber-300">{message}</span>}
-        {rating && (
-          <span className="text-amber-300" title={`${rating.stars} ${rating.stars === 1 ? "ster" : "sterren"} van ${rating.by}`}>
-            {starsText(rating.stars)}
-          </span>
-        )}
+        <span title={rating ? `${rating.stars} ${rating.stars === 1 ? "ster" : "sterren"} van ${rating.by}` : undefined}>{bar}</span>
         {heart && (
           <span title={`hartje van ${heart.who.join(", ")}`}>
             <span className={heart.mine ? "text-red-500" : "text-white"}>♥</span>
