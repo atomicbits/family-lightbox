@@ -1,7 +1,7 @@
 # Story S03: Lists in the app: the sidebar, the active list, adding and removing
 
 **Feature:** `F003-lists`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done
 **Depends on:** S02
 
 ## Goal
@@ -69,3 +69,8 @@ and every photo in it carries a mark in the grid.
   done by dragging to a list or *Toevoegen aan* in the right-click menu; in a list, ⌫ or *Uit
   <list> halen* takes photos out. The `+` key, the ✓ marks, the lightbox button and the stored
   active list are gone; `+` in the library says how to add instead.
+
+### [2026-10-29] Checked
+
+- Peter tried it in the app: creating a list, showing it, adding by dragging and the menu,
+  picking several; "de lijst werkt".

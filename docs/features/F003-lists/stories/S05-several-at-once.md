@@ -1,7 +1,7 @@
 # Story S05: Selecting several photos and adding or removing them together
 
 **Feature:** `F003-lists`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done
 **Depends on:** S03
 
 ## Goal
@@ -60,3 +60,8 @@ all of them in the active list (or takes them out, when all are in it already).
 - Peter picked several photos and then tried to drag them to a list and to right-click them;
   neither did anything, and `+` wasn't discoverable. Both added as above; the hint on "N
   geselecteerd" names all three ways.
+
+### [2026-10-29] Checked
+
+- Peter tried it in the app: creating a list, showing it, adding by dragging and the menu,
+  picking several; "de lijst werkt".

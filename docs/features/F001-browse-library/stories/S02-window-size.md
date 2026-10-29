@@ -87,3 +87,4 @@ over its edges.
   process without either. A crash or a forced quit would lose it the same way.
 - `window::on_event` now also saves the state 1.5 s after the last move or resize of the visible
   window.
+- Checked by Peter in the dev build: the size is kept now.
