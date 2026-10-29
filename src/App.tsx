@@ -20,6 +20,7 @@ import PhotoMenu from "./components/PhotoMenu";
 import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
 import { listText, skippedText, undoHeart, undoList, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
+import UndoIcon from "./components/UndoIcon";
 import { changeText, marksBlocked, useMarks } from "./lib/marks";
 import MarksBar from "./components/MarksBar";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
@@ -521,12 +522,13 @@ export default function App() {
             <span className="text-base leading-none">□</span>
           </label>
           <button
-            className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 disabled:opacity-30 disabled:hover:bg-transparent"
+            className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 disabled:opacity-30 disabled:hover:bg-transparent"
             disabled={!undo.top}
             title={undo.top ? `Ongedaan maken: ${undo.top.text} (⌘Z)` : "niets om ongedaan te maken"}
             onClick={doUndo}
+            aria-label="Ongedaan maken"
           >
-            ↶
+            <UndoIcon />
           </button>
         </div>
       </header>
