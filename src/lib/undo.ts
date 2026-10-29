@@ -9,6 +9,7 @@ export type Step =
   | { kind: "stars"; text: string; after: number; before: Record<string, number> }
   | { kind: "heart"; text: string; after: boolean; before: Record<string, boolean> }
   | { kind: "hide"; text: string; after: boolean; before: Record<string, boolean> }
+  | { kind: "stack"; text: string; after: string | null; before: Record<string, string | null> }
   | { kind: "list"; text: string; done: ListDone };
 
 /** What undoing a step writes: per value, the photos to give it; and how many were left alone. */
@@ -56,6 +57,29 @@ export function undoHide(step: Extract<Step, { kind: "hide" }>, s: MarksState): 
     else { skipped++; if (s.hidden[h]) by.add(s.hidden[h].by); }
   }
   return { writes: group(back), skipped, by: [...by].sort() };
+}
+
+/** Each photo back in the stack it was in (or none), where it is still as the step left it. */
+export function undoStack(step: Extract<Step, { kind: "stack" }>, s: MarksState): Plan<string | null> {
+  const back: [string, string | null][] = [];
+  let skipped = 0;
+  for (const [h, before] of Object.entries(step.before)) {
+    const now = s.stacks[h] ?? null;
+    if (now === step.after) { if (before !== now) back.push([h, before]); }
+    else skipped++;
+  }
+  return { writes: group(back), skipped, by: [] };
+}
+
+/** "reeks van 40 foto's gemaakt", "5 foto's aan de reeks toegevoegd", "1 foto uit de reeks gehaald". */
+export function stackText(kind: "make" | "add" | "out" | "dissolve", n: number): string {
+  const photos = n === 1 ? "1 foto" : `${n} foto's`;
+  switch (kind) {
+    case "make": return `reeks van ${photos} gemaakt`;
+    case "add": return `${photos} aan de reeks toegevoegd`;
+    case "out": return `${photos} uit de reeks gehaald`;
+    case "dissolve": return `reeks van ${photos} opgeheven`;
+  }
 }
 
 /** "20 foto's verborgen", "1 foto niet meer verborgen". */

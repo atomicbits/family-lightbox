@@ -117,3 +117,29 @@ export function lastOfStack(tiles: { hash: string }[], i: number, ids: Record<st
   const id = ids[tiles[i]?.hash];
   return !!id && ids[tiles[i + 1]?.hash ?? ""] !== id;
 }
+
+/** What the menu offers for these photos (F015/S04). */
+export type StackActions = {
+  /** Two or more photos, none in a stack. */
+  make: boolean;
+  /** Photos of exactly one stack, with others outside any stack: that stack and those others. */
+  addTo: { stack: string; photos: string[] } | null;
+  /** The photos that are in a stack. */
+  takeOut: string[];
+  /** The one stack the photos belong to, to dissolve. */
+  dissolve: string | null;
+};
+
+export function stackActions(hashes: string[], ids: Record<string, string>): StackActions {
+  const unique = [...new Set(hashes)];
+  const inStack = unique.filter((h) => ids[h]);
+  const outside = unique.filter((h) => !ids[h]);
+  const stacks = new Set(inStack.map((h) => ids[h]));
+  const one = stacks.size === 1 ? [...stacks][0] : null;
+  return {
+    make: inStack.length === 0 && unique.length >= 2,
+    addTo: one && outside.length ? { stack: one, photos: outside } : null,
+    takeOut: inStack,
+    dissolve: one,
+  };
+}

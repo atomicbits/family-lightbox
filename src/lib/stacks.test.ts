@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrange, buildStacks, folded, lastOfStack, stackColor, stackDelta, type Member, type View } from "./stacks";
+import { arrange, buildStacks, folded, lastOfStack, stackActions, stackColor, stackDelta, type Member, type View } from "./stacks";
 
 const m = (hash: string, taken: string, month = "2026/07"): Member => ({
   path: `${month}/${hash}`, folder: "f", kind: "photo", taken, taken_from: null, source: null, size: 1, hash, local: false, preview: true, month,
@@ -64,5 +64,17 @@ describe("the looks of a stack", () => {
   it("puts the symbol on the last shown tile of the stack", () => {
     const tiles = [{ hash: "a1" }, { hash: "a2" }, { hash: "l1" }];
     expect([0, 1, 2].map((i) => lastOfStack(tiles, i, { a1: "s", a2: "s" }))).toEqual([false, true, false]);
+  });
+});
+
+describe("the menu for stacks", () => {
+  const ids = { a1: "s", a2: "s", b1: "t" };
+  it("makes a stack from two or more photos outside any stack", () => {
+    expect(stackActions(["x", "y"], ids)).toMatchObject({ make: true, addTo: null, takeOut: [], dissolve: null });
+    expect(stackActions(["x"], ids).make).toBe(false);
+  });
+  it("adds to the one stack selected, never with two", () => {
+    expect(stackActions(["a1", "x", "y"], ids)).toMatchObject({ make: false, addTo: { stack: "s", photos: ["x", "y"] }, takeOut: ["a1"], dissolve: "s" });
+    expect(stackActions(["a1", "b1", "x"], ids)).toMatchObject({ addTo: null, takeOut: ["a1", "b1"], dissolve: null });
   });
 });

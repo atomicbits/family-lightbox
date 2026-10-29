@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hideText, listText, skippedText, undoHeart, undoHide, undoList, undoStars, type Step } from "./undo";
+import { hideText, listText, skippedText, stackText, undoHeart, undoHide, undoList, undoStack, undoStars, type Step } from "./undo";
 import { NO_MARKS } from "./marks";
 
 const r = (stars: number, by = "peter") => ({ stars, by, at: "" });
@@ -48,5 +48,17 @@ describe("undo of hiding", () => {
     expect(p.skipped).toBe(1); // b was shown again meanwhile
     expect(hideText(20, true)).toBe("20 foto's verborgen");
     expect(hideText(1, false)).toBe("1 foto niet meer verborgen");
+  });
+});
+
+describe("undo of stacks", () => {
+  it("puts each photo back in its stack, or none, where it is still as left", () => {
+    const step: Extract<Step, { kind: "stack" }> = { kind: "stack", text: "", after: "s", before: { a: null, b: "t", c: null } };
+    const s = { ...NO_MARKS, stacks: { a: "s", b: "s" } };
+    const p = undoStack(step, s);
+    expect([...p.writes.entries()]).toEqual([[null, ["a"]], ["t", ["b"]]]);
+    expect(p.skipped).toBe(1); // c was taken out meanwhile
+    expect(stackText("make", 40)).toBe("reeks van 40 foto's gemaakt");
+    expect(stackText("out", 1)).toBe("1 foto uit de reeks gehaald");
   });
 });

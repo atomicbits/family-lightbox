@@ -18,10 +18,10 @@ import PreviewsLine from "./components/PreviewsLine";
 import ListsPanel from "./components/ListsPanel";
 import PhotoMenu from "./components/PhotoMenu";
 import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
-import { hideText, listText, skippedText, undoHeart, undoHide, undoList, undoStars, useUndo } from "./lib/undo";
+import { hideText, listText, skippedText, stackText, undoHeart, undoHide, undoList, undoStack, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
 import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./lib/hidden";
-import { arrange, buildStacks, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
+import { arrange, buildStacks, stackActions, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
 import UndoIcon from "./components/UndoIcon";
 import ShortcutsOverlay from "./components/ShortcutsOverlay";
 import { isShortcutsKey } from "./lib/shortcuts";
@@ -399,6 +399,38 @@ export default function App() {
     ];
   };
 
+  // Making, adding to, taking out of and dissolving stacks (F015/S04), with the message and undo.
+  const changeStack = useCallback(async (kind: "make" | "add" | "out" | "dissolve", hashes: string[], stack: string | null) => {
+    if (blockedMarks) return lists.say(blockedMarks);
+    if (hashes.length === 0) return;
+    try {
+      const before = Object.fromEntries(hashes.map((h) => [h, marks.state.stacks[h] ?? null]));
+      const s = kind === "out" || kind === "dissolve" ? await marks.unstack(hashes) : await marks.stack(hashes, stack);
+      const after = kind === "out" || kind === "dissolve" ? null : s.stacks[hashes[0]] ?? null;
+      const text = stackText(kind, hashes.length);
+      undo.push({ kind: "stack", text, after, before });
+      showToast(text, true);
+    } catch (e) {
+      lists.say(String(e));
+    }
+  }, [blockedMarks, marks.state.stacks, marks.stack, marks.unstack, lists.say, undo.push, showToast]);
+
+  const stackMenu = (keys: string[]) => {
+    if (listId) return [];
+    const hashes = keys
+      .map((k) => { const { section, index } = parseKey(k); return itemsOf(sections[section]?.month)?.[index]?.hash; })
+      .filter((h): h is string => !!h);
+    const a = stackActions(hashes, stackIds);
+    const common = { disabled: !!blockedMarks, title: blockedMarks ?? undefined };
+    const all = (id: string) => Object.keys(stackIds).filter((h) => stackIds[h] === id);
+    return [
+      ...(a.make ? [{ label: `Reeks maken (${new Set(hashes).size})`, run: () => { changeStack("make", [...new Set(hashes)], null); }, ...common }] : []),
+      ...(a.addTo ? [{ label: `Aan de reeks toevoegen (${a.addTo.photos.length})`, run: () => { changeStack("add", a.addTo!.photos, a.addTo!.stack); }, ...common }] : []),
+      ...(a.takeOut.length ? [{ label: a.takeOut.length === 1 ? "Uit de reeks halen" : `Uit de reeks halen (${a.takeOut.length})`, run: () => { changeStack("out", a.takeOut, null); }, ...common }] : []),
+      ...(a.dissolve ? [{ label: "Reeks opheffen", run: () => { changeStack("dissolve", all(a.dissolve!), null); }, ...common }] : []),
+    ];
+  };
+
   // Folding or unfolding the stack of the photo clicked (F015/S02; S03 adds the symbol).
   const foldActions = (keys: string[]) => {
     if (listId || keys.length !== 1) return [];
@@ -442,10 +474,15 @@ export default function App() {
         skipped = skippedText(p.skipped, []);
       } else {
         const s = await marks.reload();
-        const p = step.kind === "stars" ? undoStars(step, s) : step.kind === "hide" ? undoHide(step, s) : undoHeart(step, s, me ?? "");
-        for (const [value, hashes] of p.writes) {
+        const p =
+          step.kind === "stars" ? undoStars(step, s)
+          : step.kind === "hide" ? undoHide(step, s)
+          : step.kind === "stack" ? undoStack(step, s)
+          : undoHeart(step, s, me ?? "");
+        for (const [value, hashes] of p.writes as Map<unknown, string[]>) {
           if (step.kind === "stars") await marks.rate(hashes, value as number);
           else if (step.kind === "hide") await marks.hide(hashes, value as boolean);
+          else if (step.kind === "stack") await (value === null ? marks.unstack(hashes) : marks.stack(hashes, value as string));
           else await marks.heart(hashes, value as boolean);
         }
         skipped = skippedText(p.skipped, p.by);
@@ -454,7 +491,7 @@ export default function App() {
     } catch (e) {
       lists.say(String(e));
     }
-  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, marks.hide, me, showToast]);
+  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, marks.hide, marks.stack, marks.unstack, me, showToast]);
 
   // ⌘? (Ctrl+? elsewhere) shows the shortcuts.
   const [showKeys, setShowKeys] = useState(false);
@@ -836,6 +873,7 @@ export default function App() {
               : []),
             ...hideActions(menu.keys),
             ...foldActions(menu.keys),
+            ...stackMenu(menu.keys),
           ]}
         />
       )}
