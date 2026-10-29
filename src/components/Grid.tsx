@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
 import { addedText, type Member } from "../lib/lists";
+import { heartView, markSize, marksLines, starsText, type MarksState } from "../lib/marks";
 import { columnsFor, rowWidth } from "../lib/grid";
 import { fileName, monthLabel, yearOf } from "../lib/months";
 import { buildLayout, rowOf, sectionsInRange, type Section, type Sel } from "../lib/timeline";
@@ -29,6 +30,9 @@ type Props = {
   marked?: Map<string, Member> | null;
   /** Tiles picked besides the selected one, as `section:index`. */
   picked?: Set<string>;
+  /** Stars and hearts by hash, and this Mac's owner (F013/S02). */
+  marks?: MarksState;
+  me?: string | null;
   /** A tile starts being dragged (to a list in the sidebar). */
   onDragTile?: (sel: Sel) => void;
   /** Right-click on a tile, at this point in the window. */
@@ -39,7 +43,7 @@ const GAP = 8;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, onDragTile, onMenu }: Props) {
+export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, onDragTile, onMenu }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -150,6 +154,10 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                     size={tile}
                     active={active}
                     member={marked?.get(item.hash) ?? null}
+                    rating={marks?.ratings[item.hash]?.stars}
+                    hearts={marks?.hearts[item.hash]}
+                    me={me ?? null}
+                    title={[fileName(item.path), ...marksLines(marks?.ratings[item.hash], marks?.hearts[item.hash])].join("\n")}
                     picked={picked?.has(`${row.section}:${index}`) ?? false}
                     onClick={(e) => onSelect(sel, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
                     onDragStart={(e) => {
@@ -176,8 +184,9 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   );
 }
 
-function Tile({ item, size, active, member, picked, onClick, onDoubleClick, onDragStart, onContextMenu }: {
+function Tile({ item, size, active, member, picked, rating, hearts, me, title, onClick, onDoubleClick, onDragStart, onContextMenu }: {
   item: Item; size: number; active: boolean; member: Member | null; picked: boolean;
+  rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null; title: string;
   onClick: (e: MouseEvent) => void; onDoubleClick: () => void;
   onDragStart: (e: DragEvent) => void; onContextMenu: (e: MouseEvent) => void;
 }) {
@@ -188,7 +197,7 @@ function Tile({ item, size, active, member, picked, onClick, onDoubleClick, onDr
       onDoubleClick={onDoubleClick}
       onDragStart={onDragStart}
       onContextMenu={onContextMenu}
-      title={member ? `${fileName(item.path)}\n${addedText(member)}` : fileName(item.path)}
+      title={member ? `${title}\n${addedText(member)}` : title}
       className={
         "relative rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
         (active ? "ring-3 ring-blue-500" : picked ? "ring-3 ring-blue-300" : "")
@@ -214,10 +223,40 @@ function Tile({ item, size, active, member, picked, onClick, onDoubleClick, onDr
         <span className="absolute bottom-1 left-1 rounded bg-black/60 text-white text-[10px] px-1">video</span>
       )}
       {!item.local && (
-        <span className="absolute top-1 right-1 rounded bg-black/50 text-white text-[10px] px-1" title="origineel alleen op de NAS">
+        <span className="absolute top-1 left-1 rounded bg-black/50 text-white text-[10px] px-1" title="origineel alleen op de NAS">
           NAS
         </span>
       )}
+      <TileMarks size={size} rating={rating} hearts={hearts} me={me} />
     </div>
+  );
+}
+
+/** Stars bottom right and the heart top right, scaled with the tile (F013/S02). */
+function TileMarks({ size, rating, hearts, me }: {
+  size: number; rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null;
+}) {
+  const px = markSize(size);
+  const heart = heartView(hearts, me);
+  return (
+    <>
+      {heart && (
+        <span
+          className="absolute top-1 right-1 flex items-center gap-0.5 rounded-full bg-black/40 px-1 leading-none"
+          style={{ fontSize: px }}
+        >
+          <span className={heart.mine ? "text-red-500" : "text-white"}>♥</span>
+          {heart.count > 1 && <span className="text-white tabular-nums" style={{ fontSize: Math.round(px * 0.7) }}>{heart.count}</span>}
+        </span>
+      )}
+      {rating ? (
+        <span
+          className="absolute bottom-1 right-1 rounded bg-black/50 px-1 text-amber-300 leading-none tracking-tight"
+          style={{ fontSize: px * 0.8, paddingTop: 2, paddingBottom: 2 }}
+        >
+          {starsText(rating)}
+        </span>
+      ) : null}
+    </>
   );
 }

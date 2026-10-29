@@ -1,7 +1,7 @@
 # Story S02: Stars and hearts on the tiles and in the lightbox
 
 **Feature:** `F013-ratings-and-hearts`
-**Status:** Planned
+**Status:** In progress: built and tested; to look at in the app once S03 sets the first marks
 **Depends on:** S01
 
 ## Goal
@@ -22,6 +22,17 @@ lightbox shows them too.
 - **In the library and in a list** alike; the other Mac's changes appear within 15 seconds.
 - **Tests** (`pnpm test`): the texts (who hearted it), the scale per tile size.
 
+## How
+
+- `marks.ts`: `markSize(tile)` (7.5 % of the tile, between 10 and 18 px; tiles go from 96 to
+  320 px), `starsText`, `heartView` (whose hearts, whether this Mac's owner's is among them),
+  `marksLines` for the tooltip.
+- `Grid.tsx`: `TileMarks` draws the heart in a dark round badge top right and the stars in amber
+  on a dark strip bottom right; the tooltip lists the file name, the rating and who hearted it
+  (and in a list who added it).
+- The owner is the device's `owner` (`device.json`); App passes `marks.state` and it to the grid
+  and the lightbox.
+
 ## Files affected
 
 - `src/components/Grid.tsx`, `src/components/Lightbox.tsx`, `src/lib/marks.ts`, `src/App.tsx`.
@@ -29,3 +40,9 @@ lightbox shows them too.
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `pnpm test`: the size at the smallest, a middle and the largest tile, the stars text, whose
+  hearts, the tooltip lines; 69 tests. `tsc` and `pnpm build` clean.
+- Not seen in the app yet: there are no stars or hearts on the share until S03 sets them.

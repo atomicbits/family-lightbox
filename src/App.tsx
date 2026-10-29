@@ -18,6 +18,7 @@ import PreviewsLine from "./components/PreviewsLine";
 import ListsPanel from "./components/ListsPanel";
 import PhotoMenu from "./components/PhotoMenu";
 import { photosText, useLists } from "./lib/lists";
+import { useMarks } from "./lib/marks";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
 import { listen } from "@tauri-apps/api/event";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
@@ -62,6 +63,7 @@ export default function App() {
   const update = useUpdate();
   const previews = usePreviews();
   const lists = useLists();
+  const marks = useMarks(lists.version);
   const [confirming, setConfirming] = useState(false);
   const [cols, setCols] = useState(1);
   const [tile, setTile] = useState(loadTile);
@@ -486,6 +488,8 @@ export default function App() {
               jump={jump}
               tile={tile}
               marked={listId ? lists.members : null}
+              marks={marks.state}
+              me={device?.device?.owner ?? null}
             />
           </main>
           {open && selected && (current ? (
@@ -498,6 +502,9 @@ export default function App() {
               onClose={() => setOpen(false)}
               onStep={(d) => move(d > 0 ? "right" : "left")}
               member={listId ? lists.members.get(current.hash) ?? null : null}
+              rating={marks.state.ratings[current.hash]}
+              hearts={marks.state.hearts[current.hash]}
+              me={device?.device?.owner ?? null}
             />
           ) : (
             <div className="absolute inset-0 z-20 bg-black/95 grid place-items-center text-neutral-400" onClick={() => setOpen(false)}>

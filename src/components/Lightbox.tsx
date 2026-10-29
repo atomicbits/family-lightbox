@@ -3,6 +3,7 @@ import type { Item } from "../lib/api";
 import { api, previewUrl } from "../lib/api";
 import { fileName, takenLabel } from "../lib/months";
 import { addedText, type Member } from "../lib/lists";
+import { heartView, starsText, type Rating } from "../lib/marks";
 
 type Props = {
   item: Item;
@@ -15,10 +16,15 @@ type Props = {
   canNext: boolean;
   /** In a list: who added this photo and when (F003/S04). */
   member: Member | null;
+  /** Its stars and hearts, and this Mac's owner (F013/S02). */
+  rating?: Rating;
+  hearts?: Record<string, string>;
+  me: string | null;
 };
 
 /** Eén foto groot (de 2048 px-preview), met pijltjes, en knoppen naar het origineel. */
-export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member }: Props) {
+export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me }: Props) {
+  const heart = heartView(hearts, me);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,6 +72,17 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
         {item.source && <span className="text-neutral-400">{item.source}</span>}
         <span className="flex-1" />
         {message && <span className="text-amber-300">{message}</span>}
+        {rating && (
+          <span className="text-amber-300" title={`${rating.stars} ${rating.stars === 1 ? "ster" : "sterren"} van ${rating.by}`}>
+            {starsText(rating.stars)}
+          </span>
+        )}
+        {heart && (
+          <span title={`hartje van ${heart.who.join(", ")}`}>
+            <span className={heart.mine ? "text-red-500" : "text-white"}>♥</span>
+            <span className="text-neutral-400"> {heart.who.join(", ")}</span>
+          </span>
+        )}
         {member && <span className="text-neutral-400">{addedText(member)}</span>}
         <button
           className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
