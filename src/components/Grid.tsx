@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
@@ -29,13 +29,17 @@ type Props = {
   marked?: Map<string, Member> | null;
   /** Tiles picked besides the selected one, as `section:index`. */
   picked?: Set<string>;
+  /** A tile starts being dragged (to a list in the sidebar). */
+  onDragTile?: (sel: Sel) => void;
+  /** Right-click on a tile, at this point in the window. */
+  onMenu?: (sel: Sel, x: number, y: number) => void;
 };
 
 const GAP = 8;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked }: Props) {
+export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, onDragTile, onMenu }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -148,6 +152,12 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                     member={marked?.get(item.hash) ?? null}
                     picked={picked?.has(`${row.section}:${index}`) ?? false}
                     onClick={(e) => onSelect(sel, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", item.path);
+                      e.dataTransfer.effectAllowed = "copy";
+                      onDragTile?.(sel);
+                    }}
+                    onContextMenu={(e) => { e.preventDefault(); onMenu?.(sel, e.clientX, e.clientY); }}
                     onDoubleClick={() => onOpen(sel)}
                   />
                 ) : (
@@ -166,14 +176,18 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   );
 }
 
-function Tile({ item, size, active, member, picked, onClick, onDoubleClick }: {
+function Tile({ item, size, active, member, picked, onClick, onDoubleClick, onDragStart, onContextMenu }: {
   item: Item; size: number; active: boolean; member: Member | null; picked: boolean;
   onClick: (e: MouseEvent) => void; onDoubleClick: () => void;
+  onDragStart: (e: DragEvent) => void; onContextMenu: (e: MouseEvent) => void;
 }) {
   return (
     <div
+      draggable
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onDragStart={onDragStart}
+      onContextMenu={onContextMenu}
       title={member ? `${fileName(item.path)}\n${addedText(member)}` : fileName(item.path)}
       className={
         "relative rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +

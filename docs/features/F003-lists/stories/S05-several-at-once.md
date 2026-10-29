@@ -29,6 +29,16 @@ all of them in the active list (or takes them out, when all are in it already).
   `manyChange` adds those not in the active list, or removes all when all are in it, as one
   `list_add` or `list_remove`, so one `write` on the NAS.
 - `Grid.tsx`: picked tiles get a light blue ring and tint.
+- **Dragging** (added after Peter's first try): a tile is draggable; dragging one of the picked
+  tiles drags all of them, another tile only itself. A list in the sidebar lights up under the
+  drag and takes the photos not in it yet on drop, active or not. The window's native drop
+  handler is off (`dragDropEnabled: false`): it swallows HTML5 drag and drop, and the app takes
+  no dropped files.
+- **Right-click** on a tile (or on the picked ones): the app's own menu, with *Openen* for one
+  photo, *Uit <actieve lijst> halen*, and *Toevoegen aan* every list that isn't archived. The
+  webview's own menu (Open Image in New Window, …) is switched off outside text fields.
+- A message in the header says what happened: "12 foto's toegevoegd aan Ski", "3 foto's al in
+  Ski", or why it couldn't.
 
 ## Files affected
 
@@ -44,3 +54,9 @@ all of them in the active list (or takes them out, when all are in it already).
 - Moved ahead of S04: Peter tried shift-click and ⌘-click in the grid while trying S03.
 - `pnpm test`: ranges across sections in both directions, the three kinds of click, adding the
   missing ones or removing all; 65 tests. `tsc` and `pnpm build` clean.
+
+### [2026-10-29] Dragging and the right-click menu
+
+- Peter picked several photos and then tried to drag them to a list and to right-click them;
+  neither did anything, and `+` wasn't discoverable. Both added as above; the hint on "N
+  geselecteerd" names all three ways.

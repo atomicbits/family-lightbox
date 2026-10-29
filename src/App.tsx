@@ -15,7 +15,8 @@ import { useUpdate } from "./lib/update";
 import ConfirmPreviews from "./components/ConfirmPreviews";
 import PreviewsLine from "./components/PreviewsLine";
 import ListsPanel from "./components/ListsPanel";
-import { useLists } from "./lib/lists";
+import PhotoMenu from "./components/PhotoMenu";
+import { photosText, useLists } from "./lib/lists";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
 import { listen } from "@tauri-apps/api/event";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
@@ -32,6 +33,10 @@ export default function App() {
   // Several tiles picked with shift or ⌘ (F003/S05), and where a shift range starts.
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<Sel | null>(null);
+  // Dragging tiles to a list, and the right-click menu: both act on these tiles.
+  const dragKeys = useRef<string[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; keys: string[] } | null>(null);
   const [open, setOpen] = useState(false);
   const [top, setTop] = useState(0);
   const [jump, setJump] = useState<{ section: number; nonce: number } | null>(null);
@@ -166,10 +171,10 @@ export default function App() {
     setSelected(sel);
   }, [picked, anchor, selected, counts]);
 
-  // The picked tiles as items; months not loaded yet are fetched first.
-  const pickedItems = useCallback(async (): Promise<Item[]> => {
+  // Tiles as items; months not loaded yet are fetched first.
+  const itemsAt = useCallback(async (keys: Iterable<string>): Promise<Item[]> => {
     const out: Item[] = [];
-    for (const k of picked) {
+    for (const k of keys) {
       const { section, index } = parseKey(k);
       const month = sections[section]?.month;
       if (!month) continue;
@@ -181,7 +186,27 @@ export default function App() {
       if (items[index]) out.push(items[index]);
     }
     return out;
-  }, [picked, sections]);
+  }, [sections]);
+  const pickedItems = useCallback(() => itemsAt(picked), [itemsAt, picked]);
+
+  // What a drag or the menu acts on: the picked tiles when this one is among them, else only it.
+  const actOn = useCallback((sel: Sel): string[] => {
+    const k = selKey(sel);
+    if (picked.size > 1 && picked.has(k)) return [...picked];
+    select(sel, { shift: false, meta: false });
+    return [k];
+  }, [picked, select]);
+
+  useEffect(() => {
+    const end = () => setDragging(false);
+    window.addEventListener("dragend", end);
+    // the webview's own menu (Open Image in New Window, …) has nothing for this app
+    const noMenu = (e: MouseEvent) => {
+      if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) e.preventDefault();
+    };
+    window.addEventListener("contextmenu", noMenu);
+    return () => { window.removeEventListener("dragend", end); window.removeEventListener("contextmenu", noMenu); };
+  }, []);
 
   // toetsenbord op het raster: pijltjes (met shift: een reeks), spatie/enter opent, Esc wist de
   // keuze, + zet in de actieve lijst
@@ -288,11 +313,13 @@ export default function App() {
           <span className="text-base leading-none">□</span>
         </label>
         {picked.size > 1 && (
-          <span className="text-blue-600" title="+ zet ze in de actieve lijst (of haalt ze eruit), Esc wist de keuze">
+          <span className="text-blue-600" title="sleep ze naar een lijst, klik rechts, of + voor de actieve lijst; Esc wist de keuze">
             {picked.size} geselecteerd
           </span>
         )}
-        {lists.message && <span className="text-amber-600">{lists.message}</span>}
+        {lists.message && (
+          <span className={lists.message.error ? "text-amber-600" : "text-neutral-500"}>{lists.message.text}</span>
+        )}
         {index.line && (
           <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
             {index.line.text}
@@ -330,7 +357,15 @@ export default function App() {
               />
             </div>
             <div className="max-h-[45%] flex flex-col min-h-0">
-              <ListsPanel lists={lists} month={topSection?.month ?? null} />
+              <ListsPanel
+                lists={lists}
+                month={topSection?.month ?? null}
+                dragging={dragging}
+                onDrop={(id) => {
+                  setDragging(false);
+                  itemsAt(dragKeys.current).then((items) => lists.addTo(id, items)).catch((e) => setError(String(e)));
+                }}
+              />
             </div>
           </div>
           <main className="flex-1 min-w-0">
@@ -340,6 +375,8 @@ export default function App() {
               selected={selected}
               onSelect={select}
               picked={picked}
+              onDragTile={(sel) => { dragKeys.current = actOn(sel); setDragging(true); }}
+              onMenu={(sel, x, y) => setMenu({ x, y, keys: actOn(sel) })}
               onOpen={(s) => { setSelected(s); setOpen(true); }}
               onColumns={setCols}
               onNeed={need}
@@ -367,6 +404,28 @@ export default function App() {
             </div>
           ))}
         </div>
+      )}
+      {menu && (
+        <PhotoMenu
+          x={menu.x}
+          y={menu.y}
+          what={photosText(menu.keys.length)}
+          blocked={lists.blocked}
+          lists={(lists.state?.lists ?? []).filter((l) => !l.archived)}
+          onAddTo={(id) => itemsAt(menu.keys).then((items) => lists.addTo(id, items)).catch((e) => setError(String(e)))}
+          onClose={() => setMenu(null)}
+          actions={[
+            ...(menu.keys.length === 1 ? [{ label: "Openen", run: () => { setSelected(parseKey(menu.keys[0])); setOpen(true); } }] : []),
+            ...(lists.active
+              ? [{
+                  label: `Uit ${lists.active.name} halen`,
+                  disabled: !!lists.blocked,
+                  title: lists.blocked ?? undefined,
+                  run: () => { const id = lists.active!.id; itemsAt(menu.keys).then((items) => lists.removeFrom(id, items.filter((i) => lists.members.has(i.hash)))); },
+                }]
+              : []),
+          ]}
+        />
       )}
       {device && device.device === null && device.error === null && (
         <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />

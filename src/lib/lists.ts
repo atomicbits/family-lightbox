@@ -72,13 +72,19 @@ export function manyChange(items: Item[], members: Map<string, Member>): { op: "
   return missing.length === 0 ? { op: "remove", items: unique } : { op: "add", items: missing };
 }
 
+/** "1 foto" or "12 foto's"; videos count as photos here. */
+export function photosText(n: number): string {
+  return n === 1 ? "1 foto" : `${n} foto's`;
+}
+
 export type Lists = {
   state: ListsState | null;
   active: ListInfo | null;
   /** The photos of the active list, by hash. */
   members: Map<string, Member>;
   blocked: string | null;
-  message: string | null;
+  /** What just happened, or why it couldn't; `error` for the latter. */
+  message: { text: string; error: boolean } | null;
   refresh: () => Promise<void>;
   setActive: (id: string | null) => void;
   create: (name: string, year: number) => Promise<boolean>;
@@ -88,15 +94,19 @@ export type Lists = {
   toggle: (item: Item) => Promise<void>;
   /** The same for several photos at once, in one write (F003/S05). */
   toggleMany: (items: Item[]) => Promise<void>;
+  /** Adds the photos not in it yet to any list (dragging, the context menu). */
+  addTo: (id: string, items: Item[]) => Promise<void>;
+  removeFrom: (id: string, items: Item[]) => Promise<void>;
 };
 
 export function useLists(): Lists {
   const [state, setState] = useState<ListsState | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [members, setMembers] = useState<Map<string, Member>>(new Map());
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
-  const say = useCallback((m: string) => {
+  const say = useCallback((text: string, error = true) => {
+    const m = { text, error };
     setMessage(m);
     setTimeout(() => setMessage((cur) => (cur === m ? null : cur)), 6000);
   }, []);
@@ -158,14 +168,32 @@ export function useLists(): Lists {
     else await change("list_add", { id: active.id, photos: [{ photo: item.hash, path: item.path }] });
   }, [active, blocked, members, change, say]);
 
+  const nameOf = useCallback((id: string) => state?.lists.find((l) => l.id === id)?.name ?? id, [state]);
+
+  const addTo = useCallback(async (id: string, items: Item[]) => {
+    if (blocked) return say(blocked);
+    const inList = id === active?.id
+      ? members
+      : new Map((await invoke<Member[]>("list_photos", { id }).catch(() => [] as Member[])).map((m) => [m.photo, m]));
+    const c = manyChange(items, inList);
+    if (c.op === "remove") return say(`${photosText(c.items.length)} al in ${nameOf(id)}`, false);
+    if (await change("list_add", { id, photos: c.items.map((i) => ({ photo: i.hash, path: i.path })) }))
+      say(`${photosText(c.items.length)} toegevoegd aan ${nameOf(id)}`, false);
+  }, [blocked, active, members, change, say, nameOf]);
+
+  const removeFrom = useCallback(async (id: string, items: Item[]) => {
+    if (blocked) return say(blocked);
+    const hashes = [...new Set(items.map((i) => i.hash))];
+    if (await change("list_remove", { id, photos: hashes })) say(`${photosText(hashes.length)} uit ${nameOf(id)} gehaald`, false);
+  }, [blocked, change, say, nameOf]);
+
   const toggleMany = useCallback(async (items: Item[]) => {
     if (!active) return say("kies eerst een lijst in de zijbalk");
-    if (blocked) return say(blocked);
     const c = manyChange(items, members);
     if (c.items.length === 0) return;
-    if (c.op === "remove") await change("list_remove", { id: active.id, photos: c.items.map((i) => i.hash) });
-    else await change("list_add", { id: active.id, photos: c.items.map((i) => ({ photo: i.hash, path: i.path })) });
-  }, [active, blocked, members, change, say]);
+    if (c.op === "remove") await removeFrom(active.id, c.items);
+    else await addTo(active.id, c.items);
+  }, [active, members, addTo, removeFrom, say]);
 
-  return { state, active, members, blocked, message, refresh, setActive, create, rename, archive, toggle, toggleMany };
+  return { state, active, members, blocked, message, refresh, setActive, create, rename, archive, toggle, toggleMany, addTo, removeFrom };
 }

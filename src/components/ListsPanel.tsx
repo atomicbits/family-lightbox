@@ -1,13 +1,20 @@
 import { useState } from "react";
 import { defaultYear, groupLists, type ListInfo, type Lists } from "../lib/lists";
 
-type Props = { lists: Lists; month: string | null };
+type Props = {
+  lists: Lists;
+  month: string | null;
+  /** Something from the grid is being dragged; a list takes it on drop (F003/S05). */
+  dragging: boolean;
+  onDrop: (id: string) => void;
+};
 
 const button = "px-1.5 rounded hover:bg-neutral-200/60 dark:hover:bg-neutral-800 disabled:opacity-40";
 const input = "w-full px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950";
 
 /** The lists in the sidebar, per year (F003/S03): click to make one active; + makes a new one. */
-export default function ListsPanel({ lists, month }: Props) {
+export default function ListsPanel({ lists, month, dragging, onDrop }: Props) {
+  const [over, setOver] = useState<string | null>(null);
   const { state, active, blocked } = lists;
   const [creating, setCreating] = useState<{ name: string; year: number } | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
@@ -46,9 +53,14 @@ export default function ListsPanel({ lists, month }: Props) {
         <div
           className={
             "group flex items-center pl-5 pr-1 py-0.5 cursor-default " +
-            (isActive ? "bg-blue-600 text-white" : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800")
+            (over === l.id
+              ? "bg-blue-200 dark:bg-blue-900 ring-2 ring-blue-500"
+              : isActive ? "bg-blue-600 text-white" : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800")
           }
           onClick={() => lists.setActive(isActive ? null : l.id)}
+          onDragOver={(e) => { if (dragging && !l.archived) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setOver(l.id); } }}
+          onDragLeave={() => setOver((o) => (o === l.id ? null : o))}
+          onDrop={(e) => { e.preventDefault(); setOver(null); onDrop(l.id); }}
           title={isActive ? "actieve lijst: + zet de gekozen foto erin of haalt ze eruit" : "maak dit de actieve lijst"}
         >
           <span className={"truncate flex-1 " + (l.archived ? "italic opacity-70" : "")}>{l.name}</span>
