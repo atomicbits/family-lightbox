@@ -162,4 +162,4 @@ no folder yet.
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |
 | 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
 | 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (S01–S03 done, S04 built) | 6, 7, 8 |
-| 13 | [Ratings and hearts](F013-ratings-and-hearts/plan.md): 1–5 stars shared, a heart per person, on the tiles; undo with a message, a button and ⌘Z | In progress | 3 |
+| 13 | [Ratings and hearts](F013-ratings-and-hearts/plan.md): 1–5 stars shared, a heart per person, on the tiles; undo with a message, a button and ⌘Z | In progress (S01 done) | 3 |

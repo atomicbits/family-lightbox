@@ -90,6 +90,8 @@ export type Lists = {
   /** What just happened, or why it couldn't; `error` for the latter. */
   message: { text: string; error: boolean } | null;
   refresh: () => Promise<void>;
+  /** Goes up every time the lists were read again, so stars and hearts follow (F013/S01). */
+  version: number;
   /** Show this list in the grid, or the library again with null. */
   setActive: (id: string | null) => void;
   create: (name: string, year: number) => Promise<boolean>;
@@ -120,7 +122,9 @@ export function useLists(): Lists {
     setMembers(new Map(photos.map((m) => [m.photo, m])));
   }, []);
 
+  const [version, setVersion] = useState(0);
   const refresh = useCallback(async () => {
+    setVersion((v) => v + 1);
     const s = await invoke<ListsState>("lists_state").catch((e) => ({ source: "none", lists: [], ignored: 0, problem: String(e) }) as ListsState);
     setState(s);
   }, []);
@@ -196,5 +200,5 @@ export function useLists(): Lists {
     if (await change("list_remove", { id, photos: hashes })) say(`${photosText(hashes.length)} uit ${nameOf(id)} gehaald`, false);
   }, [blocked, change, say, nameOf]);
 
-  return { state, active, members, blocked, message, refresh, setActive, create, rename, archive, say, addTo, removeFrom };
+  return { state, active, members, blocked, message, refresh, version, setActive, create, rename, archive, say, addTo, removeFrom };
 }

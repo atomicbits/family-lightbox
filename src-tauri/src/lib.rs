@@ -6,6 +6,7 @@ mod connect;
 mod db;
 mod index;
 pub mod lists;
+pub mod marks;
 mod mounts;
 mod nas;
 #[cfg(target_os = "macos")]
@@ -457,6 +458,42 @@ async fn lists_stamp(paths: State<'_, Paths>) -> Result<Option<String>, String> 
     .map_err(|e| e.to_string())
 }
 
+/// The `Lists` share when it is connected.
+fn lists_share(paths: &Paths) -> Option<PathBuf> {
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    mounts::NasMounts::chosen(&found.lists).map(|m| PathBuf::from(&m.mount_point))
+}
+
+/// Stars and hearts by hash, from the share or the local copy (F013/S01).
+#[tauri::command]
+async fn marks_state(paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
+    let paths = paths.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || marks::load(lists_share(&paths).as_deref(), &paths.lists))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Writes a change to stars or hearts on the share and answers with the marks as they are now.
+fn change_marks(paths: &Paths, change: marks::Change) -> Result<marks::MarksState, String> {
+    let nas = lists_share(paths).ok_or("Lijsten is niet verbonden: sterren en hartjes wijzigen kan alleen met de NAS")?;
+    let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+    marks::append(&nas, &device.name, &device.owner, &change)?;
+    Ok(marks::load(Some(&nas), &paths.lists))
+}
+
+#[tauri::command]
+async fn marks_rate(photos: Vec<String>, stars: u8, paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || change_marks(&paths, marks::Change::Rate { photos, stars })).await
+}
+
+#[tauri::command]
+async fn marks_heart(photos: Vec<String>, on: bool, paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || change_marks(&paths, marks::Change::Heart { photos, on })).await
+}
+
 /// All lists, without their photos. On a blocking thread: the share may be slow to answer.
 #[tauri::command]
 async fn lists_state(paths: State<'_, Paths>) -> Result<lists::ListsState, String> {
@@ -728,7 +765,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            lists_state, lists_stamp, list_photos, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

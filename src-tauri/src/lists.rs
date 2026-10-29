@@ -58,6 +58,25 @@ pub fn valid_id(id: &str) -> bool {
     }
 }
 
+/// `ts` as nanoseconds since 1970, so times with different offsets sort right; `None` when it
+/// isn't ISO 8601 with an offset.
+pub fn moment(ts: &str) -> Option<i128> {
+    let t = DateTime::parse_from_rfc3339(ts).ok()?;
+    Some(t.timestamp() as i128 * 1_000_000_000 + t.timestamp_subsec_nanos() as i128)
+}
+
+/// The complete lines of an event file with their line numbers, and whether a last line without
+/// `\n` was left out (it is being written; data contract 5.2).
+pub fn complete_lines(text: &str) -> (Vec<(usize, &str)>, bool) {
+    let complete = match text.rfind('\n') {
+        Some(i) => &text[..i],
+        None => "",
+    };
+    let half = complete.len() + 1 < text.len();
+    let lines = complete.split('\n').enumerate().filter(|(_, l)| !l.trim().is_empty()).collect();
+    (lines, half)
+}
+
 /// One line of `events/<device>.jsonl`, or `None` when it must be ignored.
 fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
     let r: Raw = serde_json::from_str(line).ok()?;
@@ -65,8 +84,7 @@ fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
         return None;
     }
     let ts = r.ts?;
-    let t = DateTime::parse_from_rfc3339(&ts).ok()?;
-    let at = t.timestamp() as i128 * 1_000_000_000 + t.timestamp_subsec_nanos() as i128;
+    let at = moment(&ts)?;
     let list = r.list.filter(|l| valid_id(l))?;
     let nonempty = |s: Option<String>| s.filter(|s| !s.trim().is_empty());
     let op = match r.op?.as_str() {
@@ -84,18 +102,9 @@ fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
 /// The events of one device's file. A last line without `\n` is being written and is left out.
 pub fn parse_file(text: &str, device: &str) -> (Vec<Event>, usize) {
     let mut events = Vec::new();
-    let mut ignored = 0;
-    let complete = match text.rfind('\n') {
-        Some(i) => &text[..i],
-        None => "",
-    };
-    if complete.len() + 1 < text.len() {
-        ignored += 1;
-    }
-    for (n, line) in complete.split('\n').enumerate() {
-        if line.trim().is_empty() {
-            continue;
-        }
+    let (lines, half) = complete_lines(text);
+    let mut ignored = half as usize;
+    for (n, line) in lines {
         match parse(line, device, n) {
             Some(e) => events.push(e),
             None => ignored += 1,
@@ -277,8 +286,9 @@ pub fn load(nas: Option<&Path>, local: &Path) -> (ListsState, BTreeMap<String, L
     }
 }
 
-/// A fingerprint of the devices and event files: their names, sizes and times. It changes when
-/// any device appends an event, so the app knows when to read the lists again (F003/S04).
+/// A fingerprint of the devices and event files, lists and marks: their names, sizes and times.
+/// It changes when any device appends an event, so the app knows when to read again (F003/S04,
+/// F013/S01).
 pub fn stamp(lists: &Path) -> Option<u64> {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -289,11 +299,19 @@ pub fn stamp(lists: &Path) -> Option<u64> {
         }
     };
     add(DEVICES_FILE.into(), &lists.join(DEVICES_FILE));
-    for e in fs::read_dir(lists.join(EVENTS_DIR)).ok()?.flatten() {
-        let name = e.file_name().to_string_lossy().into_owned();
-        if name.ends_with(".jsonl") {
-            add(name, &e.path());
+    let mut any = false;
+    for dir in [EVENTS_DIR, crate::marks::MARKS_DIR] {
+        let Ok(entries) = fs::read_dir(lists.join(dir)) else { continue };
+        any = true;
+        for e in entries.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.ends_with(".jsonl") {
+                add(format!("{dir}/{name}"), &e.path());
+            }
         }
+    }
+    if !any {
+        return None;
     }
     files.sort();
     files.hash(&mut h);
@@ -305,7 +323,7 @@ pub fn is_lists_file(rel: &str) -> bool {
     let parts: Vec<&str> = rel.split('/').collect();
     match parts.as_slice() {
         [f] => *f == DEVICES_FILE,
-        [dir, f] if *dir == EVENTS_DIR => f.ends_with(".jsonl") && f.len() > 6,
+        [dir, f] if *dir == EVENTS_DIR || *dir == crate::marks::MARKS_DIR => f.ends_with(".jsonl") && f.len() > 6,
         [year, f] => year.len() == 4 && year.bytes().all(|b| b.is_ascii_digit()) && f.ends_with(".json"),
         _ => false,
     }
@@ -448,17 +466,22 @@ pub fn refusal(change: &Change, lists: &BTreeMap<String, List>) -> Option<String
 /// Appends the change to this device's own event file on the share: all its lines in one `write`,
 /// then `fsync` (data contract 5.2). Refused when this device isn't registered.
 pub fn append(lists: &Path, device: &str, owner: &str, change: &Change, merged: &BTreeMap<String, List>) -> Result<(), String> {
-    use std::io::Write;
     if let Some(why) = refusal(change, merged) {
         return Err(why);
     }
+    append_lines(lists, EVENTS_DIR, device, &lines(change, &now(), device, owner).concat())
+}
+
+/// Appends text to `<dir>/<device>.jsonl` on the share in one `write`, then `fsync`; refused when
+/// this device isn't registered.
+pub fn append_lines(lists: &Path, dir: &str, device: &str, text: &str) -> Result<(), String> {
+    use std::io::Write;
     if !registered(lists)?.contains(device) {
         return Err(format!("dit toestel ({device}) staat niet in {DEVICES_FILE}"));
     }
-    let dir = lists.join(EVENTS_DIR);
+    let dir = lists.join(dir);
     fs::create_dir_all(&dir).map_err(|e| format!("{} maken mislukt: {e}", dir.display()))?;
     let path = dir.join(format!("{device}.jsonl"));
-    let text = lines(change, &now(), device, owner).concat();
     let mut f = fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -659,7 +682,7 @@ mod tests {
 
     #[test]
     fn the_sync_copies_devices_events_and_summaries_only() {
-        for ok in ["devices.json", "events/mbp-lynn.jsonl", "2026/herfstwandeling.json"] {
+        for ok in ["devices.json", "events/mbp-lynn.jsonl", "marks/mbp-lynn.jsonl", "2026/herfstwandeling.json"] {
             assert!(is_lists_file(ok), "{ok}");
         }
         for no in ["devices.json.tmp-mbp-lynn", "events/.jsonl", "events/x.txt", "notes.json", "2026/sub/x.json", "abcd/x.json"] {
