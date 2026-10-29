@@ -25,7 +25,7 @@ type Props = {
   jump: { section: number; nonce: number } | null;
   /** Tile size in CSS pixels (the size slider). */
   tile: number;
-  /** The photos of the active list by hash, to mark their tiles (F003/S03). */
+  /** In a list: its photos by hash, so a tile's tooltip says who added it (F003/S04). */
   marked?: Map<string, Member> | null;
   /** Tiles picked besides the selected one, as `section:index`. */
   picked?: Set<string>;
@@ -209,11 +209,6 @@ function Tile({ item, size, active, member, picked, onClick, onDoubleClick, onDr
         <div className="w-full h-full grid place-items-center text-xs text-neutral-400 p-2 text-center">
           geen preview
         </div>
-      )}
-      {member && (
-        <span className="absolute top-1 left-1 w-5 h-5 grid place-items-center rounded-full bg-blue-600 text-white text-xs shadow" aria-label="in de actieve lijst">
-          ✓
-        </span>
       )}
       {item.kind === "video" && (
         <span className="absolute bottom-1 left-1 rounded bg-black/60 text-white text-[10px] px-1">video</span>

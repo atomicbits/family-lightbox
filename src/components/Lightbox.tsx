@@ -13,13 +13,12 @@ type Props = {
   /** Whether stepping back or forward is possible; it can cross into the month above or below. */
   canPrev: boolean;
   canNext: boolean;
-  /** The active list, whether this photo is in it, and why it can't be changed (F003/S03). */
-  list: { name: string; member: Member | null; blocked: string | null } | null;
-  onToggle: () => void;
+  /** In a list: who added this photo and when (F003/S04). */
+  member: Member | null;
 };
 
 /** Eén foto groot (de 2048 px-preview), met pijltjes, en knoppen naar het origineel. */
-export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, list, onToggle }: Props) {
+export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member }: Props) {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,11 +26,10 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
       if (e.key === "Escape" || e.key === " ") { e.preventDefault(); onClose(); }
       else if (e.key === "ArrowRight") onStep(1);
       else if (e.key === "ArrowLeft") onStep(-1);
-      else if (e.key === "+" || e.key === "=") { e.preventDefault(); onToggle(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, onStep, onToggle]);
+  }, [onClose, onStep]);
 
   useEffect(() => setMessage(null), [item.path]);
 
@@ -68,16 +66,7 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
         {item.source && <span className="text-neutral-400">{item.source}</span>}
         <span className="flex-1" />
         {message && <span className="text-amber-300">{message}</span>}
-        {list && (
-          <button
-            className={"px-2 py-1 rounded disabled:opacity-40 " + (list.member ? "bg-blue-600 hover:bg-blue-500" : "bg-white/10 hover:bg-white/20")}
-            disabled={!!list.blocked}
-            title={list.blocked ?? (list.member ? `${addedText(list.member)}; + haalt ze eruit` : "+ zet ze in de lijst")}
-            onClick={onToggle}
-          >
-            {list.member ? `✓ in ${list.name}` : `+ ${list.name}`}
-          </button>
-        )}
+        {member && <span className="text-neutral-400">{addedText(member)}</span>}
         <button
           className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
           disabled={!item.local}

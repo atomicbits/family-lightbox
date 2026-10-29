@@ -536,16 +536,39 @@ fn change_list(app: &tauri::AppHandle, make: impl FnOnce(&std::collections::BTre
     Ok(ListChanged { id, state: lists::load(Some(&nas), &paths.lists).0 })
 }
 
-#[tauri::command]
-fn active_list(paths: State<Paths>) -> Option<String> {
-    config::load_state(&paths.config).active_list
+#[derive(serde::Serialize)]
+pub struct ListItem {
+    /// The month the grid groups it under.
+    pub month: String,
+    #[serde(flatten)]
+    pub item: Item,
 }
 
+#[derive(serde::Serialize)]
+pub struct ListItems {
+    pub items: Vec<ListItem>,
+    /// Photos in the list whose hash isn't in this Mac's index (not synced yet).
+    pub missing: usize,
+}
+
+/// The photos of a list as grid items, from the index (F003/S04).
 #[tauri::command]
-fn set_active_list(id: Option<String>, paths: State<Paths>) -> Result<(), String> {
-    let mut state = config::load_state(&paths.config);
-    state.active_list = id;
-    config::save_state(&paths.config, &state)
+async fn list_items(id: String, paths: State<'_, Paths>) -> Result<ListItems, String> {
+    let paths = paths.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (state, mut all) = load_lists(&paths);
+        if let Some(p) = state.problem {
+            return Err(p);
+        }
+        let list = all.remove(&id).ok_or_else(|| format!("onbekende lijst: {id}"))?;
+        let hashes: Vec<String> = list.photos.into_keys().collect();
+        let rows = Db::open(&paths.index())?.items_by_hash(&hashes)?;
+        let found: std::collections::HashSet<&str> = rows.iter().map(|(_, i)| i.hash.as_str()).collect();
+        let missing = hashes.iter().filter(|h| !found.contains(h.as_str())).count();
+        Ok(ListItems { items: rows.into_iter().map(|(month, item)| ListItem { month, item }).collect(), missing })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Runs a list change on a blocking thread: the share may be slow.
@@ -689,7 +712,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            lists_state, list_photos, list_create, list_add, list_remove, list_rename, list_archive, active_list, set_active_list,
+            lists_state, list_photos, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

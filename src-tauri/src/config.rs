@@ -111,8 +111,6 @@ pub struct AppState {
     pub previews_confirmed_at: Option<String>,
     /// Making previews was paused by hand (F012/S03); stays paused until resumed.
     pub previews_paused: bool,
-    /// The list that `+` adds to (F003/S03), kept per Mac.
-    pub active_list: Option<String>,
 }
 
 /// The state, or the default when it is missing or broken (a broken file is left alone).

@@ -58,3 +58,14 @@ and every photo in it carries a mark in the grid.
   `tsc` and `pnpm build` clean; 115 Rust tests, clippy clean.
 - To try in the app: create a list, make it active, `+` on a few photos in the grid and the
   lightbox, the marks, rename, archive and show archived; the events on the NAS and the summary.
+
+### [2026-10-29] The active list replaced by showing the list
+
+- Peter, trying it: with a list clicked, the grid still showed all photos with a blue ✓ on the
+  ones in the list, the month list kept its highlighted month, and right-click on a photo
+  without ✓ offered to take it out of the list. Confusing.
+- Now clicking a list shows only its photos in the grid (S04), without marks, and no month is
+  highlighted; clicking it again, *← Alle foto's* or a month returns to the library. Adding is
+  done by dragging to a list or *Toevoegen aan* in the right-click menu; in a list, ⌫ or *Uit
+  <list> halen* takes photos out. The `+` key, the ✓ marks, the lightbox button and the stored
+  active list are gone; `+` in the library says how to add instead.

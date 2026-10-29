@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, config, type DeviceState, type Item, type MonthSummary } from "./lib/api";
+import { invoke } from "@tauri-apps/api/core";
 import { monthLabel, yearOf } from "./lib/months";
 import MonthList from "./components/MonthList";
 import Grid from "./components/Grid";
@@ -25,6 +26,19 @@ import { moveAcross, parseKey, pickAfterClick, rangeBetween, sameSections, selKe
 
 const toSections = (months: MonthSummary[]): Section[] =>
   months.map((m) => ({ month: m.month, count: m.photos + m.videos }));
+
+/** A list's photos for the grid (F003/S04): grouped by month, newest month first. */
+type ListView = { id: string; sections: Section[]; byMonth: Map<string, Item[]>; total: number; missing: number };
+
+function toListView(id: string, rows: (Item & { month: string })[], missing: number): ListView {
+  const byMonth = new Map<string, Item[]>();
+  for (const { month, ...item } of rows) {
+    if (!byMonth.has(month)) byMonth.set(month, []);
+    byMonth.get(month)!.push(item);
+  }
+  const sections = [...byMonth.keys()].sort().reverse().map((month) => ({ month, count: byMonth.get(month)!.length }));
+  return { id, sections, byMonth, total: rows.length, missing };
+}
 
 export default function App() {
   const [months, setMonths] = useState<MonthSummary[]>([]);
@@ -98,15 +112,36 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The library as sections, newest month first, with their counts from the index.
+  // A list shown instead of the library (F003/S04), loaded again when the lists or the index change.
+  const listId = lists.active?.id ?? null;
+  const [listView, setListView] = useState<ListView | null>(null);
+  const builds = index.state?.builds ?? 0;
+  useEffect(() => {
+    if (!listId) return setListView(null);
+    invoke<{ items: (Item & { month: string })[]; missing: number }>("list_items", { id: listId })
+      .then((r) => setListView(toListView(listId, r.items, r.missing)))
+      .catch((e) => lists.say(String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listId, lists.state, builds]);
+  const showingList = listId !== null && listView?.id === listId;
+
+  // The library (or the list) as sections, newest month first, with their counts.
   // The same object while the months and their counts stay the same: new previews only change the
   // month list's preview counts, and a new layout would move the grid (F012/S04).
   const stableSections = useRef<Section[]>([]);
   const sections = useMemo(() => {
-    const next = toSections(months);
+    const next = showingList ? listView!.sections : listId ? [] : toSections(months);
     if (!sameSections(stableSections.current, next)) stableSections.current = next;
     return stableSections.current;
-  }, [months]);
+  }, [months, listView, listId, showingList]);
+
+  // Another view: start at the top, without a selection.
+  useEffect(() => {
+    setSelected(null);
+    setPicked(new Set());
+    setAnchor(null);
+    setJump({ section: 0, nonce: Date.now() });
+  }, [listId]);
   const counts = useMemo(() => sections.map((s) => s.count), [sections]);
 
   // Items per month, fetched once when a month comes (nearly) into view.
@@ -115,6 +150,7 @@ export default function App() {
   const [, setLoaded] = useState(0);
   const need = useCallback(
     (wanted: number[]) => {
+      if (listId) return; // a list's items are all loaded at once
       for (const s of wanted) {
         const month = sections[s]?.month;
         if (!month || cache.current.has(month) || inFlight.current.has(month)) continue;
@@ -131,9 +167,9 @@ export default function App() {
           .finally(() => inFlight.current.delete(month));
       }
     },
-    [sections],
+    [sections, listId],
   );
-  const itemsOf = (month: string) => cache.current.get(month);
+  const itemsOf = (month: string) => (listId ? listView?.byMonth.get(month) : cache.current.get(month));
 
   useEffect(() => { if (selected) need([selected.section]); }, [selected, need]);
 
@@ -178,7 +214,7 @@ export default function App() {
       const { section, index } = parseKey(k);
       const month = sections[section]?.month;
       if (!month) continue;
-      let items = cache.current.get(month);
+      let items = listId ? listView?.byMonth.get(month) ?? [] : cache.current.get(month);
       if (!items) {
         items = await api.items(month);
         cache.current.set(month, items);
@@ -186,7 +222,7 @@ export default function App() {
       if (items[index]) out.push(items[index]);
     }
     return out;
-  }, [sections]);
+  }, [sections, listId, listView]);
   const pickedItems = useCallback(() => itemsAt(picked), [itemsAt, picked]);
 
   // What a drag or the menu acts on: the picked tiles when this one is among them, else only it.
@@ -209,7 +245,7 @@ export default function App() {
   }, []);
 
   // toetsenbord op het raster: pijltjes (met shift: een reeks), spatie/enter opent, Esc wist de
-  // keuze, + zet in de actieve lijst
+  // keuze; in een lijst haalt ⌫ de gekozen foto's eruit
   const dialog = showSettings || confirming || (device !== null && device.device === null && device.error === null);
   useEffect(() => {
     if (open || dialog) return;
@@ -233,21 +269,32 @@ export default function App() {
         }
       } else if (e.key === "Escape" && picked.size > 0) { setPicked(new Set()); setAnchor(null); }
       else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
-      else if (e.key === "+" || e.key === "=") {
+      else if ((e.key === "Backspace" || e.key === "Delete") && listId) {
         e.preventDefault();
-        if (picked.size > 1) pickedItems().then(lists.toggleMany).catch((err) => setError(String(err)));
-        else if (current) lists.toggle(current);
+        const id = listId;
+        (picked.size > 1 ? pickedItems() : Promise.resolve(current ? [current] : []))
+          .then((items) => { if (items.length) return lists.removeFrom(id, items); })
+          .catch((err) => setError(String(err)));
+      } else if ((e.key === "+" || e.key === "=") && !listId) {
+        lists.say("sleep de foto's naar een lijst, of klik rechts: Toevoegen aan", false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, dialog, selected, anchor, picked, cols, counts, move, current, lists.toggle, lists.toggleMany, pickedItems]);
+  }, [open, dialog, selected, anchor, picked, cols, counts, move, current, listId, lists.removeFrom, lists.say, pickedItems]);
 
   // After every rebuild: months again, an empty cache, and the selection and the month at the
   // top kept where they were.
-  const builds = index.state?.builds ?? 0;
   useEffect(() => {
     if (builds === 0) return;
+    if (listId) {
+      // the list reloads by itself; the library starts over when it is shown again
+      ++generation.current;
+      cache.current = new Map();
+      inFlight.current.clear();
+      api.months().then(setMonths).catch((e) => setError(String(e)));
+      return;
+    }
     const anchor: Anchor | null =
       selected && sections[selected.section]
         ? { month: sections[selected.section].month, index: selected.index, path: current?.path ?? null }
@@ -279,6 +326,16 @@ export default function App() {
   const topSection = sections[top];
   const lastSection = sections.length - 1;
 
+  // A month clicked while a list was shown: jump to it once the library is back.
+  const pendingMonth = useRef<string | null>(null);
+  useEffect(() => {
+    if (listId || !pendingMonth.current) return;
+    const s = sections.findIndex((x) => x.month === pendingMonth.current);
+    if (s < 0) return;
+    pendingMonth.current = null;
+    setJump({ section: s, nonce: Date.now() });
+  }, [listId, sections]);
+
   // The month on screen gets its previews first (F012/S03).
   const topMonth = topSection?.month ?? null;
   const focusPreviews = previews.focus;
@@ -287,10 +344,24 @@ export default function App() {
   return (
     <div className="relative h-full flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       <header className="flex items-center gap-3 px-4 h-10 border-b border-neutral-200 dark:border-neutral-800 text-sm">
-        <span className="font-semibold">
-          {topSection ? `${monthLabel(topSection.month)} ${yearOf(topSection.month)}` : "FamilyLightbox"}
-        </span>
-        {topSection && (
+        {listId && lists.active ? (
+          <>
+            <button className="text-neutral-400 hover:text-neutral-600" title="terug naar alle foto's" onClick={() => lists.setActive(null)}>
+              ← Alle foto's
+            </button>
+            <span className="font-semibold">{lists.active.name}</span>
+            <span className="text-neutral-400">
+              {listView ? photosText(listView.total) : "laden…"}
+              {topSection && ` · ${monthLabel(topSection.month)} ${yearOf(topSection.month)}`}
+              {listView && listView.missing > 0 && ` · ${listView.missing} nog niet op deze Mac`}
+            </span>
+          </>
+        ) : (
+          <span className="font-semibold">
+            {topSection ? `${monthLabel(topSection.month)} ${yearOf(topSection.month)}` : "FamilyLightbox"}
+          </span>
+        )}
+        {!listId && topSection && (
           <span className="text-neutral-400">
             {topSection.count} {topSection.count === 1 ? "item" : "items"}
             {selected?.section === top && ` · ${selected.index + 1} / ${topSection.count}`}
@@ -313,7 +384,7 @@ export default function App() {
           <span className="text-base leading-none">□</span>
         </label>
         {picked.size > 1 && (
-          <span className="text-blue-600" title="sleep ze naar een lijst, klik rechts, of + voor de actieve lijst; Esc wist de keuze">
+          <span className="text-blue-600" title={listId ? "⌫ of klik rechts haalt ze uit de lijst; Esc wist de keuze" : "sleep ze naar een lijst of klik rechts; Esc wist de keuze"}>
             {picked.size} geselecteerd
           </span>
         )}
@@ -352,8 +423,13 @@ export default function App() {
             <div className="flex-1 min-h-0">
               <MonthList
                 months={months}
-                selected={topSection?.month ?? null}
-                onSelect={(m) => setJump({ section: sections.findIndex((s) => s.month === m), nonce: Date.now() })}
+                selected={listId ? null : topSection?.month ?? null}
+                onSelect={(m) => {
+                  if (listId) {
+                    pendingMonth.current = m;
+                    lists.setActive(null);
+                  } else setJump({ section: sections.findIndex((s) => s.month === m), nonce: Date.now() });
+                }}
               />
             </div>
             <div className="max-h-[45%] flex flex-col min-h-0">
@@ -383,7 +459,7 @@ export default function App() {
               onTopSection={setTop}
               jump={jump}
               tile={tile}
-              marked={lists.active ? lists.members : null}
+              marked={listId ? lists.members : null}
             />
           </main>
           {open && selected && (current ? (
@@ -395,8 +471,7 @@ export default function App() {
               canNext={selected.section < lastSection || selected.index < sections[selected.section].count - 1}
               onClose={() => setOpen(false)}
               onStep={(d) => move(d > 0 ? "right" : "left")}
-              list={lists.active ? { name: lists.active.name, member: lists.members.get(current.hash) ?? null, blocked: lists.blocked } : null}
-              onToggle={() => lists.toggle(current)}
+              member={listId ? lists.members.get(current.hash) ?? null : null}
             />
           ) : (
             <div className="absolute inset-0 z-20 bg-black/95 grid place-items-center text-neutral-400" onClick={() => setOpen(false)}>
@@ -411,17 +486,17 @@ export default function App() {
           y={menu.y}
           what={photosText(menu.keys.length)}
           blocked={lists.blocked}
-          lists={(lists.state?.lists ?? []).filter((l) => !l.archived)}
+          lists={(lists.state?.lists ?? []).filter((l) => !l.archived && l.id !== listId)}
           onAddTo={(id) => itemsAt(menu.keys).then((items) => lists.addTo(id, items)).catch((e) => setError(String(e)))}
           onClose={() => setMenu(null)}
           actions={[
             ...(menu.keys.length === 1 ? [{ label: "Openen", run: () => { setSelected(parseKey(menu.keys[0])); setOpen(true); } }] : []),
-            ...(lists.active
+            ...(listId && lists.active
               ? [{
                   label: `Uit ${lists.active.name} halen`,
                   disabled: !!lists.blocked,
                   title: lists.blocked ?? undefined,
-                  run: () => { const id = lists.active!.id; itemsAt(menu.keys).then((items) => lists.removeFrom(id, items.filter((i) => lists.members.has(i.hash)))); },
+                  run: () => { itemsAt(menu.keys).then((items) => lists.removeFrom(listId, items)).catch((e) => setError(String(e))); },
                 }]
               : []),
           ]}

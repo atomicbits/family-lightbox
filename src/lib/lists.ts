@@ -1,5 +1,5 @@
-// The lists in the UI (F003/S03): the merged state from the Rust core, the active list and its
-// photos, and creating, renaming, archiving, adding and removing.
+// The lists in the UI (F003/S03, S04): the merged state from the Rust core, the list on screen
+// and its photos, and creating, renaming, archiving, adding and removing.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Item } from "./api";
@@ -79,22 +79,22 @@ export function photosText(n: number): string {
 
 export type Lists = {
   state: ListsState | null;
+  /** The list shown in the grid instead of the library, or null. */
   active: ListInfo | null;
-  /** The photos of the active list, by hash. */
+  /** The photos of that list, by hash. */
   members: Map<string, Member>;
   blocked: string | null;
   /** What just happened, or why it couldn't; `error` for the latter. */
   message: { text: string; error: boolean } | null;
   refresh: () => Promise<void>;
+  /** Show this list in the grid, or the library again with null. */
   setActive: (id: string | null) => void;
   create: (name: string, year: number) => Promise<boolean>;
   rename: (id: string, name: string) => Promise<boolean>;
   archive: (id: string, archived: boolean) => Promise<boolean>;
-  /** Puts the item in the active list, or takes it out when it is in it. */
-  toggle: (item: Item) => Promise<void>;
-  /** The same for several photos at once, in one write (F003/S05). */
-  toggleMany: (items: Item[]) => Promise<void>;
-  /** Adds the photos not in it yet to any list (dragging, the context menu). */
+  /** A short message in the header; `error` for a problem. */
+  say: (text: string, error?: boolean) => void;
+  /** Adds the photos not in it yet to a list (dragging, the context menu), in one write. */
   addTo: (id: string, items: Item[]) => Promise<void>;
   removeFrom: (id: string, items: Item[]) => Promise<void>;
 };
@@ -122,10 +122,7 @@ export function useLists(): Lists {
     setState(s);
   }, []);
 
-  useEffect(() => {
-    refresh();
-    invoke<string | null>("active_list").then((id) => setActiveId(id ?? null)).catch(() => {});
-  }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   // the active list's photos, again whenever the lists change
   useEffect(() => { loadMembers(activeId); }, [activeId, state, loadMembers]);
@@ -133,10 +130,7 @@ export function useLists(): Lists {
   const active = useMemo(() => state?.lists.find((l) => l.id === activeId) ?? null, [state, activeId]);
   const blocked = changeBlocked(state);
 
-  const setActive = useCallback((id: string | null) => {
-    setActiveId(id);
-    invoke("set_active_list", { id }).catch(() => {});
-  }, []);
+  const setActive = useCallback((id: string | null) => setActiveId(id), []);
 
   const change = useCallback(async (cmd: string, args: Record<string, unknown>): Promise<Changed | null> => {
     try {
@@ -161,13 +155,6 @@ export function useLists(): Lists {
     return r !== null;
   }, [change, activeId, setActive]);
 
-  const toggle = useCallback(async (item: Item) => {
-    if (!active) return say("kies eerst een lijst in de zijbalk");
-    if (blocked) return say(blocked);
-    if (members.has(item.hash)) await change("list_remove", { id: active.id, photos: [item.hash] });
-    else await change("list_add", { id: active.id, photos: [{ photo: item.hash, path: item.path }] });
-  }, [active, blocked, members, change, say]);
-
   const nameOf = useCallback((id: string) => state?.lists.find((l) => l.id === id)?.name ?? id, [state]);
 
   const addTo = useCallback(async (id: string, items: Item[]) => {
@@ -187,13 +174,5 @@ export function useLists(): Lists {
     if (await change("list_remove", { id, photos: hashes })) say(`${photosText(hashes.length)} uit ${nameOf(id)} gehaald`, false);
   }, [blocked, change, say, nameOf]);
 
-  const toggleMany = useCallback(async (items: Item[]) => {
-    if (!active) return say("kies eerst een lijst in de zijbalk");
-    const c = manyChange(items, members);
-    if (c.items.length === 0) return;
-    if (c.op === "remove") await removeFrom(active.id, c.items);
-    else await addTo(active.id, c.items);
-  }, [active, members, addTo, removeFrom, say]);
-
-  return { state, active, members, blocked, message, refresh, setActive, create, rename, archive, toggle, toggleMany, addTo, removeFrom };
+  return { state, active, members, blocked, message, refresh, setActive, create, rename, archive, say, addTo, removeFrom };
 }

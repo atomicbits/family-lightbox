@@ -12,7 +12,7 @@ type Props = {
 const button = "px-1.5 rounded hover:bg-neutral-200/60 dark:hover:bg-neutral-800 disabled:opacity-40";
 const input = "w-full px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950";
 
-/** The lists in the sidebar, per year (F003/S03): click to make one active; + makes a new one. */
+/** The lists in the sidebar, per year (F003/S03): click to show one in the grid; + makes a new one. */
 export default function ListsPanel({ lists, month, dragging, onDrop }: Props) {
   const [over, setOver] = useState<string | null>(null);
   const { state, active, blocked } = lists;
@@ -61,7 +61,7 @@ export default function ListsPanel({ lists, month, dragging, onDrop }: Props) {
           onDragOver={(e) => { if (dragging && !l.archived) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setOver(l.id); } }}
           onDragLeave={() => setOver((o) => (o === l.id ? null : o))}
           onDrop={(e) => { e.preventDefault(); setOver(null); onDrop(l.id); }}
-          title={isActive ? "actieve lijst: + zet de gekozen foto erin of haalt ze eruit" : "maak dit de actieve lijst"}
+          title={isActive ? "terug naar alle foto's" : "toon deze lijst; sleep foto's hierheen om ze toe te voegen"}
         >
           <span className={"truncate flex-1 " + (l.archived ? "italic opacity-70" : "")}>{l.name}</span>
           <span className={"text-xs tabular-nums mr-1 " + (isActive ? "text-blue-100" : "text-neutral-400")}>{l.count}</span>

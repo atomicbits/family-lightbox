@@ -87,6 +87,45 @@ impl Db {
             .map_err(|e| e.to_string())
     }
 
+    /// The photos and videos with these hashes, each with the month the grid groups it under,
+    /// by date taken (F003/S04). A hash that is in several places gives each of them.
+    pub fn items_by_hash(&self, hashes: &[String]) -> Result<Vec<(String, Item)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT coalesce(month, folder), path, folder, kind, taken, taken_from, source, size, hash, local, preview
+                 FROM items WHERE kind IN ('photo', 'video') AND hash = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+        let mut out = Vec::new();
+        for h in hashes {
+            let rows = stmt
+                .query_map([h], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        Item {
+                            path: r.get(1)?,
+                            folder: r.get(2)?,
+                            kind: r.get(3)?,
+                            taken: r.get(4)?,
+                            taken_from: r.get(5)?,
+                            source: r.get(6)?,
+                            size: r.get(7)?,
+                            hash: r.get(8)?,
+                            local: r.get::<_, i64>(9)? != 0,
+                            preview: r.get::<_, i64>(10)? != 0,
+                        },
+                    ))
+                })
+                .map_err(|e| e.to_string())?;
+            for row in rows {
+                out.push(row.map_err(|e| e.to_string())?);
+            }
+        }
+        out.sort_by(|a, b| a.1.taken.cmp(&b.1.taken).then_with(|| a.1.path.cmp(&b.1.path)));
+        Ok(out)
+    }
+
     /// De foto's en video's van één maand, op opnametijd.
     pub fn items(&self, month: &str) -> Result<Vec<Item>, String> {
         let mut stmt = self
@@ -188,5 +227,16 @@ mod tests {
     fn missing_index_gives_a_helpful_error() {
         let err = Db::open(Path::new("/nope/index.sqlite")).unwrap_err();
         assert!(err.starts_with("nog geen index"));
+    }
+
+    #[test]
+    fn items_by_hash_give_their_month_by_date_taken_without_sidecars() {
+        let (_d, p) = fixture();
+        let c = Connection::open(&p).unwrap();
+        c.execute("UPDATE items SET hash = 'sha256:a' WHERE path LIKE '2026/07/EOSR/photos/%'", []).unwrap();
+        c.execute("UPDATE items SET hash = 'sha256:b' WHERE path = '2012/scans Peter/scan1.tif'", []).unwrap();
+        let rows = Db::open(&p).unwrap().items_by_hash(&["sha256:a".into(), "sha256:b".into(), "sha256:none".into()]).unwrap();
+        let got: Vec<_> = rows.iter().map(|(m, i)| (m.as_str(), i.path.as_str())).collect();
+        assert_eq!(got, [("2012/scans Peter", "2012/scans Peter/scan1.tif"), ("2026/07", "2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3")]);
     }
 }
