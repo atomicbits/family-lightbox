@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { heartAfterClick, heartState, sharedStars, starsAfterClick, type MarksState } from "../lib/marks";
 
 type Props = {
@@ -15,6 +16,8 @@ type Props = {
 
 /** Five stars and a heart for the selected photos (F013/S03). */
 export default function MarksBar({ label, hashes, marks, me, blocked, onRate, onHeart, dark }: Props) {
+  // the star under the mouse: it and every star before it light up, as the rating a click gives
+  const [hover, setHover] = useState(0);
   if (hashes.length === 0) return null;
   const shared = sharedStars(hashes, marks.ratings);
   const heart = heartState(hashes, marks.hearts, me);
@@ -23,13 +26,17 @@ export default function MarksBar({ label, hashes, marks, me, blocked, onRate, on
   return (
     <span className="flex items-center gap-1 whitespace-nowrap" title={blocked ?? undefined}>
       <span className={dark ? "text-neutral-400" : "text-neutral-500"}>{label}</span>
-      <span className="flex items-center" onMouseDown={(e) => e.preventDefault()}>
+      <span className="flex items-center" onMouseDown={(e) => e.preventDefault()} onMouseLeave={() => setHover(0)}>
         {shared === null && <span className={`${muted} mr-0.5`} title="de gekozen foto's hebben verschillende sterren">–</span>}
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             disabled={!!blocked}
-            className={"px-px text-base leading-none disabled:opacity-40 " + (shared !== null && n <= shared ? "text-amber-400" : muted) + " hover:text-amber-500"}
+            className={
+              "px-px text-base leading-none disabled:opacity-40 " +
+              (hover && !blocked ? (n <= hover ? "text-amber-500" : muted) : shared !== null && n <= shared ? "text-amber-400" : muted)
+            }
+            onMouseEnter={() => setHover(n)}
             title={tip(shared === n ? "sterren weghalen (0)" : `${n} ${n === 1 ? "ster" : "sterren"} (${n})`)}
             onClick={() => onRate(starsAfterClick(shared, n))}
           >
