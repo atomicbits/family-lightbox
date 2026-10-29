@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
+import { addedText, type Member } from "../lib/lists";
 import { columnsFor, rowWidth } from "../lib/grid";
 import { fileName, monthLabel, yearOf } from "../lib/months";
 import { buildLayout, rowOf, sectionsInRange, type Section, type Sel } from "../lib/timeline";
@@ -23,13 +24,15 @@ type Props = {
   jump: { section: number; nonce: number } | null;
   /** Tile size in CSS pixels (the size slider). */
   tile: number;
+  /** The photos of the active list by hash, to mark their tiles (F003/S03). */
+  marked?: Map<string, Member> | null;
 };
 
 const GAP = 8;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile }: Props) {
+export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -139,6 +142,7 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                     item={item}
                     size={tile}
                     active={active}
+                    member={marked?.get(item.hash) ?? null}
                     onClick={() => onSelect(sel)}
                     onDoubleClick={() => onOpen(sel)}
                   />
@@ -158,14 +162,14 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   );
 }
 
-function Tile({ item, size, active, onClick, onDoubleClick }: {
-  item: Item; size: number; active: boolean; onClick: () => void; onDoubleClick: () => void;
+function Tile({ item, size, active, member, onClick, onDoubleClick }: {
+  item: Item; size: number; active: boolean; member: Member | null; onClick: () => void; onDoubleClick: () => void;
 }) {
   return (
     <div
       onClick={onClick}
       onDoubleClick={onDoubleClick}
-      title={fileName(item.path)}
+      title={member ? `${fileName(item.path)}\n${addedText(member)}` : fileName(item.path)}
       className={
         "relative rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
         (active ? "ring-3 ring-blue-500" : "")
@@ -185,6 +189,11 @@ function Tile({ item, size, active, onClick, onDoubleClick }: {
         <div className="w-full h-full grid place-items-center text-xs text-neutral-400 p-2 text-center">
           geen preview
         </div>
+      )}
+      {member && (
+        <span className="absolute top-1 left-1 w-5 h-5 grid place-items-center rounded-full bg-blue-600 text-white text-xs shadow" aria-label="in de actieve lijst">
+          ✓
+        </span>
       )}
       {item.kind === "video" && (
         <span className="absolute bottom-1 left-1 rounded bg-black/60 text-white text-[10px] px-1">video</span>

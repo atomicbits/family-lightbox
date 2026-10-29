@@ -1,7 +1,7 @@
 # Story S03: Lists in the app: the sidebar, the active list, adding and removing
 
 **Feature:** `F003-lists`
-**Status:** Planned
+**Status:** In progress: built and tested; to try in the app
 **Depends on:** S02
 
 ## Goal
@@ -29,13 +29,32 @@ and every photo in it carries a mark in the grid.
 
 ## How
 
-- `src/lib/lists.ts` (state, hooks, texts), `src/components/ListsPanel.tsx`, changes to
-  `MonthList`, `Grid`, `Lightbox` and `App`.
+- `src/lib/lists.ts`: `useLists` (the state, the active list and its photos by hash, create,
+  rename, archive, toggle), `groupLists`, `changeBlocked`, `defaultYear`, `addedText`.
+- `src/components/ListsPanel.tsx` below the months in the sidebar (at most 45 % of its height):
+  the lists per year, *+* opens a name and year field (Enter creates, Esc cancels), ⋯ opens
+  *Hernoemen* and *Archiveren* / *Terugzetten*; a click makes a list active, a second click
+  makes none active.
+- The active list is kept in `familylightbox-state.json` (`active_list`), through the commands
+  `active_list` and `set_active_list`.
+- The grid marks tiles in the active list with a blue ✓ and says who added them in the tooltip;
+  the lightbox has a button "+ <list>" / "✓ in <list>" and the same key. Messages (no active
+  list, without the NAS, a refusal) show in the header for a few seconds.
 
 ## Files affected
 
-- The files above, and `src-tauri/src/config.rs` (the active list in the app's state).
+- `src/lib/lists.ts` and `lists.test.ts` (new), `src/components/ListsPanel.tsx` (new),
+  `src/App.tsx`, `src/components/Grid.tsx`, `src/components/Lightbox.tsx`,
+  `src-tauri/src/config.rs`, `src-tauri/src/lib.rs`.
 
 ## Progress log
 
 ### [2026-10-29] Written
+
+### [2026-10-29] Built
+
+- `pnpm test`: the grouping per year with and without archived lists, when changes are blocked,
+  the default year (also for a named folder and `0000`), the "toegevoegd door" text; 62 tests.
+  `tsc` and `pnpm build` clean; 115 Rust tests, clippy clean.
+- To try in the app: create a list, make it active, `+` on a few photos in the grid and the
+  lightbox, the marks, rename, archive and show archived; the events on the NAS and the summary.

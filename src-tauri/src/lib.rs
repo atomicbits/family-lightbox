@@ -536,6 +536,18 @@ fn change_list(app: &tauri::AppHandle, make: impl FnOnce(&std::collections::BTre
     Ok(ListChanged { id, state: lists::load(Some(&nas), &paths.lists).0 })
 }
 
+#[tauri::command]
+fn active_list(paths: State<Paths>) -> Option<String> {
+    config::load_state(&paths.config).active_list
+}
+
+#[tauri::command]
+fn set_active_list(id: Option<String>, paths: State<Paths>) -> Result<(), String> {
+    let mut state = config::load_state(&paths.config);
+    state.active_list = id;
+    config::save_state(&paths.config, &state)
+}
+
 /// Runs a list change on a blocking thread: the share may be slow.
 async fn on_blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
@@ -677,7 +689,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            lists_state, list_photos, list_create, list_add, list_remove, list_rename, list_archive,
+            lists_state, list_photos, list_create, list_add, list_remove, list_rename, list_archive, active_list, set_active_list,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

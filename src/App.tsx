@@ -14,6 +14,8 @@ import UpdateLine from "./components/UpdateLine";
 import { useUpdate } from "./lib/update";
 import ConfirmPreviews from "./components/ConfirmPreviews";
 import PreviewsLine from "./components/PreviewsLine";
+import ListsPanel from "./components/ListsPanel";
+import { useLists } from "./lib/lists";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
 import { listen } from "@tauri-apps/api/event";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
@@ -37,6 +39,7 @@ export default function App() {
   const index = useIndex();
   const update = useUpdate();
   const previews = usePreviews();
+  const lists = useLists();
   const [confirming, setConfirming] = useState(false);
   const [cols, setCols] = useState(1);
   const [tile, setTile] = useState(loadTile);
@@ -146,6 +149,8 @@ export default function App() {
     return () => { off.then((f) => f()); };
   }, []);
 
+  const current = selected ? itemsOf(sections[selected.section]?.month)?.[selected.index] : undefined;
+
   const move = useCallback(
     (m: "left" | "right" | "up" | "down") => setSelected((s) => moveAcross(s, m, cols, counts)),
     [cols, counts],
@@ -162,12 +167,11 @@ export default function App() {
         e.preventDefault(); // otherwise up/down scroll the grid instead of moving the selection
         move(m);
       } else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
+      else if ((e.key === "+" || e.key === "=") && current) { e.preventDefault(); lists.toggle(current); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, dialog, selected, move]);
-
-  const current = selected ? itemsOf(sections[selected.section].month)?.[selected.index] : undefined;
+  }, [open, dialog, selected, move, current, lists.toggle]);
 
   // After every rebuild: months again, an empty cache, and the selection and the month at the
   // top kept where they were.
@@ -237,6 +241,7 @@ export default function App() {
           />
           <span className="text-base leading-none">□</span>
         </label>
+        {lists.message && <span className="text-amber-600">{lists.message}</span>}
         {index.line && (
           <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
             {index.line.text}
@@ -265,12 +270,17 @@ export default function App() {
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex relative">
-          <div className="w-56 shrink-0">
-            <MonthList
-              months={months}
-              selected={topSection?.month ?? null}
-              onSelect={(m) => setJump({ section: sections.findIndex((s) => s.month === m), nonce: Date.now() })}
-            />
+          <div className="w-56 shrink-0 flex flex-col">
+            <div className="flex-1 min-h-0">
+              <MonthList
+                months={months}
+                selected={topSection?.month ?? null}
+                onSelect={(m) => setJump({ section: sections.findIndex((s) => s.month === m), nonce: Date.now() })}
+              />
+            </div>
+            <div className="max-h-[45%] flex flex-col min-h-0">
+              <ListsPanel lists={lists} month={topSection?.month ?? null} />
+            </div>
           </div>
           <main className="flex-1 min-w-0">
             <Grid
@@ -284,6 +294,7 @@ export default function App() {
               onTopSection={setTop}
               jump={jump}
               tile={tile}
+              marked={lists.active ? lists.members : null}
             />
           </main>
           {open && selected && (current ? (
@@ -295,6 +306,8 @@ export default function App() {
               canNext={selected.section < lastSection || selected.index < sections[selected.section].count - 1}
               onClose={() => setOpen(false)}
               onStep={(d) => move(d > 0 ? "right" : "left")}
+              list={lists.active ? { name: lists.active.name, member: lists.members.get(current.hash) ?? null, blocked: lists.blocked } : null}
+              onToggle={() => lists.toggle(current)}
             />
           ) : (
             <div className="absolute inset-0 z-20 bg-black/95 grid place-items-center text-neutral-400" onClick={() => setOpen(false)}>
