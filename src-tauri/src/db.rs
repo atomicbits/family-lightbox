@@ -87,6 +87,29 @@ impl Db {
             .map_err(|e| e.to_string())
     }
 
+    /// How many photos and videos with these hashes each month has (F014/S02): the hidden ones,
+    /// to leave out of the counts. One pass over the index.
+    pub fn count_per_month(&self, hashes: &std::collections::HashSet<String>) -> Result<std::collections::HashMap<String, i64>, String> {
+        let mut out = std::collections::HashMap::new();
+        if hashes.is_empty() {
+            return Ok(out);
+        }
+        let mut stmt = self
+            .conn
+            .prepare("SELECT coalesce(month, folder), hash FROM items WHERE kind IN ('photo', 'video')")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (month, hash) = row.map_err(|e| e.to_string())?;
+            if hash.is_some_and(|h| hashes.contains(&h)) {
+                *out.entry(month).or_insert(0) += 1;
+            }
+        }
+        Ok(out)
+    }
+
     /// The photos and videos with these hashes, each with the month the grid groups it under,
     /// by date taken (F003/S04). A hash that is in several places gives each of them.
     pub fn items_by_hash(&self, hashes: &[String]) -> Result<Vec<(String, Item)>, String> {
@@ -238,5 +261,18 @@ mod tests {
         let rows = Db::open(&p).unwrap().items_by_hash(&["sha256:a".into(), "sha256:b".into(), "sha256:none".into()]).unwrap();
         let got: Vec<_> = rows.iter().map(|(m, i)| (m.as_str(), i.path.as_str())).collect();
         assert_eq!(got, [("2012/scans Peter", "2012/scans Peter/scan1.tif"), ("2026/07", "2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3")]);
+    }
+
+    #[test]
+    fn count_per_month_counts_photos_and_videos_with_those_hashes() {
+        let (_d, p) = fixture();
+        let c = Connection::open(&p).unwrap();
+        c.execute("UPDATE items SET hash = 'sha256:h' WHERE path LIKE '2026/07/EOSR/%' OR path = '2012/scans Peter/scan1.tif'", []).unwrap();
+        let db = Db::open(&p).unwrap();
+        let hashes: std::collections::HashSet<String> = ["sha256:h".to_string()].into();
+        let n = db.count_per_month(&hashes).unwrap();
+        // the CR3 and the MP4 in 2026/07 (not the sidecar), the scan under its folder
+        assert_eq!((n["2026/07"], n["2012/scans Peter"], n.len()), (2, 1, 2));
+        assert!(db.count_per_month(&Default::default()).unwrap().is_empty());
     }
 }

@@ -14,17 +14,18 @@ export function yearOf(month: string): string {
   return month.slice(0, 4);
 }
 
-export type YearGroup = { year: string; months: MonthSummary[]; photos: number; videos: number };
+export type YearGroup = { year: string; months: MonthSummary[]; photos: number; videos: number; hidden: number };
 
 /** Groepeert per jaar, nieuwste jaar eerst; de volgorde binnen een jaar is die van de invoer. */
 export function groupByYear(months: MonthSummary[]): YearGroup[] {
   const groups = new Map<string, YearGroup>();
   for (const m of months) {
     const y = yearOf(m.month);
-    const g = groups.get(y) ?? { year: y, months: [], photos: 0, videos: 0 };
+    const g = groups.get(y) ?? { year: y, months: [], photos: 0, videos: 0, hidden: 0 };
     g.months.push(m);
     g.photos += m.photos;
     g.videos += m.videos;
+    g.hidden += m.hidden ?? 0;
     groups.set(y, g);
   }
   return [...groups.values()].sort((a, b) => b.year.localeCompare(a.year));

@@ -20,6 +20,7 @@ import PhotoMenu from "./components/PhotoMenu";
 import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
 import { listText, skippedText, undoHeart, undoList, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
+import { shownCount, visibleItems, withHidden } from "./lib/hidden";
 import UndoIcon from "./components/UndoIcon";
 import { changeText, marksBlocked, useMarks } from "./lib/marks";
 import MarksBar from "./components/MarksBar";
@@ -30,7 +31,7 @@ import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib
 import { moveAcross, parseKey, pickAfterClick, rangeBetween, sameSections, selKey, type Sel, type Section } from "./lib/timeline";
 
 const toSections = (months: MonthSummary[]): Section[] =>
-  months.map((m) => ({ month: m.month, count: m.photos + m.videos }));
+  months.map((m) => ({ month: m.month, count: shownCount(m) }));
 
 /** A list's photos for the grid (F003/S04): grouped by month, newest month first. */
 type ListView = { id: string; sections: Section[]; byMonth: Map<string, Item[]>; total: number; missing: number };
@@ -155,15 +156,25 @@ export default function App() {
   }, [listId, lists.state, builds]);
   const showingList = listId !== null && listView?.id === listId;
 
+  // Hidden photos (F014/S02): left out of the library and its counts; a list shows them dimmed.
+  const hiddenRec = marks.state.hidden;
+  const [hiddenPerMonth, setHiddenPerMonth] = useState<Record<string, number>>({});
+  useEffect(() => {
+    invoke<Record<string, number>>("count_per_month", { hashes: Object.keys(hiddenRec) })
+      .then(setHiddenPerMonth)
+      .catch(() => {});
+  }, [hiddenRec, builds]);
+  const shownMonths = useMemo(() => withHidden(months, hiddenPerMonth), [months, hiddenPerMonth]);
+
   // The library (or the list) as sections, newest month first, with their counts.
   // The same object while the months and their counts stay the same: new previews only change the
   // month list's preview counts, and a new layout would move the grid (F012/S04).
   const stableSections = useRef<Section[]>([]);
   const sections = useMemo(() => {
-    const next = showingList ? listView!.sections : listId ? [] : toSections(months);
+    const next = showingList ? listView!.sections : listId ? [] : toSections(shownMonths);
     if (!sameSections(stableSections.current, next)) stableSections.current = next;
     return stableSections.current;
-  }, [months, listView, listId, showingList]);
+  }, [shownMonths, listView, listId, showingList]);
 
   // Another view: start at the top, without a selection.
   useEffect(() => {
@@ -205,7 +216,33 @@ export default function App() {
     [sections, listId],
   );
   useEffect(() => { if (reneed > 0) need(lastWanted.current); }, [reneed]); // eslint-disable-line react-hooks/exhaustive-deps
-  const itemsOf = (month: string) => (listId ? listView?.byMonth.get(month) : cache.current.get(month));
+  const itemsOf = (month: string) => {
+    if (listId) return listView?.byMonth.get(month);
+    const items = cache.current.get(month);
+    return items && visibleItems(items, hiddenRec);
+  };
+
+  // When photos are hidden or shown again (here or on the other Mac), keep the selection on the
+  // same photo; the picks are cleared, their positions may have moved.
+  const selectedPath = useRef<{ month: string; path: string } | null>(null);
+  useEffect(() => {
+    const month = selected ? sections[selected.section]?.month : undefined;
+    const item = month ? itemsOf(month)?.[selected!.index] : undefined;
+    selectedPath.current = month && item ? { month, path: item.path } : null;
+    // only when the selection itself moves
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+  useEffect(() => {
+    setPicked(new Set());
+    const sp = selectedPath.current;
+    if (listId || !sp) return;
+    const section = sections.findIndex((x) => x.month === sp.month);
+    const items = itemsOf(sp.month);
+    if (section < 0 || !items) return setSelected(null);
+    const i = items.findIndex((x) => x.path === sp.path);
+    setSelected(i >= 0 ? { section, index: i } : items.length ? { section, index: Math.min(selected?.index ?? 0, items.length - 1) } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hiddenRec, sections]);
 
   useEffect(() => { if (selected) need([selected.section]); }, [selected, need]);
 
@@ -255,10 +292,11 @@ export default function App() {
         items = await api.items(month);
         cache.current.set(month, items);
       }
+      if (!listId) items = visibleItems(items, hiddenRec);
       if (items[index]) out.push(items[index]);
     }
     return out;
-  }, [sections, listId, listView]);
+  }, [sections, listId, listView, hiddenRec]);
 
   // Stars and hearts for the selection (F013/S03): the picked tiles, or the selected one.
   const me = device?.device?.owner ?? null;
@@ -432,14 +470,14 @@ export default function App() {
         const m = await api.months();
         const items = anchor ? await api.items(anchor.month).catch(() => undefined) : undefined;
         if (gen !== generation.current) return;
-        const next = toSections(m);
+        const next = toSections(withHidden(m, hiddenPerMonth));
         cache.current = new Map(anchor && items ? [[anchor.month, items]] : []);
         inFlight.current.clear();
         setError(null);
         setWaitingForIndex(false);
         setMonths(m);
         setReneed((n) => n + 1);
-        setSelected(reselect(anchor, next, items));
+        setSelected(reselect(anchor, next, items && visibleItems(items, hiddenRec)));
         setPicked(new Set());
         const t = next.findIndex((x) => x.month === topMonth);
         if (t >= 0 && t !== top) setJump({ section: t, nonce: Date.now() });
@@ -541,7 +579,7 @@ export default function App() {
           <div className="w-56 shrink-0 flex flex-col">
             <div className="flex-1 min-h-0">
               <MonthList
-                months={months}
+                months={shownMonths}
                 selected={listId ? null : topSection?.month ?? null}
                 onSelect={(m) => {
                   if (listId) {
@@ -581,6 +619,7 @@ export default function App() {
               marked={listId ? lists.members : null}
               marks={marks.state}
               me={device?.device?.owner ?? null}
+              dimHidden={!!listId}
             />
           </main>
           {open && selected && (current ? (

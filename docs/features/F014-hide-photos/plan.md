@@ -1,6 +1,6 @@
 # Feature 14: Hiding photos
 
-**Status:** In progress (plan accepted 2026-10-30; S01 done)
+**Status:** In progress (plan accepted 2026-10-30; S01 done, S02 built)
 **Depends on:** Feature 13 (the marks files, the right-click menu, the message with undo)
 **Folder:** `F014-hide-photos`
 
@@ -64,7 +64,7 @@ Filtering, with an option to show hidden photos, comes later in its own feature.
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-the-data.md) | The data: `hide` and `unhide` in the marks files and the contract, merged, written, read | Done | — |
-| [S02](stories/S02-not-shown.md) | Not shown: the grid and the counts without hidden photos | Planned | S01 |
+| [S02](stories/S02-not-shown.md) | Not shown: the grid and the counts without hidden photos | In progress: built, to see with real hidden photos | S01 |
 | [S03](stories/S03-hiding.md) | Hiding and unhiding from the right-click menu, with the message and undo | Planned | S02 |
 | [S04](stories/S04-showing-for-a-while.md) | Showing hidden photos per month or year from the month list, dimmed, until a restart | Planned | S03 |
 

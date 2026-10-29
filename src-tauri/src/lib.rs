@@ -674,6 +674,13 @@ async fn list_archive(id: String, archived: bool, app: tauri::AppHandle) -> Resu
     on_blocking(move || change_list(&app, |_| lists::Change::Archive { list: id, archived })).await
 }
 
+/// How many of these photos (by hash) each month has: the hidden ones (F014/S02).
+#[tauri::command]
+async fn count_per_month(hashes: Vec<String>, paths: State<'_, Paths>) -> Result<std::collections::HashMap<String, i64>, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || Db::open(&paths.index())?.count_per_month(&hashes.into_iter().collect())).await
+}
+
 #[tauri::command]
 fn months(paths: State<Paths>) -> Result<Vec<MonthSummary>, String> {
     Db::open(&paths.index())?.months()
@@ -771,7 +778,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, count_per_month, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

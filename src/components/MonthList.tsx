@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MonthSummary } from "../lib/api";
 import { groupByYear, monthLabel } from "../lib/months";
+import { countTitle, shownCount } from "../lib/hidden";
 
 type Props = {
   months: MonthSummary[];
@@ -34,7 +35,9 @@ export default function MonthList({ months, selected, onSelect }: Props) {
               <span className="inline-block w-4 text-neutral-400">{closed.has(g.year) ? "▸" : "▾"}</span>
               {g.year}
             </span>
-            <span className="text-xs font-normal text-neutral-400 tabular-nums">{g.photos + g.videos}</span>
+            <span className="text-xs font-normal text-neutral-400 tabular-nums" title={countTitle(g.photos + g.videos - g.hidden, g.hidden)}>
+              {g.photos + g.videos - g.hidden}
+            </span>
           </button>
           {!closed.has(g.year) &&
             g.months.map((m) => {
@@ -50,11 +53,11 @@ export default function MonthList({ months, selected, onSelect }: Props) {
                       ? "bg-blue-600 text-white"
                       : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800")
                   }
-                  title={`${m.photos} foto's, ${m.videos} video's; ${m.previews} previews, ${m.local} originelen lokaal`}
+                  title={`${countTitle(shownCount(m), m.hidden ?? 0)}; ${m.previews} previews, ${m.local} originelen lokaal`}
                 >
                   <span className="truncate">{monthLabel(m.month)}</span>
                   <span className={"text-xs tabular-nums " + (active ? "text-blue-100" : "text-neutral-400")}>
-                    {m.photos + m.videos}
+                    {shownCount(m)}
                   </span>
                 </button>
               );

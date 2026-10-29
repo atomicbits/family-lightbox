@@ -33,6 +33,8 @@ type Props = {
   /** Stars and hearts by hash, and this Mac's owner (F013/S02). */
   marks?: MarksState;
   me?: string | null;
+  /** Show hidden photos dimmed with a mark (in a list, F014/S02); elsewhere they aren't here. */
+  dimHidden?: boolean;
   /** A tile starts being dragged (to a list in the sidebar). */
   onDragTile?: (sel: Sel) => void;
   /** Right-click on a tile, at this point in the window. */
@@ -43,7 +45,7 @@ const GAP = 8;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, onDragTile, onMenu }: Props) {
+export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, onDragTile, onMenu }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -157,6 +159,7 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                     rating={marks?.ratings[item.hash]?.stars}
                     hearts={marks?.hearts[item.hash]}
                     me={me ?? null}
+                    hidden={!!dimHidden && !!marks?.hidden[item.hash]}
                     title={[fileName(item.path), ...marksLines(marks?.ratings[item.hash], marks?.hearts[item.hash])].join("\n")}
                     picked={picked?.has(`${row.section}:${index}`) ?? false}
                     onClick={(e) => onSelect(sel, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
@@ -184,8 +187,8 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   );
 }
 
-function Tile({ item, size, active, member, picked, rating, hearts, me, title, onClick, onDoubleClick, onDragStart, onContextMenu }: {
-  item: Item; size: number; active: boolean; member: Member | null; picked: boolean;
+function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, title, onClick, onDoubleClick, onDragStart, onContextMenu }: {
+  item: Item; size: number; active: boolean; member: Member | null; picked: boolean; hidden: boolean;
   rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null; title: string;
   onClick: (e: MouseEvent) => void; onDoubleClick: () => void;
   onDragStart: (e: DragEvent) => void; onContextMenu: (e: MouseEvent) => void;
@@ -197,7 +200,7 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, title, o
       onDoubleClick={onDoubleClick}
       onDragStart={onDragStart}
       onContextMenu={onContextMenu}
-      title={member ? `${title}\n${addedText(member)}` : title}
+      title={[title, member && addedText(member), hidden && "verborgen"].filter(Boolean).join("\n")}
       className={
         "relative rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
         (active ? "ring-3 ring-blue-500" : picked ? "ring-3 ring-blue-300" : "")
@@ -205,6 +208,12 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, title, o
       style={{ width: size, height: size }}
     >
       {picked && <span className="absolute inset-0 bg-blue-500/25 pointer-events-none" />}
+      {hidden && (
+        <>
+          <span className="absolute inset-0 bg-white/55 dark:bg-black/55 pointer-events-none" />
+          <span className="absolute inset-0 grid place-items-center pointer-events-none"><span className="rounded bg-black/60 text-white text-[10px] px-1">verborgen</span></span>
+        </>
+      )}
       {item.preview ? (
         <img
           src={previewUrl(item.path, true)}
