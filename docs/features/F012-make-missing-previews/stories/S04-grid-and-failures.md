@@ -58,3 +58,12 @@ reload. What couldn't be made is listed in the settings, with a way to try again
 - Now the sections stay the same object while the months and their item counts are the same
   (`sameSections`), and the grid scrolls to the selection only when the selection moves or the
   number of columns changes, not on every layout.
+
+### [2026-10-29] Fixed: empty tiles after opening the app
+
+- Peter: right after opening, the grid showed empty tiles until he scrolled. The index rebuild
+  at start empties the month cache and loads the months again; since the sections now stay the
+  same object (the fix above), the layout didn't change and the grid didn't ask for the visible
+  months again, so nothing was fetched until a scroll.
+- The app now remembers the sections the grid asked for last and asks for them itself after a
+  rebuild.

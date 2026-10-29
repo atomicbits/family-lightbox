@@ -148,8 +148,13 @@ export default function App() {
   const cache = useRef(new Map<string, Item[]>());
   const inFlight = useRef(new Set<string>());
   const [, setLoaded] = useState(0);
+  // The sections the grid asked for last: after a rebuild empties the cache with the layout
+  // unchanged, the grid doesn't ask again, so the app does.
+  const lastWanted = useRef<number[]>([]);
+  const [reneed, setReneed] = useState(0);
   const need = useCallback(
     (wanted: number[]) => {
+      lastWanted.current = wanted;
       if (listId) return; // a list's items are all loaded at once
       for (const s of wanted) {
         const month = sections[s]?.month;
@@ -169,6 +174,7 @@ export default function App() {
     },
     [sections, listId],
   );
+  useEffect(() => { if (reneed > 0) need(lastWanted.current); }, [reneed]); // eslint-disable-line react-hooks/exhaustive-deps
   const itemsOf = (month: string) => (listId ? listView?.byMonth.get(month) : cache.current.get(month));
 
   useEffect(() => { if (selected) need([selected.section]); }, [selected, need]);
@@ -312,6 +318,7 @@ export default function App() {
         setError(null);
         setWaitingForIndex(false);
         setMonths(m);
+        setReneed((n) => n + 1);
         setSelected(reselect(anchor, next, items));
         setPicked(new Set());
         const t = next.findIndex((x) => x.month === topMonth);
