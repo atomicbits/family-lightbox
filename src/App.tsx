@@ -18,7 +18,7 @@ import PreviewsLine from "./components/PreviewsLine";
 import ListsPanel from "./components/ListsPanel";
 import PhotoMenu from "./components/PhotoMenu";
 import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
-import { listText, skippedText, undoHeart, undoList, undoStars, useUndo } from "./lib/undo";
+import { hideText, listText, skippedText, undoHeart, undoHide, undoList, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
 import { shownCount, visibleItems, withHidden } from "./lib/hidden";
 import UndoIcon from "./components/UndoIcon";
@@ -327,6 +327,39 @@ export default function App() {
     }
   }, [blockedMarks, me, itemsAt, marks.state, marks.rate, marks.heart, lists.say, undo.push, showToast]);
 
+  // Hiding and showing again, from the right-click menu (F014/S03), with the message and undo.
+  const applyHide = useCallback(async (keys: string[], hidden: boolean) => {
+    if (blockedMarks) return lists.say(blockedMarks);
+    try {
+      const hashes = [...new Set((await itemsAt(keys)).map((i) => i.hash))].filter((h) => (h in marks.state.hidden) !== hidden);
+      if (hashes.length === 0) return;
+      const before = Object.fromEntries(hashes.map((h) => [h, h in marks.state.hidden]));
+      await marks.hide(hashes, hidden);
+      const text = hideText(hashes.length, hidden);
+      undo.push({ kind: "hide", text, after: hidden, before });
+      showToast(text, true);
+    } catch (e) {
+      lists.say(String(e));
+    }
+  }, [blockedMarks, itemsAt, marks.state.hidden, marks.hide, lists.say, undo.push, showToast]);
+
+  // The menu's Verbergen / Niet meer verbergen, each for its own photos among those clicked.
+  const hideActions = (keys: string[]) => {
+    const hashes = keys
+      .map((k) => { const { section, index } = parseKey(k); return itemsOf(sections[section]?.month)?.[index]?.hash; })
+      .filter((h): h is string => !!h);
+    const hiddenOnes = hashes.filter((h) => h in marks.state.hidden).length;
+    const common = { disabled: !!blockedMarks, title: blockedMarks ?? undefined };
+    return [
+      ...(hiddenOnes < hashes.length
+        ? [{ label: hiddenOnes ? `Verbergen (${hashes.length - hiddenOnes})` : "Verbergen", run: () => { applyHide(keys, true); }, ...common }]
+        : []),
+      ...(hiddenOnes > 0
+        ? [{ label: hiddenOnes < hashes.length ? `Niet meer verbergen (${hiddenOnes})` : "Niet meer verbergen", run: () => { applyHide(keys, false); }, ...common }]
+        : []),
+    ];
+  };
+
   // Adding to and taking out of lists, with the message and an undo step.
   const listChange = useCallback(async (op: "add" | "remove", id: string, keys: Iterable<string>) => {
     try {
@@ -359,9 +392,10 @@ export default function App() {
         skipped = skippedText(p.skipped, []);
       } else {
         const s = await marks.reload();
-        const p = step.kind === "stars" ? undoStars(step, s) : undoHeart(step, s, me ?? "");
+        const p = step.kind === "stars" ? undoStars(step, s) : step.kind === "hide" ? undoHide(step, s) : undoHeart(step, s, me ?? "");
         for (const [value, hashes] of p.writes) {
           if (step.kind === "stars") await marks.rate(hashes, value as number);
+          else if (step.kind === "hide") await marks.hide(hashes, value as boolean);
           else await marks.heart(hashes, value as boolean);
         }
         skipped = skippedText(p.skipped, p.by);
@@ -370,7 +404,7 @@ export default function App() {
     } catch (e) {
       lists.say(String(e));
     }
-  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, me, showToast]);
+  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, marks.hide, me, showToast]);
 
   // ⌘Z (Ctrl-Z on Windows) undoes, also in the lightbox; not in a text field.
   useEffect(() => {
@@ -706,6 +740,7 @@ export default function App() {
                   run: () => { listChange("remove", listId, menu.keys); },
                 }]
               : []),
+            ...hideActions(menu.keys),
           ]}
         />
       )}

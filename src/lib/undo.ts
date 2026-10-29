@@ -8,6 +8,7 @@ import type { MarksState } from "./marks";
 export type Step =
   | { kind: "stars"; text: string; after: number; before: Record<string, number> }
   | { kind: "heart"; text: string; after: boolean; before: Record<string, boolean> }
+  | { kind: "hide"; text: string; after: boolean; before: Record<string, boolean> }
   | { kind: "list"; text: string; done: ListDone };
 
 /** What undoing a step writes: per value, the photos to give it; and how many were left alone. */
@@ -42,6 +43,25 @@ export function undoHeart(step: Extract<Step, { kind: "heart" }>, s: MarksState,
     else skipped++;
   }
   return { writes: group(back), skipped, by: [] };
+}
+
+/** Hidden or shown back as it was, for the photos still as this step left them (F014/S03). */
+export function undoHide(step: Extract<Step, { kind: "hide" }>, s: MarksState): Plan<boolean> {
+  const back: [string, boolean][] = [];
+  const by = new Set<string>();
+  let skipped = 0;
+  for (const [h, before] of Object.entries(step.before)) {
+    const now = h in s.hidden;
+    if (now === step.after) { if (before !== now) back.push([h, before]); }
+    else { skipped++; if (s.hidden[h]) by.add(s.hidden[h].by); }
+  }
+  return { writes: group(back), skipped, by: [...by].sort() };
+}
+
+/** "20 foto's verborgen", "1 foto niet meer verborgen". */
+export function hideText(n: number, hidden: boolean): string {
+  const photos = n === 1 ? "1 foto" : `${n} foto's`;
+  return hidden ? `${photos} verborgen` : `${photos} niet meer verborgen`;
 }
 
 /** The photos to take out again after an add, or put back after a remove: those still as left. */

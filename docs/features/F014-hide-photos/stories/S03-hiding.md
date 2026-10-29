@@ -1,7 +1,7 @@
 # Story S03: Hiding and unhiding from the right-click menu, with undo
 
 **Feature:** `F014-hide-photos`
-**Status:** Planned
+**Status:** In progress: built and tested; to try in the app
 **Depends on:** S02
 
 ## Goal
@@ -20,6 +20,16 @@ hidden photo that is shown undoes it. Both get the message with undo, like stars
 - **Without the NAS**: the items are disabled with the reason.
 - **Tests** (`pnpm test`): the menu items for a selection, the texts, the undo step.
 
+## How
+
+- The menu counts how many of the clicked photos are hidden: *Verbergen* for the others,
+  *Niet meer verbergen* for those, with the number when the selection has both.
+- `applyHide` writes one `marks_hide` for the photos whose state changes, remembers per photo
+  whether it was hidden, and pushes a `hide` step; `undoHide` puts back the photos still as the
+  step left them (with who changed the others).
+- After hiding, S02's effect clears the picks and puts the selection on the photo now at the same
+  place, the next shown one.
+
 ## Files affected
 
 - `src/App.tsx`, `src/components/PhotoMenu.tsx`, `src/lib/undo.ts`, `src/lib/marks.ts`.
@@ -27,3 +37,8 @@ hidden photo that is shown undoes it. Both get the message with undo, like stars
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `pnpm test`: undoing a hide (one shown again meanwhile left alone), the texts; 81 tests. `tsc`
+  and `pnpm build` clean.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listText, skippedText, undoHeart, undoList, undoStars, type Step } from "./undo";
+import { hideText, listText, skippedText, undoHeart, undoHide, undoList, undoStars, type Step } from "./undo";
 import { NO_MARKS } from "./marks";
 
 const r = (stars: number, by = "peter") => ({ stars, by, at: "" });
@@ -36,5 +36,17 @@ describe("undo", () => {
     const d = { id: "x", name: "Ski", op: "add" as const, photos: [{ photo: "a", path: null }] };
     expect(listText(d)).toBe("1 foto toegevoegd aan Ski");
     expect(listText({ ...d, op: "remove", photos: [d.photos[0], d.photos[0]] })).toBe("2 foto's uit Ski gehaald");
+  });
+});
+
+describe("undo of hiding", () => {
+  it("shows again what this step hid, unless someone changed it since", () => {
+    const step: Extract<Step, { kind: "hide" }> = { kind: "hide", text: "", after: true, before: { a: false, b: false, c: true } };
+    const s = { ...NO_MARKS, hidden: { a: { by: "peter", at: "" }, c: { by: "lynn", at: "" } } };
+    const p = undoHide(step, s);
+    expect([...p.writes.entries()]).toEqual([[false, ["a"]]]);
+    expect(p.skipped).toBe(1); // b was shown again meanwhile
+    expect(hideText(20, true)).toBe("20 foto's verborgen");
+    expect(hideText(1, false)).toBe("1 foto niet meer verborgen");
   });
 });
