@@ -4,6 +4,8 @@ import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
 import { addedText, type Member } from "../lib/lists";
 import { heartView, markSize, marksLines, starsText, type MarksState } from "../lib/marks";
+import { lastOfStack, stackColor, type StackColor } from "../lib/stacks";
+import StackIcon from "./StackIcon";
 import { columnsFor, rowWidth } from "../lib/grid";
 import { fileName, monthLabel, yearOf } from "../lib/months";
 import { buildLayout, rowOf, sectionsInRange, type Section, type Sel } from "../lib/timeline";
@@ -35,6 +37,11 @@ type Props = {
   me?: string | null;
   /** Show hidden photos dimmed with a mark (in a list, F014/S02); elsewhere they aren't here. */
   dimHidden?: boolean;
+  /** Stacks (F015/S03): which are unfolded, folding them, and whether this is a list (thin
+   * borders only). The stack ids come with `marks`. */
+  unfolded?: Set<string>;
+  onToggleStack?: (id: string) => void;
+  inList?: boolean;
   /** A tile starts being dragged (to a list in the sidebar). */
   onDragTile?: (sel: Sel) => void;
   /** Right-click on a tile, at this point in the window. */
@@ -45,7 +52,7 @@ const GAP = 8;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, onDragTile, onMenu }: Props) {
+export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, unfolded, onToggleStack, inList, onDragTile, onMenu }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -75,6 +82,16 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   useEffect(() => virtualizer.measure(), [layout, tile, virtualizer]);
 
   const visible = virtualizer.getVirtualItems();
+
+  // The stacks with a selected or picked photo: their border is stronger, with the symbol.
+  const selectedStacks = new Set<string>();
+  const stackAt = (s: number, i: number) => marks?.stacks[itemsOf(sections[s]?.month ?? "")?.[i]?.hash ?? ""];
+  if (selected) { const id = stackAt(selected.section, selected.index); if (id) selectedStacks.add(id); }
+  for (const k of picked ?? []) {
+    const [s, i] = k.split(":").map(Number);
+    const id = stackAt(s, i);
+    if (id) selectedStacks.add(id);
+  }
   const first = visible.length ? visible[0].index : 0;
   const last = visible.length ? visible[visible.length - 1].index : -1;
 
@@ -140,6 +157,7 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
             );
           }
           const items = itemsOf(section.month);
+          const ids = marks?.stacks ?? {};
           const start = row.row * cols;
           const n = Math.min(cols, section.count - start);
           return (
@@ -160,6 +178,19 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                     hearts={marks?.hearts[item.hash]}
                     me={me ?? null}
                     hidden={!!dimHidden && !!marks?.hidden[item.hash]}
+                    stack={(() => {
+                      const id = ids[item.hash];
+                      if (!id) return null;
+                      const strong = selectedStacks.has(id);
+                      return {
+                        color: stackColor(id),
+                        strong,
+                        thin: !!inList,
+                        symbol: !inList && strong && !!items && lastOfStack(items, index, ids),
+                        open: !!unfolded?.has(id),
+                        onToggle: () => onToggleStack?.(id),
+                      };
+                    })()}
                     title={[fileName(item.path), ...marksLines(marks?.ratings[item.hash], marks?.hearts[item.hash])].join("\n")}
                     picked={picked?.has(`${row.section}:${index}`) ?? false}
                     onClick={(e) => onSelect(sel, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
@@ -187,8 +218,10 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   );
 }
 
-function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, title, onClick, onDoubleClick, onDragStart, onContextMenu }: {
-  item: Item; size: number; active: boolean; member: Member | null; picked: boolean; hidden: boolean;
+type TileStack = { color: StackColor; strong: boolean; thin: boolean; symbol: boolean; open: boolean; onToggle: () => void };
+
+function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, stack, title, onClick, onDoubleClick, onDragStart, onContextMenu }: {
+  item: Item; size: number; active: boolean; member: Member | null; picked: boolean; hidden: boolean; stack: TileStack | null;
   rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null; title: string;
   onClick: (e: MouseEvent) => void; onDoubleClick: () => void;
   onDragStart: (e: DragEvent) => void; onContextMenu: (e: MouseEvent) => void;
@@ -205,7 +238,14 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
         "relative rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
         (active ? "ring-3 ring-blue-500" : picked ? "ring-3 ring-blue-300" : "")
       }
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        // a stack: a colored border with a light background of its color around the photo (F015/S03)
+        ...(stack && (stack.thin
+          ? { border: `2px solid ${stack.color.border}` }
+          : { border: `${stack.strong ? 3 : 2}px solid ${stack.color.border}`, background: stack.color.bg, padding: 4 })),
+      }}
     >
       {picked && <span className="absolute inset-0 bg-blue-500/25 pointer-events-none" />}
       {hidden && (
@@ -236,14 +276,25 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
           NAS
         </span>
       )}
-      <TileMarks size={size} rating={rating} hearts={hearts} me={me} />
+      <TileMarks size={size} rating={rating} hearts={hearts} me={me} shiftHeart={!!stack?.symbol} />
+      {stack?.symbol && (
+        <button
+          className="absolute top-1 right-1 rounded-md bg-white/90 dark:bg-neutral-900/90 p-0.5 shadow"
+          style={{ color: stack.color.border }}
+          title={stack.open ? "reeks dichtklappen" : "reeks openklappen: alle foto's tonen"}
+          onClick={(e) => { e.stopPropagation(); stack.onToggle(); }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <StackIcon size={Math.max(16, markSize(size) + 4)} open={stack.open} />
+        </button>
+      )}
     </div>
   );
 }
 
 /** Stars bottom right and the heart top right, scaled with the tile (F013/S02). */
-function TileMarks({ size, rating, hearts, me }: {
-  size: number; rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null;
+function TileMarks({ size, rating, hearts, me, shiftHeart }: {
+  size: number; rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null; shiftHeart: boolean;
 }) {
   const px = markSize(size);
   const heart = heartView(hearts, me);
@@ -251,8 +302,9 @@ function TileMarks({ size, rating, hearts, me }: {
     <>
       {heart && (
         <span
-          className="absolute top-1 right-1 flex items-center gap-0.5 rounded-full bg-black/40 px-1 leading-none"
-          style={{ fontSize: px }}
+          className="absolute top-1 flex items-center gap-0.5 rounded-full bg-black/40 px-1 leading-none"
+          // left of the stack symbol when that is shown
+          style={{ fontSize: px, right: shiftHeart ? Math.max(16, px + 4) + 14 : 4 }}
         >
           <span className={heart.mine ? "text-red-500" : "text-white"}>♥</span>
           {heart.count > 1 && <span className="text-white tabular-nums" style={{ fontSize: Math.round(px * 0.7) }}>{heart.count}</span>}

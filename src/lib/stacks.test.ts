@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrange, buildStacks, folded, stackDelta, type Member, type View } from "./stacks";
+import { arrange, buildStacks, folded, lastOfStack, stackColor, stackDelta, type Member, type View } from "./stacks";
 
 const m = (hash: string, taken: string, month = "2026/07"): Member => ({
   path: `${month}/${hash}`, folder: "f", kind: "photo", taken, taken_from: null, source: null, size: 1, hash, local: false, preview: true, month,
@@ -51,5 +51,18 @@ describe("stacks in the grid", () => {
   it("counts the tiles a month loses to its folded stacks", () => {
     expect(stackDelta("2026/07", view())).toEqual({ delta: -3, stacks: 1 });
     expect(stackDelta("2026/07", view({ unfolded: new Set(["s"]) }))).toEqual({ delta: 0, stacks: 1 });
+  });
+});
+
+describe("the looks of a stack", () => {
+  it("has the same color for the same stack", () => {
+    expect(stackColor("mbp-peter-1")).toEqual(stackColor("mbp-peter-1"));
+    const colors = new Set(["a", "b", "c", "d", "e", "f"].map((x) => stackColor(`mbp-peter-${x}`).border));
+    expect(colors.size).toBeGreaterThan(2);
+  });
+
+  it("puts the symbol on the last shown tile of the stack", () => {
+    const tiles = [{ hash: "a1" }, { hash: "a2" }, { hash: "l1" }];
+    expect([0, 1, 2].map((i) => lastOfStack(tiles, i, { a1: "s", a2: "s" }))).toEqual([false, true, false]);
   });
 });

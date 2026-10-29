@@ -1,6 +1,6 @@
 # Feature 15: Stacks (reeksen)
 
-**Status:** In progress (plan accepted 2026-10-30; S01 done, S02 built)
+**Status:** In progress (plan accepted 2026-10-30; S01 done, S02 and S03 built)
 **Depends on:** Feature 13 (marks: stars and hearts, the message with undo), feature 14 (the right-click menu on photos, hidden photos)
 **Folder:** `F015-stacks`
 
@@ -76,7 +76,7 @@ restarts; the stacks themselves are shared, like stars and hearts.
 |---|---|---|---|
 | [S01](stories/S01-the-data.md) | The data: `stack` and `unstack` in the marks files and the contract, merged, written, read | Done | — |
 | [S02](stories/S02-the-grid.md) | The grid: a month's photos with stacks together, folded or unfolded; which photos a folded stack shows; the counts | In progress: built, to see once stacks can be made | S01 |
-| [S03](stories/S03-the-looks.md) | The looks: border, background, the stronger border when selected, the symbol that folds and unfolds | Planned | S02 |
+| [S03](stories/S03-the-looks.md) | The looks: border, background, the stronger border when selected, the symbol that folds and unfolds | In progress: built, to see once stacks can be made | S02 |
 | [S04](stories/S04-making-and-changing.md) | Making, adding to and taking out of a stack from the right-click menu, with the message and undo | Planned | S03 |
 
 ## Decisions

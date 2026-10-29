@@ -716,6 +716,9 @@ export default function App() {
               marks={marks.state}
               me={device?.device?.owner ?? null}
               dimHidden
+              inList={!!listId}
+              unfolded={unfolded}
+              onToggleStack={(id) => setUnfolded((u) => toggled(u, [id], !u.has(id)))}
             />
           </main>
           {open && selected && (current ? (

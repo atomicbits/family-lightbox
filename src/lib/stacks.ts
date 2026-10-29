@@ -90,3 +90,30 @@ export function stackDelta(month: string, v: View): { delta: number; stacks: num
   }
   return { delta, stacks };
 }
+
+/** Soft colors for stacks: the border, and a light background of the same color (F015/S03). */
+const PALETTE = [
+  { border: "#60a5fa", bg: "rgba(96, 165, 250, 0.22)" },   // blue
+  { border: "#f59e0b", bg: "rgba(245, 158, 11, 0.20)" },   // amber
+  { border: "#34d399", bg: "rgba(52, 211, 153, 0.22)" },   // green
+  { border: "#f472b6", bg: "rgba(244, 114, 182, 0.20)" },  // pink
+  { border: "#a78bfa", bg: "rgba(167, 139, 250, 0.22)" },  // violet
+  { border: "#2dd4bf", bg: "rgba(45, 212, 191, 0.22)" },   // teal
+  { border: "#fb923c", bg: "rgba(251, 146, 60, 0.20)" },   // orange
+  { border: "#94a3b8", bg: "rgba(148, 163, 184, 0.24)" },  // slate
+];
+
+export type StackColor = (typeof PALETTE)[number];
+
+/** The same color for the same stack, on every Mac. */
+export function stackColor(id: string): StackColor {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+/** Whether tile `i` of a month's tiles is the last one shown of its stack, where the symbol goes. */
+export function lastOfStack(tiles: { hash: string }[], i: number, ids: Record<string, string>): boolean {
+  const id = ids[tiles[i]?.hash];
+  return !!id && ids[tiles[i + 1]?.hash ?? ""] !== id;
+}
