@@ -22,6 +22,8 @@ import { hideText, listText, skippedText, undoHeart, undoHide, undoList, undoSta
 import Toast from "./components/Toast";
 import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./lib/hidden";
 import UndoIcon from "./components/UndoIcon";
+import ShortcutsOverlay from "./components/ShortcutsOverlay";
+import { isShortcutsKey } from "./lib/shortcuts";
 import { changeText, marksBlocked, useMarks } from "./lib/marks";
 import MarksBar from "./components/MarksBar";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
@@ -412,6 +414,16 @@ export default function App() {
     }
   }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, marks.hide, me, showToast]);
 
+  // ⌘? (Ctrl+? elsewhere) shows the shortcuts.
+  const [showKeys, setShowKeys] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isShortcutsKey(e)) { e.preventDefault(); setShowKeys((v) => !v); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // ⌘Z (Ctrl-Z on Windows) undoes, also in the lightbox; not in a text field.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -728,6 +740,7 @@ export default function App() {
           ⚙ Instellingen
         </button>
       </footer>
+      {showKeys && <ShortcutsOverlay onClose={() => setShowKeys(false)} />}
       {toast && <Toast text={toast.text} onUndo={toast.undoable ? doUndo : null} onClose={() => setToast(null)} />}
       {monthMenu && (() => {
         const ms = shownMonths.filter((m) => (monthMenu.kind === "year" ? yearOf(m.month) === monthMenu.key : m.month === monthMenu.key));
