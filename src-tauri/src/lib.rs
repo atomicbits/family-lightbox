@@ -688,6 +688,7 @@ pub fn run() {
                 .skip_initial_state("main")
                 .build(),
         )
+        .on_window_event(window::on_event)
         .setup(|app| {
             if let Some(main) = app.get_webview_window("main") {
                 window::restore(&main);

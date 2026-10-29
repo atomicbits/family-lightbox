@@ -78,3 +78,12 @@ over its edges.
   back at the same size and place.
 - The smaller screen (a size saved on the external monitor, opened on the laptop alone) is
   covered by the unit tests of `fit()`; it wasn't tried by hand.
+
+### [2026-10-29] Saved shortly after a move or resize, too
+
+- Peter: the size wasn't kept any more. The state file was last written on 2026-10-27: the plugin
+  saves when the window closes or the app quits normally, and since then the dev build was
+  mostly stopped by `tauri dev` restarting it after a Rust change, or by Ctrl-C, which ends the
+  process without either. A crash or a forced quit would lose it the same way.
+- `window::on_event` now also saves the state 1.5 s after the last move or resize of the visible
+  window.

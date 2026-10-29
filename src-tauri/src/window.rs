@@ -2,8 +2,10 @@
 //! saves and restores it; this module adds what the plugin doesn't do: a window saved on a larger
 //! screen is made to fit the screen it opens on.
 
-use tauri::{PhysicalPosition, PhysicalSize, WebviewWindow};
-use tauri_plugin_window_state::{StateFlags, WindowExt};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow, Window, WindowEvent};
+use tauri_plugin_window_state::{AppHandleExt, StateFlags, WindowExt};
 
 /// What is saved and restored. Not VISIBLE: the window stays hidden until it fits.
 pub fn flags() -> StateFlags {
@@ -33,6 +35,26 @@ pub fn fit(window: Rect, area: Rect, min: (i64, i64)) -> Rect {
     let (x, width) = fit_axis(window.x, window.width, area.x, area.width, min.0);
     let (y, height) = fit_axis(window.y, window.height, area.y, area.height, min.1);
     Rect { x, y, width, height }
+}
+
+/// How long after the last move or resize the state is saved.
+const SAVE_AFTER: Duration = Duration::from_millis(1500);
+static CHANGES: AtomicU64 = AtomicU64::new(0);
+
+/// Saves the state shortly after the window was moved or resized, not only when the app quits
+/// normally: a crash, a forced quit or `tauri dev` restarting the app would lose it otherwise.
+pub fn on_event(window: &Window, event: &WindowEvent) {
+    if !matches!(event, WindowEvent::Resized(_) | WindowEvent::Moved(_)) || !window.is_visible().unwrap_or(false) {
+        return;
+    }
+    let me = CHANGES.fetch_add(1, Ordering::Relaxed) + 1;
+    let app: AppHandle = window.app_handle().clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(SAVE_AFTER);
+        if CHANGES.load(Ordering::Relaxed) == me {
+            let _ = app.save_window_state(flags());
+        }
+    });
 }
 
 /// Restores the saved state, fits the window to its monitor, and only then shows it.
