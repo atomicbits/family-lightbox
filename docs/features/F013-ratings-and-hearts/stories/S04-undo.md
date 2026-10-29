@@ -1,7 +1,7 @@
 # Story S04: Undo, with a message, a button and ⌘Z
 
 **Feature:** `F013-ratings-and-hearts`
-**Status:** Planned
+**Status:** In progress: built and tested; to try in the app
 **Depends on:** S03
 
 ## Goal
@@ -28,6 +28,22 @@ from the message that says what happened, from a button that is always in the he
 - **Tests** (`pnpm test`): the stack, the inverse of each kind of change, skipping photos changed
   meanwhile, the texts.
 
+## How
+
+- `undo.ts`: a step is `stars` (the rating set, and per photo the rating before), `heart` (on or
+  off, and per photo whether this person's heart was on) or `list` (what `addTo` or
+  `removeFrom` actually changed). `undoStars`, `undoHeart` and `undoList` work out what to write
+  back: only the photos still as the step left them, grouped per value, so one write per value;
+  the others are counted, with who rated them since. `useUndo` keeps the steps in a ref.
+- Before undoing stars or hearts the marks are read again from the share, so a change the 15-second
+  watch hasn't seen yet still counts as "changed meanwhile".
+- `lists.addTo` and `removeFrom` now answer with what actually changed (and leave the success
+  message to the caller); `photosOf(id)` gives a list's photos now.
+- `Toast.tsx`: the message at the bottom with *Ongedaan maken*, 6 seconds; after an undo it says
+  "ongedaan: …" without a button. Errors stay in the header.
+- ↶ left of ⚙, greyed out with nothing to undo, with the step in its tooltip; ⌘Z or Ctrl-Z
+  anywhere except in a text field.
+
 ## Files affected
 
 - `src/lib/undo.ts` (new), `src/components/Toast.tsx` (new), `src/App.tsx`, `src/lib/marks.ts`,
@@ -36,3 +52,9 @@ from the message that says what happened, from a button that is always in the he
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `pnpm test`: stars back per photo grouped by value with a photo rated by someone else left
+  alone, hearts back, list adds and removes back, the texts; 77 tests. `tsc` and `pnpm build`
+  clean.

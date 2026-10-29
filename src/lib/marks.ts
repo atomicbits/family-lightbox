@@ -83,6 +83,8 @@ export const NO_MARKS: MarksState = { source: "none", ratings: {}, hearts: {}, i
 
 export type Marks = {
   state: MarksState;
+  /** Read again now, for undo, which must compare with what is on the share. */
+  reload: () => Promise<MarksState>;
   rate: (photos: string[], stars: number) => Promise<MarksState>;
   heart: (photos: string[], on: boolean) => Promise<MarksState>;
 };
@@ -103,5 +105,11 @@ export function useMarks(version: number): Marks {
   const rate = useCallback((photos: string[], stars: number) => apply("marks_rate", { photos, stars }), [apply]);
   const heart = useCallback((photos: string[], on: boolean) => apply("marks_heart", { photos, on }), [apply]);
 
-  return { state, rate, heart };
+  const reload = useCallback(async () => {
+    const s = await invoke<MarksState>("marks_state");
+    setState(s);
+    return s;
+  }, []);
+
+  return { state, reload, rate, heart };
 }

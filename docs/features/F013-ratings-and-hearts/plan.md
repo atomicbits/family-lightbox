@@ -1,6 +1,6 @@
 # Feature 13: Ratings and hearts, with undo
 
-**Status:** In progress (plan accepted 2026-10-30; S01 done, S02 and S03 built)
+**Status:** In progress (plan accepted 2026-10-30; S01 done, S02–S04 built, to try in the app)
 **Depends on:** Feature 3 (lists: the shared event files on the NAS, the selection of several photos, the 15-second watch)
 **Folder:** `F013-ratings-and-hearts`
 
@@ -84,7 +84,7 @@ them.
 | [S01](stories/S01-the-data.md) | The data: the contract section, writing and merging rating and heart events, reading them with the lists and the 15-second watch | Done | — |
 | [S02](stories/S02-showing-them.md) | Showing them: stars and hearts on the tiles and in the lightbox, scaled with the tile | In progress: built, to look at with real marks | S01 |
 | [S03](stories/S03-setting-them.md) | Setting them: the stars and heart in the header for the selection, keys, the lightbox | In progress: built, to try in the app | S02 |
-| [S04](stories/S04-undo.md) | Undo: the message with *Ongedaan maken*, the button in the header, ⌘Z; list adds and removes too | Planned | S03 |
+| [S04](stories/S04-undo.md) | Undo: the message with *Ongedaan maken*, the button in the header, ⌘Z; list adds and removes too | In progress: built, to try in the app | S03 |
 
 ## Decisions
 

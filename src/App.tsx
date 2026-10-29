@@ -17,7 +17,9 @@ import ConfirmPreviews from "./components/ConfirmPreviews";
 import PreviewsLine from "./components/PreviewsLine";
 import ListsPanel from "./components/ListsPanel";
 import PhotoMenu from "./components/PhotoMenu";
-import { photosText, useLists } from "./lib/lists";
+import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
+import { listText, skippedText, undoHeart, undoList, undoStars, useUndo } from "./lib/undo";
+import Toast from "./components/Toast";
 import { changeText, marksBlocked, useMarks } from "./lib/marks";
 import MarksBar from "./components/MarksBar";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
@@ -65,6 +67,14 @@ export default function App() {
   const previews = usePreviews();
   const lists = useLists();
   const marks = useMarks(lists.version);
+  const undo = useUndo();
+  // The message at the bottom (F013/S04): what just happened, with Ongedaan maken when it can be.
+  const [toast, setToast] = useState<{ text: string; undoable: boolean; id: number } | null>(null);
+  const showToast = useCallback((text: string, undoable: boolean) => {
+    const id = Date.now();
+    setToast({ text, undoable, id });
+    setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 6000);
+  }, []);
   const [confirming, setConfirming] = useState(false);
   const [cols, setCols] = useState(1);
   const [tile, setTile] = useState(loadTile);
@@ -248,7 +258,6 @@ export default function App() {
     }
     return out;
   }, [sections, listId, listView]);
-  const pickedItems = useCallback(() => itemsAt(picked), [itemsAt, picked]);
 
   // Stars and hearts for the selection (F013/S03): the picked tiles, or the selected one.
   const me = device?.device?.owner ?? null;
@@ -261,14 +270,78 @@ export default function App() {
     if (blockedMarks) return lists.say(blockedMarks);
     try {
       const hashes = [...new Set((await itemsAt(keys)).map((i) => i.hash))];
-      if (hashes.length === 0) return;
-      if ("stars" in change) await marks.rate(hashes, change.stars);
-      else await marks.heart(hashes, change.heart);
-      lists.say(changeText(hashes.length, change), false);
+      if (hashes.length === 0 || !me) return;
+      const text = changeText(hashes.length, change);
+      const s = marks.state;
+      if ("stars" in change) {
+        const before = Object.fromEntries(hashes.map((h) => [h, s.ratings[h]?.stars ?? 0]));
+        await marks.rate(hashes, change.stars);
+        undo.push({ kind: "stars", text, after: change.stars, before });
+      } else {
+        const before = Object.fromEntries(hashes.map((h) => [h, s.hearts[h]?.[me] !== undefined]));
+        await marks.heart(hashes, change.heart);
+        undo.push({ kind: "heart", text, after: change.heart, before });
+      }
+      showToast(text, true);
     } catch (e) {
       lists.say(String(e));
     }
-  }, [blockedMarks, itemsAt, marks.rate, marks.heart, lists.say]);
+  }, [blockedMarks, me, itemsAt, marks.state, marks.rate, marks.heart, lists.say, undo.push, showToast]);
+
+  // Adding to and taking out of lists, with the message and an undo step.
+  const listChange = useCallback(async (op: "add" | "remove", id: string, keys: Iterable<string>) => {
+    try {
+      const photos = (await itemsAt(keys)).map(refOf);
+      if (photos.length === 0) return;
+      const done: ListDone | null = op === "add" ? await lists.addTo(id, photos) : await lists.removeFrom(id, photos);
+      if (!done) return;
+      const text = listText(done);
+      undo.push({ kind: "list", text, done });
+      showToast(text, true);
+    } catch (e) {
+      lists.say(String(e));
+    }
+  }, [itemsAt, lists.addTo, lists.removeFrom, lists.say, undo.push, showToast]);
+
+  // Undo the newest step: write the values before back, for the photos still as it left them.
+  const doUndo = useCallback(async () => {
+    const step = undo.pop();
+    if (!step) return;
+    setToast(null);
+    try {
+      let skipped = "";
+      if (step.kind === "list") {
+        const inList = await lists.photosOf(step.done.id);
+        const p = undoList(step.done, (h) => inList.has(h));
+        if (p.photos.length) {
+          if (step.done.op === "add") await lists.removeFrom(step.done.id, p.photos);
+          else await lists.addTo(step.done.id, p.photos);
+        }
+        skipped = skippedText(p.skipped, []);
+      } else {
+        const s = await marks.reload();
+        const p = step.kind === "stars" ? undoStars(step, s) : undoHeart(step, s, me ?? "");
+        for (const [value, hashes] of p.writes) {
+          if (step.kind === "stars") await marks.rate(hashes, value as number);
+          else await marks.heart(hashes, value as boolean);
+        }
+        skipped = skippedText(p.skipped, p.by);
+      }
+      showToast(`ongedaan: ${step.text}${skipped ? ` · ${skipped}` : ""}`, false);
+    } catch (e) {
+      lists.say(String(e));
+    }
+  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, me, showToast]);
+
+  // ⌘Z (Ctrl-Z on Windows) undoes, also in the lightbox; not in a text field.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "z") { e.preventDefault(); doUndo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [doUndo]);
   // 1–5 and 0 set the stars, H the heart; true when the key was one of them
   const markKey = useCallback((e: KeyboardEvent, keys: string[], hearted: boolean): boolean => {
     if (e.metaKey || e.ctrlKey || e.altKey || keys.length === 0) return false;
@@ -326,17 +399,14 @@ export default function App() {
       else if ((e.key === " " || e.key === "Enter") && selected !== null) { e.preventDefault(); setOpen(true); }
       else if ((e.key === "Backspace" || e.key === "Delete") && listId) {
         e.preventDefault();
-        const id = listId;
-        (picked.size > 1 ? pickedItems() : Promise.resolve(current ? [current] : []))
-          .then((items) => { if (items.length) return lists.removeFrom(id, items); })
-          .catch((err) => setError(String(err)));
+        listChange("remove", listId, selKeys);
       } else if ((e.key === "+" || e.key === "=") && !listId) {
         lists.say("sleep de foto's naar een lijst, of klik rechts: Toevoegen aan", false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, dialog, selected, anchor, picked, cols, counts, move, current, listId, lists.removeFrom, lists.say, pickedItems, markKey, selKeys, allHearted]);
+  }, [open, dialog, selected, anchor, picked, cols, counts, move, current, listId, listChange, lists.say, markKey, selKeys, allHearted]);
 
   // After every rebuild: months again, an empty cache, and the selection and the month at the
   // top kept where they were.
@@ -470,6 +540,14 @@ export default function App() {
         </label>
         {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
         <button
+          className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 disabled:opacity-30 disabled:hover:bg-transparent"
+          disabled={!undo.top}
+          title={undo.top ? `Ongedaan maken: ${undo.top.text} (⌘Z)` : "niets om ongedaan te maken"}
+          onClick={doUndo}
+        >
+          ↶
+        </button>
+        <button
           className="px-2 py-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
           title="Instellingen"
           onClick={() => setShowSettings(true)}
@@ -503,7 +581,7 @@ export default function App() {
                 dragging={dragging}
                 onDrop={(id) => {
                   setDragging(false);
-                  itemsAt(dragKeys.current).then((items) => lists.addTo(id, items)).catch((e) => setError(String(e)));
+                  listChange("add", id, dragKeys.current);
                 }}
               />
             </div>
@@ -562,6 +640,7 @@ export default function App() {
           ))}
         </div>
       )}
+      {toast && <Toast text={toast.text} onUndo={toast.undoable ? doUndo : null} onClose={() => setToast(null)} />}
       {menu && (
         <PhotoMenu
           x={menu.x}
@@ -569,7 +648,7 @@ export default function App() {
           what={photosText(menu.keys.length)}
           blocked={lists.blocked}
           lists={(lists.state?.lists ?? []).filter((l) => !l.archived && l.id !== listId)}
-          onAddTo={(id) => itemsAt(menu.keys).then((items) => lists.addTo(id, items)).catch((e) => setError(String(e)))}
+          onAddTo={(id) => listChange("add", id, menu.keys)}
           onClose={() => setMenu(null)}
           actions={[
             ...(menu.keys.length === 1 ? [{ label: "Openen", run: () => { setSelected(parseKey(menu.keys[0])); setOpen(true); } }] : []),
@@ -578,7 +657,7 @@ export default function App() {
                   label: `Uit ${lists.active.name} halen`,
                   disabled: !!lists.blocked,
                   title: lists.blocked ?? undefined,
-                  run: () => { itemsAt(menu.keys).then((items) => lists.removeFrom(listId, items)).catch((e) => setError(String(e))); },
+                  run: () => { listChange("remove", listId, menu.keys); },
                 }]
               : []),
           ]}

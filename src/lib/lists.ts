@@ -99,10 +99,21 @@ export type Lists = {
   archive: (id: string, archived: boolean) => Promise<boolean>;
   /** A short message in the header; `error` for a problem. */
   say: (text: string, error?: boolean) => void;
-  /** Adds the photos not in it yet to a list (dragging, the context menu), in one write. */
-  addTo: (id: string, items: Item[]) => Promise<void>;
-  removeFrom: (id: string, items: Item[]) => Promise<void>;
+  /** Adds the photos not in it yet to a list (dragging, the menu, undo), in one write. */
+  addTo: (id: string, photos: PhotoRef[]) => Promise<ListDone | null>;
+  /** The photos in a list now, by hash. */
+  photosOf: (id: string) => Promise<Map<string, Member>>;
+  /** Takes the photos that are in it out of a list. */
+  removeFrom: (id: string, photos: PhotoRef[]) => Promise<ListDone | null>;
 };
+
+/** A photo by hash, with its path as a hint. */
+export type PhotoRef = { photo: string; path: string | null };
+
+export const refOf = (i: Item): PhotoRef => ({ photo: i.hash, path: i.path });
+
+/** What a list change actually did. */
+export type ListDone = { id: string; name: string; op: "add" | "remove"; photos: PhotoRef[] };
 
 export function useLists(): Lists {
   const [state, setState] = useState<ListsState | null>(null);
@@ -183,22 +194,31 @@ export function useLists(): Lists {
 
   const nameOf = useCallback((id: string) => state?.lists.find((l) => l.id === id)?.name ?? id, [state]);
 
-  const addTo = useCallback(async (id: string, items: Item[]) => {
-    if (blocked) return say(blocked);
-    const inList = id === active?.id
-      ? members
-      : new Map((await invoke<Member[]>("list_photos", { id }).catch(() => [] as Member[])).map((m) => [m.photo, m]));
-    const c = manyChange(items, inList);
-    if (c.op === "remove") return say(`${photosText(c.items.length)} al in ${nameOf(id)}`, false);
-    if (await change("list_add", { id, photos: c.items.map((i) => ({ photo: i.hash, path: i.path })) }))
-      say(`${photosText(c.items.length)} toegevoegd aan ${nameOf(id)}`, false);
-  }, [blocked, active, members, change, say, nameOf]);
+  const membersOf = useCallback(async (id: string) => id === active?.id
+    ? members
+    : new Map((await invoke<Member[]>("list_photos", { id }).catch(() => [] as Member[])).map((m) => [m.photo, m])),
+  [active, members]);
 
-  const removeFrom = useCallback(async (id: string, items: Item[]) => {
-    if (blocked) return say(blocked);
-    const hashes = [...new Set(items.map((i) => i.hash))];
-    if (await change("list_remove", { id, photos: hashes })) say(`${photosText(hashes.length)} uit ${nameOf(id)} gehaald`, false);
-  }, [blocked, change, say, nameOf]);
+  // Both answer with what actually changed, for the message and undo (F013/S04), or null.
+  const addTo = useCallback(async (id: string, photos: PhotoRef[]): Promise<ListDone | null> => {
+    if (blocked) { say(blocked); return null; }
+    const inList = await membersOf(id);
+    const unique = [...new Map(photos.map((p) => [p.photo, p])).values()];
+    const missing = unique.filter((p) => !inList.has(p.photo));
+    if (missing.length === 0) { say(`${photosText(unique.length)} al in ${nameOf(id)}`, false); return null; }
+    if (!(await change("list_add", { id, photos: missing }))) return null;
+    return { id, name: nameOf(id), op: "add", photos: missing };
+  }, [blocked, membersOf, change, say, nameOf]);
 
-  return { state, active, members, blocked, message, refresh, version, setActive, create, rename, archive, say, addTo, removeFrom };
+  const removeFrom = useCallback(async (id: string, photos: PhotoRef[]): Promise<ListDone | null> => {
+    if (blocked) { say(blocked); return null; }
+    const inList = await membersOf(id);
+    const there = [...new Map(photos.map((p) => [p.photo, { photo: p.photo, path: p.path ?? inList.get(p.photo)?.path ?? null }])).values()]
+      .filter((p) => inList.has(p.photo));
+    if (there.length === 0) { say(`niet in ${nameOf(id)}`, false); return null; }
+    if (!(await change("list_remove", { id, photos: there.map((p) => p.photo) }))) return null;
+    return { id, name: nameOf(id), op: "remove", photos: there };
+  }, [blocked, membersOf, change, say, nameOf]);
+
+  return { state, active, members, blocked, message, refresh, version, setActive, create, rename, archive, say, addTo, removeFrom, photosOf: membersOf };
 }
