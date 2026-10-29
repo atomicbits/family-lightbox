@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, config, type DeviceState, type Item, type MonthSummary } from "./lib/api";
 import { invoke } from "@tauri-apps/api/core";
-import { fileName, monthLabel, yearOf } from "./lib/months";
+import { monthLabel, yearOf } from "./lib/months";
 import MonthList from "./components/MonthList";
 import Grid from "./components/Grid";
 import Lightbox from "./components/Lightbox";
@@ -419,7 +419,7 @@ export default function App() {
         )}
         {selHashes.length > 0 && (
           <MarksBar
-            label={selHashes.length > 1 ? photosText(selHashes.length) : current ? fileName(current.path) : ""}
+            label={selHashes.length > 1 ? photosText(selHashes.length) : ""}
             hashes={selHashes}
             marks={marks.state}
             me={me}

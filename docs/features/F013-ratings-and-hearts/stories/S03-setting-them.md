@@ -11,8 +11,8 @@ photos they apply to; a click sets them for all. Keys and the lightbox do the sa
 
 ## Acceptance criteria
 
-- **The header**, when at least one photo is selected: "12 foto's" (or the file name for one),
-  five stars and a heart.
+- **The header**, when at least one photo is selected: "12 foto's" for several (nothing for one,
+  on Peter's request: the file name was too busy there), five stars and a heart.
   - The stars show the rating all selected photos share, or a dimmed "–" when they differ;
     clicking a star gives all of them that rating; clicking the rating they all have removes it.
   - The heart is filled when this person's heart is on all of them, half when on some; a click
