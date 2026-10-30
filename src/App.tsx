@@ -93,6 +93,8 @@ export default function App() {
     lastRefresh.current = Date.now();
     // Then sync from the NAS in the background, once Library is connected (F007/S05).
     nas.start().then((m) => {
+      // the shares may have connected just now: lists, stars and hearts from the NAS, changeable
+      lists.refresh();
       if (m?.library.some((x) => x.chosen)) sync.start("all", false, true).catch(() => {});
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

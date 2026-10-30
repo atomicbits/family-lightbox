@@ -62,3 +62,12 @@ shows them yet (S02).
   `tsc` and `pnpm build` clean.
 - Data contract 5.5 written; the app's sync copies `marks/*.jsonl`.
 - Nothing written to the real share yet: the first stars come from the app in S03.
+
+### [2026-10-30] Fixed: changes refused with the NAS connected
+
+- Peter: making a stack was refused ("alleen met de NAS") while the footer said "NAS verbonden".
+  At start the app read the lists and marks before it had connected the `Lists` share, so from
+  the local copy (look only); the 15-second watch compared only the files, which were the same
+  on the share, so it never read them again from there.
+- The fingerprint (`lists_stamp`) now names its source, and the app reads the lists and marks
+  again as soon as the NAS is connected at start.

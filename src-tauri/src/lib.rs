@@ -444,15 +444,19 @@ fn load_lists(paths: &Paths) -> (lists::ListsState, std::collections::BTreeMap<S
 }
 
 /// A fingerprint of the event files where the lists are read from, to notice the other Mac's
-/// changes (F003/S04); as text, since a u64 doesn't fit a JavaScript number.
+/// changes (F003/S04); as text, since a u64 doesn't fit a JavaScript number. It names the source
+/// too: when the `Lists` share connects after the app started, the files are the same as the
+/// local copy's, but the lists must be read again from the share to become changeable.
 #[tauri::command]
 async fn lists_stamp(paths: State<'_, Paths>) -> Result<Option<String>, String> {
     let paths = paths.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (settings, _) = config::load_settings(&paths.config);
         let found = mounts::find_shares(&mounts::system_mounts(), &settings);
-        let dir = mounts::NasMounts::chosen(&found.lists).map(|m| PathBuf::from(&m.mount_point)).unwrap_or(paths.lists.clone());
-        lists::stamp(&dir).map(|s| s.to_string())
+        let nas = mounts::NasMounts::chosen(&found.lists).map(|m| PathBuf::from(&m.mount_point));
+        let source = if nas.is_some() { "nas" } else { "local" };
+        let dir = nas.unwrap_or(paths.lists.clone());
+        Some(format!("{source}:{}", lists::stamp(&dir).map_or("-".into(), |s| s.to_string())))
     })
     .await
     .map_err(|e| e.to_string())
