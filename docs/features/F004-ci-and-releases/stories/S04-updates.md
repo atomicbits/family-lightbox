@@ -192,3 +192,11 @@ no way to install it: *Bijwerken* was only in the footer, behind the panel. The 
 now shows the same line with *Bijwerken* once a newer version is found (and the progress while
 it installs). A button that is grey during a sync now says so in its text too ("…, na de
 synchronisatie"), not only in its tooltip. In 0.4.0 and 0.4.1 the footer's button is the way.
+
+### [2026-10-30] v0.4.2 released
+
+The first start's steps with their progress and the index right after the manifests (F007/S05),
+*Bijwerken* in the settings, messages that can be copied, no index build before the working copy
+exists, and panels that scroll in a low window. The update from 0.4.0 to 0.4.1 worked on Lynn's
+Mac through the footer's *Bijwerken*: the updater is tested for real now. Checked as before:
+the `.dmg` notarized, its ticket valid, `latest.json` 0.4.2.
