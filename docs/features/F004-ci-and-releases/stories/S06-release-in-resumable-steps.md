@@ -1,7 +1,7 @@
 # Story S06: A release in steps that can be retried, with the stapling made robust
 
 **Feature:** `F004-ci-and-releases`
-**Status:** In progress
+**Status:** Done (2026-10-31)
 **Depends on:** S03, S04
 
 ## Goal
@@ -103,3 +103,15 @@ in its dry run and replaced by three jobs, on the workflow from before this stor
 
 So the acceptance criteria change: there is no separate notarize, staple and package job; a
 re-run after `build` starts at `dmg`. `scripts/apple.py` and its tests stay as written.
+
+### [2026-10-31] Checked with a dry run and v0.4.4
+
+- The dry run on the three-job workflow: `build` 4m42s, `dmg` 41s (submitted, stapled,
+  validated, accepted), nothing published. The upload name cut the version at its first dot;
+  the hash now goes before the last extension (`FamilyLightbox_0.4.4_aarch64-<hash>.dmg`).
+- v0.4.4 released with it: `build` 4m44s, `dmg` 41s, `publish` 12s. Checked after download: the
+  `.dmg` and the app inside it are accepted as notarized and both tickets validate.
+- The re-run of only `dmg` reusing a submission is covered by `test_apple.py`, not yet seen on a
+  real run.
+- The planned retry of 0.4.3 on the old workflow succeeded too, four minutes before 0.4.4: both
+  are published; 0.4.4 is *Latest* and `latest.json` says 0.4.4, so the updater offers 0.4.4.
