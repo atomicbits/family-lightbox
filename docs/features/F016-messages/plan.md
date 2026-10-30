@@ -1,6 +1,6 @@
 # Feature 16: Messages and a log
 
-**Status:** In progress (plan accepted 2026-10-30; S01 done)
+**Status:** In progress (plan accepted 2026-10-30; S01 done, S02 built)
 **Depends on:** Feature 7 (the sync line), feature 12 (the previews line), feature 13 (the message with undo)
 **Folder:** `F016-messages`
 
@@ -55,4 +55,4 @@ stays in the footer until it is resolved.
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-the-log.md) | The log file and the messages in the Rust core, as events to the UI | Done | — |
-| [S02](stories/S02-footer-and-overlay.md) | The ⚠ in the footer, the overlay, fading lines, what stays | Planned | S01 |
+| [S02](stories/S02-footer-and-overlay.md) | The ⚠ in the footer, the overlay, fading lines, what stays | In progress: built, to try in the app | S01 |

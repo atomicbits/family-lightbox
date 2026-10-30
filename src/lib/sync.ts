@@ -108,6 +108,13 @@ export function syncLine(s: SyncState | null): SyncLine | null {
   }
 }
 
+/** Whether the line goes after a few seconds: done, cancelled, and a failure, except too little
+ * disk space, which asks for an action like the confirmation does (F016/S02). */
+export function fades(s: SyncState): boolean {
+  if (s.phase === "done" || s.phase === "cancelled") return true;
+  return s.phase === "failed" && !(s.message ?? "").includes("tekort");
+}
+
 export type Sync = {
   state: SyncState | null;
   /** The line to show (done and cancelled fade after a few seconds). */
@@ -128,8 +135,8 @@ export function useSync(): Sync {
       setState(s);
       setVisible(true);
       if (timer.current) clearTimeout(timer.current);
-      // done and cancelled are news for a moment; failures and the confirmation stay
-      if (s.phase === "done" || s.phase === "cancelled") timer.current = setTimeout(() => setVisible(false), 8000);
+      // news for a moment, the details in the messages (F016/S02); what asks for an action stays
+      if (fades(s)) timer.current = setTimeout(() => setVisible(false), 8000);
     };
     const off = [listen<SyncState>("sync-progress", (e) => show(e.payload)), listen<SyncState>("sync-done", (e) => show(e.payload))];
     return () => { off.forEach((p) => p.then((f) => f())); if (timer.current) clearTimeout(timer.current); };

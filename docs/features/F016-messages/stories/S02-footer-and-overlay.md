@@ -1,7 +1,7 @@
 # Story S02: The ⚠ in the footer, the overlay, and lines that fade
 
 **Feature:** `F016-messages`
-**Status:** Planned
+**Status:** In progress: built and tested; to try in the app
 **Depends on:** S01
 
 ## Goal
@@ -29,3 +29,18 @@ and fade; what asks for an action stays.
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `messages.ts`: `useMessages` listens to the core's `message` events (its own and the UI's,
+  since `log_message` now reports through the core too), keeps at most 500, newest first, and
+  counts the unseen ones; `pushMessage`, `timeLabel`.
+- The footer shows ⚠ with the number unseen in amber (grey once seen, while there are messages);
+  a click opens `MessagesOverlay` (time, source, text, *Wissen*, the log's path); also *Meldingen*
+  under *Over* in the settings.
+- Fading: the sync line fades after 8 s for done, cancelled and failures (`fades`), and stays for
+  too little disk space and the previews confirmation; the amber index line fades after 8 s.
+  The list's messages faded already; the update line, a wrong `device.json` and the previews
+  line stay.
+- `pnpm test`: the list's limit, the time label, which sync lines fade; 103 tests. `tsc`,
+  `pnpm build` and clippy clean.

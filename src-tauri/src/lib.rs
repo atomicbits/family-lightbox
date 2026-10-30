@@ -226,8 +226,7 @@ fn report(app: &tauri::AppHandle, level: log::Level, source: &str, text: &str) {
 /// The UI's own warnings and errors (a write that failed after its retry, an update), for the log.
 #[tauri::command]
 fn log_message(level: log::Level, source: String, text: String, app: tauri::AppHandle) {
-    let m = log::Message { at: lists::now(), level, source, text };
-    log::write(&app.state::<Paths>().config, &m, log::MAX_BYTES);
+    report(&app, level, &source, &text);
 }
 
 /// Where the log is, for the overlay.

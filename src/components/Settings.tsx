@@ -7,7 +7,7 @@ import { hostProblem, shareProblem } from "../lib/device";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
 
-type Props = { device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; previews: Previews; onClose: () => void };
+type Props = { device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; previews: Previews; onShowMessages: () => void; onClose: () => void };
 
 const SHARE_LABELS: [keyof Shares, string][] = [
   ["library", "Originelen"],
@@ -17,7 +17,7 @@ const SHARE_LABELS: [keyof Shares, string][] = [
 ];
 
 /** Settings panel: the device (read-only) and the NAS host and share names (editable). */
-export default function Settings({ device, nas, sync, index, update, previews, onClose }: Props) {
+export default function Settings({ device, nas, sync, index, update, previews, onShowMessages, onClose }: Props) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [previewsError, setPreviewsError] = useState<string | null>(null);
   const making = previews.state?.running ?? false;
@@ -203,7 +203,13 @@ export default function Settings({ device, nas, sync, index, update, previews, o
         </section>
 
         <section className="space-y-1">
-          <h3 className="font-medium">Over</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">Over</h3>
+            <span className="flex-1" />
+            <button className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700" onClick={onShowMessages}>
+              Meldingen
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-neutral-500">FamilyLightbox {update.version ?? ""}</span>
             <span className="flex-1" />

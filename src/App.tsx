@@ -24,6 +24,8 @@ import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./l
 import { PALETTE, arrange, buildStacks, stackActions, stackColor, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
 import UndoIcon from "./components/UndoIcon";
 import ShortcutsOverlay from "./components/ShortcutsOverlay";
+import MessagesOverlay from "./components/MessagesOverlay";
+import { useMessages } from "./lib/messages";
 import { isShortcutsKey } from "./lib/shortcuts";
 import { changeText, marksBlocked, newStackId, useMarks } from "./lib/marks";
 import MarksBar from "./components/MarksBar";
@@ -71,6 +73,18 @@ export default function App() {
   const update = useUpdate();
   const previews = usePreviews();
   const lists = useLists();
+  const messages = useMessages();
+  const [showMessages, setShowMessages] = useState(false);
+  const openMessages = useCallback(() => { setShowMessages(true); messages.seen(); }, [messages.seen]);
+  // an index problem shows for a moment in the footer; the details are in the messages (F016/S02)
+  const [indexLineShown, setIndexLineShown] = useState(true);
+  const indexProblem = index.line?.tone === "amber" ? index.line.text : null;
+  useEffect(() => {
+    if (!indexProblem) return;
+    setIndexLineShown(true);
+    const t = setTimeout(() => setIndexLineShown(false), 8000);
+    return () => clearTimeout(t);
+  }, [indexProblem]);
   const sayError = useCallback((m: string) => {
     lists.say(m);
     invoke("log_message", { level: "warn", source: "sterren en reeksen", text: m }).catch(() => {});
@@ -849,7 +863,7 @@ export default function App() {
           {lists.message && (
             <span className={lists.message.error ? "text-amber-600" : "text-neutral-500"}>{lists.message.text}</span>
           )}
-          {index.line && (
+          {index.line && (index.line.tone !== "amber" || indexLineShown) && (
             <span className={index.line.tone === "amber" ? "text-amber-600" : "text-neutral-500"} title={index.line.title}>
               {index.line.text}
             </span>
@@ -863,6 +877,15 @@ export default function App() {
           {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
           <PreviewsLine previews={previews} />
         </div>
+        {messages.list.length > 0 && (
+          <button
+            className={"px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 " + (messages.unseen ? "text-amber-600" : "text-neutral-400")}
+            title={messages.unseen ? `${messages.unseen} nieuwe meldingen` : "meldingen"}
+            onClick={openMessages}
+          >
+            ⚠{messages.unseen ? ` ${messages.unseen}` : ""}
+          </button>
+        )}
         {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
         <button
           className="px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
@@ -873,6 +896,7 @@ export default function App() {
         </button>
       </footer>
       {showKeys && <ShortcutsOverlay onClose={() => setShowKeys(false)} />}
+      {showMessages && <MessagesOverlay messages={messages} onClose={() => setShowMessages(false)} />}
       {toast && <Toast text={toast.text} onUndo={toast.undoable ? doUndo : null} onClose={() => setToast(null)} />}
       {monthMenu && (() => {
         const ms = shownMonths.filter((m) => (monthMenu.kind === "year" ? yearOf(m.month) === monthMenu.key : m.month === monthMenu.key));
@@ -931,7 +955,7 @@ export default function App() {
         <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />
       )}
       {showSettings && (
-        <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+        <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}
       {confirming && sync.state?.summary && (
         <ConfirmPreviews
