@@ -116,3 +116,11 @@ be tested before the first real release.
 
 - Peter downloaded the `.dmg` from the release, installed the app and opened it by double-click:
   no Gatekeeper warning, and the app runs.
+
+### [2026-10-30] macos-15 and retrying the staple checks
+
+GitHub retires the macOS 14 runners on 2026-11-02, so CI and release moved to `macos-15`. The
+first dry run there notarized and stapled everything, but `stapler validate` lost its connection
+to Apple's ticket service (`api.apple-cloudkit.com`, "The network connection was lost"), twice in
+a row, once on the `.dmg` and once on the app. Every `stapler staple` and `stapler validate` is
+now tried up to five times, 20 seconds apart; a real failure still fails after the fifth.
