@@ -111,6 +111,7 @@ moves towards (D13).
 | [S03](stories/S03-manifests-pass.md) | Manifests pass from `Library` | Done | S02 |
 | [S04](stories/S04-previews-pass.md) | Previews pass with size count, 20 GB reserve and confirmation the first time | Done | S02 |
 | [S05](stories/S05-background-sync.md) | Running in the background: progress, cancel, when it runs, the line in the header | In progress: built, in-app check owed | S03, S04 |
+| [S06](stories/S06-one-file-failing.md) | One file that fails is retried once, then skipped; the sync goes on | Planned | S05 |
 
 ## Open points
 
