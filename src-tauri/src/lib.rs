@@ -10,6 +10,7 @@ pub mod filter;
 pub mod hash;
 pub mod lists;
 pub mod log;
+pub mod manifest;
 pub mod marks;
 mod mounts;
 mod nas;
@@ -18,6 +19,7 @@ pub mod preview;
 #[cfg(target_os = "macos")]
 pub mod previews_job;
 pub mod previews_plan;
+pub mod push;
 mod pull;
 mod runner;
 mod sync;

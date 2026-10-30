@@ -831,13 +831,19 @@ pub fn date_from_name(path: &Path) -> Option<NaiveDateTime> {
 /// The capture date of each file and where it came from (`exif`, `partner`, `name`, `mtime`), in
 /// the order of data contract 3.4; for photos and videos only the file itself counts as `exif`.
 pub fn resolve(paths: &[PathBuf]) -> HashMap<PathBuf, (Taken, &'static str)> {
+    resolve_with(paths, |p| read(p).date)
+}
+
+/// As `resolve`, with the file's own date from `own` (photos and videos only), for a caller that
+/// has read the file already.
+pub fn resolve_with(paths: &[PathBuf], mut own: impl FnMut(&Path) -> Option<Taken>) -> HashMap<PathBuf, (Taken, &'static str)> {
     let mut out = HashMap::new();
     let mut by_stem: HashMap<(PathBuf, String), Taken> = HashMap::new();
     let key = |p: &Path| (p.parent().map(Path::to_path_buf).unwrap_or_default(), p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default());
     let mut unresolved = Vec::new();
     for p in paths {
         let kind = kind_of(p);
-        match ((kind == "photo" || kind == "video").then(|| read(p).date)).flatten() {
+        match ((kind == "photo" || kind == "video").then(|| own(p))).flatten() {
             Some(d) => {
                 by_stem.entry(key(p)).or_insert(d);
                 out.insert(p.clone(), (d, "exif"));
