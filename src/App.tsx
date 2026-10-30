@@ -71,7 +71,10 @@ export default function App() {
   const update = useUpdate();
   const previews = usePreviews();
   const lists = useLists();
-  const sayError = useCallback((m: string) => lists.say(m), [lists.say]);
+  const sayError = useCallback((m: string) => {
+    lists.say(m);
+    invoke("log_message", { level: "warn", source: "sterren en reeksen", text: m }).catch(() => {});
+  }, [lists.say]);
   // stars, hearts, hiding and stacks show at once; the NAS is written in the background
   const marks = useMarks(lists.version, device?.device?.owner ?? null, sayError);
   const undo = useUndo();

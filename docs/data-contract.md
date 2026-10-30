@@ -288,6 +288,7 @@ Exports are end products: never rewritten automatically, but pushed and synced t
 ~/.config/media/index.sqlite     derived index of manifests, previews and lists; can be rebuilt with `media index`
 ~/.config/media/familylightbox-index.sqlite  the app's own index, the same tables as `index.sqlite`; only the app writes it
 ~/.config/media/familylightbox-previews.sqlite  which hash each preview was made from, and what failed; only the app writes it, not part of the contract
+~/.config/media/familylightbox.log  the app's warnings and errors, one line each; at 1 MB renamed to `.log.1`; not part of the contract
 ~/.config/media/familylightbox.json  the app's settings (NAS name, names of the shares); not part of the contract
 ~/.config/media/familylightbox-state.json  the app's own state (for example when the first previews pass was confirmed); not part of the contract
 ~/Pictures/LibraryLocal/         working copy of Library (partial)

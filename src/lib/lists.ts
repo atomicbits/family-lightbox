@@ -122,6 +122,7 @@ export function useLists(): Lists {
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const say = useCallback((text: string, error = true) => {
+    if (error) invoke("log_message", { level: "warn", source: "lijsten", text }).catch(() => {});
     const m = { text, error };
     setMessage(m);
     setTimeout(() => setMessage((cur) => (cur === m ? null : cur)), 6000);

@@ -1,7 +1,7 @@
 # Story S01: The log file and the messages from the Rust core
 
 **Feature:** `F016-messages`
-**Status:** Planned
+**Status:** Done
 **Depends on:** —
 
 ## Goal
@@ -28,3 +28,16 @@ message, with time, level and source.
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `log.rs`: `Message` (time, level, source, text) and its one-line form, `write` with the
+  rotation at `MAX_BYTES`; `report(app, level, source, text)` in `lib.rs` writes and emits
+  `message`. Commands `log_message` (the UI's own: a mark write that failed after its retry, a
+  list change refused) and `log_path`.
+- Reported so far: the sync's skipped files (and how many more than the 50 kept) and a failed
+  sync, the index's error and unreadable manifests, the previews job's failures and NAS write
+  error. The NAS check and updates show their state in the UI already; they follow in S02 where
+  they fade.
+- 2 Rust tests (the line, appending and rotating); 135 Rust tests, clippy clean. Data contract 7
+  lists the log file.

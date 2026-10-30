@@ -6,6 +6,7 @@ mod connect;
 mod db;
 mod index;
 pub mod lists;
+pub mod log;
 pub mod marks;
 mod mounts;
 mod nas;
@@ -215,6 +216,26 @@ pub fn check_nas(config: &Path) -> NasCheck {
     }
 }
 
+/// A warning or error to the log file and to the window's list of messages (F016/S01).
+fn report(app: &tauri::AppHandle, level: log::Level, source: &str, text: &str) {
+    let m = log::Message::new(level, source, text);
+    log::write(&app.state::<Paths>().config, &m, log::MAX_BYTES);
+    let _ = app.emit("message", &m);
+}
+
+/// The UI's own warnings and errors (a write that failed after its retry, an update), for the log.
+#[tauri::command]
+fn log_message(level: log::Level, source: String, text: String, app: tauri::AppHandle) {
+    let m = log::Message { at: lists::now(), level, source, text };
+    log::write(&app.state::<Paths>().config, &m, log::MAX_BYTES);
+}
+
+/// Where the log is, for the overlay.
+#[tauri::command]
+fn log_path(paths: State<Paths>) -> String {
+    paths.config.join(log::LOG_FILE).display().to_string()
+}
+
 /// Sends the runner's progress to the window as Tauri events (F007/S05).
 struct EventSink(tauri::AppHandle);
 
@@ -224,6 +245,16 @@ impl runner::Sink for EventSink {
     }
     fn done(&self, state: &runner::SyncState) {
         let _ = self.0.emit("sync-done", state);
+        for f in &state.failed {
+            report(&self.0, log::Level::Warn, "synchronisatie", &format!("overgeslagen: {f}"));
+        }
+        if state.failed_count as usize > state.failed.len() {
+            let more = state.failed_count as usize - state.failed.len();
+            report(&self.0, log::Level::Warn, "synchronisatie", &format!("en nog {more} bestanden overgeslagen"));
+        }
+        if let (runner::Phase::Failed, Some(m)) = (state.phase, &state.message) {
+            report(&self.0, log::Level::Error, "synchronisatie", m);
+        }
         // What came in only shows in the grid once the index has it (F008/S02).
         if state.manifests_copied > 0 || state.previews_copied > 0 {
             self.rebuild_index();
@@ -247,6 +278,12 @@ impl EventSink {
 impl index::IndexSink for EventSink {
     fn done(&self, state: &index::IndexState) {
         let _ = self.0.emit("index-done", state);
+        if let Some(e) = &state.error {
+            report(&self.0, log::Level::Error, "index", e);
+        }
+        for b in state.outcome.iter().flat_map(|o| &o.broken) {
+            report(&self.0, log::Level::Warn, "index", &format!("manifest onleesbaar: {b}"));
+        }
         // the index is current now: make what is missing (F012/S03)
         start_making(&self.0);
     }
@@ -293,6 +330,12 @@ impl previews_job::MakeSink for EventSink {
     }
     fn done(&self, state: &previews_job::MakeState) {
         let _ = self.0.emit("previews-done", state);
+        if state.failed > 0 {
+            report(&self.0, log::Level::Warn, "previews", &format!("{} previews konden niet gemaakt worden (zie Instellingen → Previews)", state.failed));
+        }
+        if let Some(m) = &state.message {
+            report(&self.0, log::Level::Warn, "previews", m);
+        }
         // the counts in the month list come from a build
         if state.made + state.copied > 0 {
             self.rebuild_index();
@@ -823,6 +866,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
+            log_message, log_path,
             lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, count_per_month, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
