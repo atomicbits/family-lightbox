@@ -67,3 +67,10 @@ reload. What couldn't be made is listed in the settings, with a way to try again
   months again, so nothing was fetched until a scroll.
 - The app now remembers the sections the grid asked for last and asks for them itself after a
   rebuild.
+
+### [2026-10-30] Fixed: the grid flickering at start
+
+- Peter: at start the whole grid flickered up to twice. After each index rebuild (at start, and
+  after a sync that copied something) the month cache was emptied and the visible months fetched
+  again afterwards, so for a moment every tile was an empty placeholder.
+- The months on screen are now fetched before the cache is replaced.

@@ -637,10 +637,19 @@ export default function App() {
       try {
         const m = await api.months();
         const items = anchor ? await api.items(anchor.month).catch(() => undefined) : undefined;
+        // the months on screen are fetched again before the old ones are dropped, so the grid
+        // never shows empty tiles in between
+        const onScreen = lastWanted.current.map((s) => sections[s]?.month).filter((x): x is string => !!x && x !== anchor?.month);
+        const fresh = await Promise.all(
+          onScreen.map((month) => api.items(month).then((it) => [month, it] as [string, Item[]]).catch(() => null)),
+        );
         if (gen !== generation.current) return;
         const next = toSections(withRevealed(withHidden(m, hiddenPerMonth), revealed))
           .map((s) => (stackView.stacks.size ? { ...s, count: s.count + stackDelta(s.month, stackView).delta } : s));
-        cache.current = new Map(anchor && items ? [[anchor.month, items]] : []);
+        cache.current = new Map([
+          ...(anchor && items ? [[anchor.month, items] as [string, Item[]]] : []),
+          ...fresh.filter((x): x is [string, Item[]] => x !== null),
+        ]);
         inFlight.current.clear();
         setError(null);
         setWaitingForIndex(false);
