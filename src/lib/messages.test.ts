@@ -12,9 +12,10 @@ describe("messages", () => {
   });
 
   it("show the time, with the day when it isn't today", () => {
-    const now = new Date("2026-10-30T22:00:00+01:00");
-    expect(timeLabel("2026-10-30T21:15:02+01:00", now)).toMatch(/21[:.]15/);
-    expect(timeLabel("2026-10-29T21:15:02+01:00", now)).toMatch(/29 okt/);
+    // in local time, so the test holds in every time zone (the CI runs in UTC)
+    const now = new Date(2026, 9, 30, 22, 0, 0);
+    expect(timeLabel(new Date(2026, 9, 30, 21, 15, 2).toISOString(), now)).toMatch(/21[:.]15/);
+    expect(timeLabel(new Date(2026, 9, 29, 21, 15, 2).toISOString(), now)).toMatch(/29 okt/);
   });
 });
 

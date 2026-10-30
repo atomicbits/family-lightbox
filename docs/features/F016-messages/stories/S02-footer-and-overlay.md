@@ -44,3 +44,11 @@ and fade; what asks for an action stays.
   line stay.
 - `pnpm test`: the list's limit, the time label, which sync lines fade; 103 tests. `tsc`,
   `pnpm build` and clippy clean.
+
+### [2026-10-30] Fix: the time test failed on the CI
+
+The test of `timeLabel` wrote its moments in Belgian time (`+01:00`); the CI runs in UTC, so
+the label said 20:15 and every run since this story failed. The test now builds its moments in
+local time. The same weakness in the lists test (`addedText`, a day off east of UTC+12) is fixed
+the same way. Both suites checked under UTC, Brussels, Auckland, Kiritimati, Los Angeles and
+Pago Pago.

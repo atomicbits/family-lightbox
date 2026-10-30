@@ -32,7 +32,7 @@ describe("lists", () => {
   });
 
   it("says who added a photo and when", () => {
-    expect(addedText({ photo: "h", path: null, added_by: "lynn", added_at: "2026-10-20T19:42:30+02:00" })).toMatch(/^toegevoegd door lynn, 20 okt/);
+    expect(addedText({ photo: "h", path: null, added_by: "lynn", added_at: new Date(2026, 9, 20, 19, 42, 30).toISOString() })).toMatch(/^toegevoegd door lynn, 20 okt/);
     expect(addedText({ photo: "h", path: null, added_by: "peter", added_at: "gisteren" })).toBe("toegevoegd door peter, gisteren");
   });
 });
