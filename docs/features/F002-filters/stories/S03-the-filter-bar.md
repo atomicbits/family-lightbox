@@ -32,7 +32,7 @@ a set filter is clear at a glance and cleared with one click; it is kept after a
   foto, video, Live. Set: a light blue background, "1 234 van 124 837" and ✕.
 - App: kept with `get_filter` / `set_filter` in the app's state file. With a filter set, the
   months' counts come from `months_filtered`, the items from `items_filtered` (the month cache
-  starts over at every change), stacks aren't folded, a list is filtered in the frontend with
+  starts over at every change), a list is filtered in the frontend with
   `matches`; the month list and the year rows count the matches and dim the months with none.
 
 ## Files affected
@@ -49,3 +49,12 @@ a set filter is clear at a glance and cleared with one click; it is kept after a
 - `pnpm test`: stars by ≥ = ≤ and without, hearts of anyone or of people, stars and hearts
   together, a list's photos matched as in the core, the text, reading a kept filter back; 108
   tests. `tsc`, `pnpm build`, clippy clean.
+
+### [2026-10-30] Stacks stay folded with a filter
+
+- Peter: unfolding every stack when a filter is set confused the grid. With a filter a stack now
+  keeps only its photos that match, folded by the same rule among those (hearts or 4–5 stars, else
+  the most stars, else the first), standing at its first matching photo; unfolding shows its
+  matching photos; a stack with none is left out. Done by giving the stacks' view a `isHidden`
+  that also hides what doesn't match (`stacksShown`), so `arrange` and `stackDelta` work as they
+  are. One vitest test; 109 tests.

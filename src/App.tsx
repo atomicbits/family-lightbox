@@ -244,6 +244,14 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [filterKey]);
 
+  // With a filter, a stack keeps only its photos that match, folded by the same rule among those;
+  // a stack with none is left out (F002/S03, Peter's choice on 2026-10-30).
+  const stacksShown: StackView = useMemo(() => {
+    if (!filterOn) return stackView;
+    const marksIn = new Set(coreFilter.marks?.hashes ?? []);
+    return { ...stackView, isHidden: (x) => stackView.isHidden(x) || !matches(x as unknown as Item, coreFilter, marksIn) };
+  }, [filterOn, stackView, coreFilter]);
+
   const shownMonths = useMemo(() => {
     if (filterOn && filteredCounts) {
       return withRevealed(withHidden(months, hiddenPerMonth), revealed).map((m) => ({ ...m, filtered: filteredCounts[m.month] ?? 0 }));
@@ -255,11 +263,11 @@ export default function App() {
   }, [months, hiddenPerMonth, revealed, stackView, filterOn, filteredCounts]);
 
   // A month's tiles from its items: hidden ones out (unless shown), stacks together (F014, F015).
-  // With a filter set the core has left hidden photos out already, and stacks aren't folded: the
-  // grid shows exactly what matches (F002/S03).
+  // With a filter set the core has left hidden photos and non-matching ones out already; stacks fold
+  // among their matching photos (F002/S03).
   const monthTiles = useCallback((month: string, items: Item[]) =>
-    filterOn ? items : arrange(month, revealed.has(month) ? items : visibleItems(items, hiddenRec), stackIds, stackView),
-  [filterOn, revealed, hiddenRec, stackIds, stackView]);
+    arrange(month, filterOn || revealed.has(month) ? items : visibleItems(items, hiddenRec), stackIds, stacksShown),
+  [filterOn, revealed, hiddenRec, stackIds, stacksShown]);
 
   // The library (or the list) as sections, newest month first, with their counts.
   // The same object while the months and their counts stay the same: new previews only change the
@@ -267,11 +275,11 @@ export default function App() {
   const stableSections = useRef<Section[]>([]);
   const sections = useMemo(() => {
     const library = () =>
-      toSections(shownMonths).map((s) => (stackView.stacks.size && !filterOn ? { ...s, count: s.count + stackDelta(s.month, stackView).delta } : s));
+      toSections(shownMonths).map((s) => (stacksShown.stacks.size ? { ...s, count: s.count + stackDelta(s.month, stacksShown).delta } : s));
     const next = showingList ? listShown!.sections : listId ? [] : library();
     if (!sameSections(stableSections.current, next)) stableSections.current = next;
     return stableSections.current;
-  }, [shownMonths, listShown, listId, showingList, stackView, filterOn]);
+  }, [shownMonths, listShown, listId, showingList, stacksShown]);
 
   // Another view: start at the top, without a selection.
   useEffect(() => {
@@ -709,7 +717,7 @@ export default function App() {
         );
         if (gen !== generation.current) return;
         const next = toSections(withRevealed(withHidden(m, hiddenPerMonth), revealed))
-          .map((s) => (stackView.stacks.size ? { ...s, count: s.count + stackDelta(s.month, stackView).delta } : s));
+          .map((s) => (stacksShown.stacks.size ? { ...s, count: s.count + stackDelta(s.month, stacksShown).delta } : s));
         cache.current = new Map([
           ...(anchor && items ? [[anchor.month, items] as [string, Item[]]] : []),
           ...fresh.filter((x): x is [string, Item[]] => x !== null),

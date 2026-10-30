@@ -80,3 +80,17 @@ describe("the menu for stacks", () => {
     expect(stackActions(["a1", "b1", "x"], ids)).toMatchObject({ addTo: null, takeOut: ["a1", "b1"], dissolve: null });
   });
 });
+
+describe("stacks with a filter", () => {
+  it("fold among their matching photos, and drop out without any", () => {
+    const r = (stars: number) => ({ stars, by: "x", at: "" });
+    const marks = { ratings: { a2: r(3), a3: r(3) }, hearts: {} };
+    // the filter lets a2, a3 and a4 through (say: ≤ 3 stars or no stars); a1 doesn't match
+    const v = view({ marks, isHidden: (x) => x.hash === "a1" });
+    expect(hashes(arrange("2026/07", month.filter((i) => i.hash !== "a1"), ids, v))).toEqual(["l1", "a2", "a3", "l2"]);
+    // nothing of the stack matches: only the other device's photos
+    const none = view({ isHidden: (x) => x.hash.startsWith("a") });
+    expect(hashes(arrange("2026/07", [l1, l2], ids, none))).toEqual(["l1", "l2"]);
+    expect(stackDelta("2026/07", none)).toEqual({ delta: 0, stacks: 0 });
+  });
+});
