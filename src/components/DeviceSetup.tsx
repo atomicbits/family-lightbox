@@ -132,8 +132,8 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
   const failed = nas.attempts.filter((a) => a.outcome.kind !== "mounted" && a.outcome.kind !== "already_mounted");
 
   return (
-    <div className="absolute inset-0 z-30 bg-black/40 grid place-items-center">
-      <div className="w-[28rem] rounded-lg bg-white dark:bg-neutral-900 shadow-xl p-5 text-sm space-y-4">
+    <div className="absolute inset-0 z-30 bg-black/40 flex items-center justify-center p-4">
+      <div className="w-[28rem] rounded-lg max-h-full overflow-y-auto bg-white dark:bg-neutral-900 shadow-xl p-5 text-sm space-y-4">
         <h2 className="text-base font-semibold">Welkom bij FamilyLightbox</h2>
         {step === null && <p className="text-neutral-500">even kijken…</p>}
 

@@ -59,9 +59,9 @@ export default function Settings({ device, nas, sync, index, update, previews, o
   const input = "w-full px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent";
 
   return (
-    <div className="absolute inset-0 z-30 bg-black/40 grid place-items-center" onClick={onClose}>
+    <div className="absolute inset-0 z-30 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="w-[30rem] rounded-lg bg-white dark:bg-neutral-900 shadow-xl p-5 text-sm space-y-4"
+        className="w-[30rem] rounded-lg max-h-full overflow-y-auto bg-white dark:bg-neutral-900 shadow-xl p-5 text-sm space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-base font-semibold">Instellingen</h2>
