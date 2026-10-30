@@ -1,6 +1,6 @@
 # Feature 18: Import
 
-**Status:** In design (plan written 2026-10-30, to review by Peter)
+**Status:** In progress (plan accepted 2026-10-30)
 **Depends on:** Feature 6 (the NAS is connected), feature 8 (the index, with the hash of every
 original), feature 12 (making previews and putting them on the NAS), LibraryLocal F011 (the
 camera in the manifest)
@@ -117,17 +117,15 @@ keeps file names unique (two iPhones both make `IMG_0955.JPG`).
 
 ## Stories
 
-To be written after Peter's review of this plan. The order proposed:
-
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | Reading the capture date and the camera natively, and hashing (a port of the NAS script's reader, tested against exiftool) | Planned | — |
-| S02 | Writing a month's manifest and copying originals to the NAS over SMB, verified (the app's `push`); the data contract's transport and layout rules | Planned | S01 |
-| S03 | Sources: the drop folder's subfolders, synced folders, cards; their settings; the name proposed from the library | Planned | — |
-| S04 | The plan and the import screen: what is new per source, months, dates, duplicates by hash, conflicts | Planned | S01, S03 |
-| S05 | Importing from a drop folder: staging, previews, NAS, verify, `_imported/` (or delete), what stays local, the index; resumable | Planned | S02, S04 |
-| S06 | Synced folders: copy only, remember what was taken, the iPhone sources' historical layout | Planned | S05 |
-| S07 | Cards and devices: `DCIM/` volumes, never erased, eject afterwards | Planned | S05 |
+| [S01](stories/S01-date-camera-and-hash.md) | Reading the capture date and the camera natively, and hashing (a port of the NAS script's reader, tested against exiftool) | In progress | — |
+| [S02](stories/S02-manifest-and-push.md) | Writing a month's manifest and copying originals to the NAS over SMB, verified (the app's `push`); the data contract's transport and layout rules | Planned | S01 |
+| [S03](stories/S03-sources.md) | Sources: the drop folder's subfolders, synced folders, cards; their settings; the name proposed from the library | Planned | — |
+| [S04](stories/S04-the-plan.md) | The plan and the import screen: what is new per source, months, dates, duplicates by hash, conflicts | Planned | S01, S03 |
+| [S05](stories/S05-drop-folder.md) | Importing from a drop folder: staging, previews, NAS, verify, `_imported/` (or delete), what stays local, the index; resumable | Planned | S02, S04 |
+| [S06](stories/S06-synced-folders.md) | Synced folders: copy only, remember what was taken, the iPhone sources' historical layout | Planned | S05 |
+| [S07](stories/S07-cards.md) | Cards and devices: `DCIM/` volumes, never erased, eject afterwards | Planned | S05 |
 
 ## Decisions
 
@@ -145,7 +143,7 @@ Taken with Peter on 2026-10-30, while discussing this plan:
 6. **No shared file of sources.** A source's name comes from the library itself (which camera's
    photos are under which source), so it can't drift from what is on the NAS.
 
-Open, to settle in the stories:
+Accepted by Peter on 2026-10-30 as proposed:
 
 7. **Remembering what a synced folder gave.** Proposal: per file its path, size and modification
    time with the hash it had, in the app's local state; a file that is no longer in the synced
