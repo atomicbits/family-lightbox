@@ -138,3 +138,13 @@ skipped and listed in `skipped` too. Test: a root that can be listed but not sea
 Two follow-ups of the same first start: the app no longer builds the index at start when there is
 no working copy yet (the first sync makes it, and builds the index after), and making previews
 doesn't start without an index, so a new Mac logs no error for either.
+
+### [2026-10-30] Fix, again: reading the entries is what SMB refuses
+
+0.4.2 still stopped on Lynn's Mac at the same year folder. Over SMB such a folder can be opened;
+only reading its entries returns "Permission denied", and an error while iterating `read_dir` was
+still a hard failure. Now that is skipped and listed like a folder that can't be opened, and so
+is an entry whose type can't be read. Every place the walk touches the remote tree (looking at a
+top-level folder, opening a folder, reading its entries, the type and the metadata of an entry)
+now skips on "Permission denied". This case can't be built on a local disk; the message's path
+(the folder itself) only matched the iteration after the earlier fixes.

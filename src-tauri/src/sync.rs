@@ -216,8 +216,16 @@ fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut
     clear_stale(&job.local.join(rel));
     let mut list = Vec::new();
     for e in entries {
-        let e = e.map_err(|e| Stop::Failed(format!("{}: {e}", dir.display())))?;
-        list.push(e);
+        match e {
+            Ok(e) => list.push(e),
+            // over SMB a folder this user may not read can often be opened, and only reading
+            // its entries is refused: skipped like one that can't be opened
+            Err(err) if err.kind() == ErrorKind::PermissionDenied => {
+                p.skipped.push(rel.to_string());
+                return Ok(());
+            }
+            Err(err) => return Err(Stop::Failed(format!("{}: {err}", dir.display()))),
+        }
     }
     list.sort_by_key(|e| e.file_name());
     for e in list {
@@ -226,7 +234,14 @@ fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut
             continue;
         }
         let child = join_rel(rel, &name);
-        let ft = e.file_type().map_err(|err| Stop::Failed(format!("{}: {err}", e.path().display())))?;
+        let ft = match e.file_type() {
+            Ok(ft) => ft,
+            Err(err) if err.kind() == ErrorKind::PermissionDenied => {
+                p.skipped.push(child);
+                continue;
+            }
+            Err(err) => return Err(Stop::Failed(format!("{}: {err}", e.path().display()))),
+        };
         if ft.is_symlink() {
             continue;
         }
