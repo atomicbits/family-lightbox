@@ -1,7 +1,7 @@
 # Story S04: Making, adding to and taking out of a stack, with undo
 
 **Feature:** `F015-stacks`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done
 **Depends on:** S03
 
 ## Goal
@@ -44,3 +44,7 @@ takes a photo out, or dissolves a stack; each with the message and undo.
 - `pnpm test`: the menu for photos outside any stack, one stack with others, two stacks; undo
   back into a stack and out of one with a photo changed meanwhile left alone; the texts. 96
   tests; `tsc` and `pnpm build` clean.
+
+### [2026-10-30] Checked
+
+- Peter in the app: "de reeks werkt".

@@ -1,7 +1,7 @@
 # Story S03: Border, background and the symbol that folds and unfolds
 
 **Feature:** `F015-stacks`
-**Status:** In progress: built and tested; to see in the app once S04 can make stacks
+**Status:** Done
 **Depends on:** S02
 
 ## Goal
@@ -44,3 +44,7 @@ its last shown tile, to fold or unfold it.
 
 - `pnpm test`: the same color for the same stack and several colors for several, the symbol on
   the last shown tile; 93 tests. `tsc` and `pnpm build` clean.
+
+### [2026-10-30] Checked
+
+- Peter in the app: "de reeks werkt".

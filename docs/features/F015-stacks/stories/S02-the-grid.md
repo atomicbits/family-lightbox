@@ -1,7 +1,7 @@
 # Story S02: The grid with stacks together, folded or unfolded
 
 **Feature:** `F015-stacks`
-**Status:** In progress: built and tested; to see in the app once S04 can make stacks
+**Status:** Done
 **Depends on:** S01
 
 ## Goal
@@ -56,3 +56,7 @@ the photos that matter are shown, unfolded all of them.
   first), a stack across midnight standing in its first month, a hidden first photo moving the
   stack, the tile counts; the tooltip with stacks. 91 tests; `tsc`, `pnpm build`, clippy clean.
 - No stacks exist yet; S04 makes them from the menu.
+
+### [2026-10-30] Checked
+
+- Peter in the app: "de reeks werkt".
