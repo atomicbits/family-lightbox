@@ -183,7 +183,7 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                       if (!id) return null;
                       const strong = selectedStacks.has(id);
                       return {
-                        color: stackColor(id),
+                        color: stackColor(id, marks?.stack_colors[id]),
                         strong,
                         thin: !!inList,
                         symbol: !inList && strong && !!items && lastOfStack(items, index, ids),

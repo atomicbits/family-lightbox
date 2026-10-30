@@ -23,7 +23,12 @@ pub enum Op {
     /// Into this stack (F015/S01).
     Stack(String),
     Unstack,
+    /// A stack's color (F015/S05); the event has no photo.
+    Color { stack: String, color: String },
 }
+
+/// The colors a stack can be given (F015/S05), as the app names them.
+pub const COLORS: [&str; 8] = ["blauw", "amber", "groen", "roze", "paars", "turkoois", "oranje", "grijs"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Event {
@@ -46,6 +51,7 @@ struct Raw {
     photo: Option<String>,
     stars: Option<i64>,
     stack: Option<String>,
+    color: Option<String>,
 }
 
 fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
@@ -55,8 +61,15 @@ fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
     }
     let ts = r.ts?;
     let at = moment(&ts)?;
+    let op_name = r.op?;
+    if op_name == "color" {
+        let stack = r.stack.filter(|s| !s.trim().is_empty())?;
+        let color = r.color.filter(|c| COLORS.contains(&c.as_str()))?;
+        let who = r.who.filter(|w| !w.is_empty())?;
+        return Some(Event { ts, at, dev: device.to_string(), who, photo: String::new(), op: Op::Color { stack, color }, line: n });
+    }
     let photo = r.photo.filter(|p| !p.trim().is_empty())?;
-    let op = match r.op?.as_str() {
+    let op = match op_name.as_str() {
         "rate" => Op::Rate(u8::try_from(r.stars?).ok().filter(|s| *s <= 5)?),
         "heart" => Op::Heart,
         "unheart" => Op::Unheart,
@@ -101,6 +114,8 @@ pub struct Marks {
     pub hidden: HashMap<String, Hidden>,
     /// Each photo in a stack, with its stack's id; stacks of one photo left out (F015/S01).
     pub stacks: HashMap<String, String>,
+    /// The color chosen for a stack, by id (F015/S05).
+    pub stack_colors: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -144,6 +159,9 @@ pub fn merge(mut events: Vec<Event>) -> Marks {
             }
             Op::Unstack => {
                 m.stacks.remove(&e.photo);
+            }
+            Op::Color { stack, color } => {
+                m.stack_colors.insert(stack, color);
             }
         }
     }
@@ -196,6 +214,7 @@ pub enum Change {
     Hide { photos: Vec<String>, hidden: bool },
     Stack { photos: Vec<String>, stack: String },
     Unstack { photos: Vec<String> },
+    Color { stack: String, color: String },
 }
 
 /// Why a change can't be written, or `None`.
@@ -211,7 +230,8 @@ pub fn refusal(change: &Change) -> Option<String> {
             Some("geen foto's gekozen".into())
         }
         Change::Rate { stars, .. } if *stars > 5 => Some(format!("{stars} sterren kan niet: 0 tot 5")),
-        Change::Stack { stack, .. } if stack.trim().is_empty() => Some("een reeks zonder naam".into()),
+        Change::Stack { stack, .. } | Change::Color { stack, .. } if stack.trim().is_empty() => Some("een reeks zonder naam".into()),
+        Change::Color { color, .. } if !COLORS.contains(&color.as_str()) => Some(format!("onbekende kleur: {color}")),
         _ => None,
     }
 }
@@ -245,6 +265,9 @@ pub fn lines(change: &Change, ts: &str, dev: &str, who: &str) -> Vec<String> {
             })
             .collect(),
         Change::Unstack { photos } => photos.iter().map(|p| head("unstack", p).to_string() + "\n").collect(),
+        Change::Color { stack, color } => {
+            vec![json!({"v": 1, "ts": ts, "dev": dev, "who": who, "op": "color", "stack": stack, "color": color}).to_string() + "\n"]
+        }
     }
 }
 
@@ -451,5 +474,17 @@ mod tests {
         assert_eq!((s.marks.stacks.len(), s.marks.stacks["a"].as_str()), (2, id.as_str()));
         let empty = Change::Stack { photos: vec!["a".into()], stack: " ".into() };
         assert!(append(dir.path(), "mbp-lynn", "lynn", &empty).is_err());
+    }
+
+    #[test]
+    fn a_stack_color_the_last_one_wins() {
+        let dir = registered_dir(&["mbp-lynn"]);
+        append(dir.path(), "mbp-lynn", "lynn", &Change::Color { stack: "s".into(), color: "groen".into() }).unwrap();
+        append(dir.path(), "mbp-lynn", "lynn", &Change::Color { stack: "s".into(), color: "roze".into() }).unwrap();
+        let s = load(Some(dir.path()), Path::new("/nowhere"));
+        assert_eq!(s.marks.stack_colors["s"], "roze");
+        assert!(append(dir.path(), "mbp-lynn", "lynn", &Change::Color { stack: "s".into(), color: "rood".into() }).unwrap_err().contains("onbekende kleur"));
+        let unknown = r#"{"v":1,"ts":"2026-10-30T10:00:00+01:00","dev":"a","who":"x","op":"color","stack":"s","color":"rood"}"#.to_string() + "\n";
+        assert_eq!(parse_file(&unknown, "a").1, 1);
     }
 }

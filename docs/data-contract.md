@@ -256,13 +256,14 @@ One file per device, next to `events/`, written only by that device, only by app
 | Field | Required | Meaning |
 |---|---|---|
 | `v`, `ts`, `dev`, `who` | yes | As in 5.2. |
-| `op` | yes | `rate`, `heart`, `unheart`, `hide`, `unhide`, `stack`, `unstack`. |
-| `photo` | yes | Content hash of the original. |
+| `op` | yes | `rate`, `heart`, `unheart`, `hide`, `unhide`, `stack`, `unstack`, `color`. |
+| `photo` | yes, except with `color` | Content hash of the original. |
 | `stars` | with `rate` | 0 to 5; 0 removes the rating. |
-| `stack` | with `stack` | The stack's id, made by the device that makes the stack: its name and the moment, `mbp-peter-20261030T211502123`. |
+| `color` | with `color` | A stack's color: `blauw`, `amber`, `groen`, `roze`, `paars`, `turkoois`, `oranje` or `grijs`; with `stack`, the stack it colors. |
+| `stack` | with `stack` and `color` | The stack's id, made by the device that makes the stack: its name and the moment, `mbp-peter-20261030T211502123`. |
 | `path` | no | Last known path in `Library`, as a hint. |
 
-Merging: all lines of registered devices, sorted as in 5.3 (moment of `ts`, then `dev`, then line). For each photo the last `rate` gives its stars, with its `who` and `ts`; for each photo and `who` the last `heart` or `unheart` decides whether that person's heart is on it; for each photo the last `hide` or `unhide`, whoever wrote it, decides whether it is hidden; for each photo the last `stack` or `unstack` decides its stack. A stack is the photos whose last event names it; a stack of fewer than two photos counts as none. An `unheart` without a heart, or a rating of 0 without a rating, changes nothing.
+Merging: all lines of registered devices, sorted as in 5.3 (moment of `ts`, then `dev`, then line). For each photo the last `rate` gives its stars, with its `who` and `ts`; for each photo and `who` the last `heart` or `unheart` decides whether that person's heart is on it; for each photo the last `hide` or `unhide`, whoever wrote it, decides whether it is hidden; for each photo the last `stack` or `unstack` decides its stack. A stack is the photos whose last event names it; a stack of fewer than two photos counts as none. For each stack the last `color` gives its color; without one, a reader picks a color from the id. An `unheart` without a heart, or a rating of 0 without a rating, changes nothing.
 
 ## 6. Exports
 
@@ -356,6 +357,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 
 | Version | Date | What |
 |---|---|---|
+| 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `stack` and `unstack`, a photo's stack decided by its last event (FamilyLightbox F015/S01). |
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `hide` and `unhide`, shared per photo, the last one decides (FamilyLightbox F014/S01). |
 | 1.2 (addition) | 2026-10-30 | Section 5.5: stars and hearts as events in `Lists/marks/<device>.jsonl`, merged like the lists; the app's sync copies them too (FamilyLightbox F013/S01). List events unchanged. |

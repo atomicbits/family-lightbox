@@ -59,6 +59,8 @@ describe("the looks of a stack", () => {
     expect(stackColor("mbp-peter-1")).toEqual(stackColor("mbp-peter-1"));
     const colors = new Set(["a", "b", "c", "d", "e", "f"].map((x) => stackColor(`mbp-peter-${x}`).border));
     expect(colors.size).toBeGreaterThan(2);
+    expect(stackColor("mbp-peter-1", "groen").name).toBe("groen");
+    expect(stackColor("mbp-peter-1", "rood")).toEqual(stackColor("mbp-peter-1"));
   });
 
   it("puts the symbol on the last shown tile of the stack", () => {

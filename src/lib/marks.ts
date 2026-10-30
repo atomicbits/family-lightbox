@@ -14,6 +14,8 @@ export type MarksState = {
   hidden: Record<string, { by: string; at: string }>;
   /** Each photo in a stack, with its stack's id (F015). */
   stacks: Record<string, string>;
+  /** The color chosen for a stack, by id (F015/S05). */
+  stack_colors: Record<string, string>;
   ignored: number;
   problem: string | null;
 };
@@ -83,7 +85,7 @@ export function changeText(n: number, change: { stars: number } | { heart: boole
   return change.heart ? `hartje op ${photos}` : `hartje weg bij ${photos}`;
 }
 
-export const NO_MARKS: MarksState = { source: "none", ratings: {}, hearts: {}, hidden: {}, stacks: {}, ignored: 0, problem: null };
+export const NO_MARKS: MarksState = { source: "none", ratings: {}, hearts: {}, hidden: {}, stacks: {}, stack_colors: {}, ignored: 0, problem: null };
 
 export type Marks = {
   state: MarksState;
@@ -95,6 +97,7 @@ export type Marks = {
   /** Into this stack, or a new one when `stack` is null. */
   stack: (photos: string[], stack: string | null) => Promise<MarksState>;
   unstack: (photos: string[]) => Promise<MarksState>;
+  color: (stack: string, color: string) => Promise<MarksState>;
 };
 
 /** `version` changes when the watch of `useLists` read the share again. */
@@ -115,6 +118,7 @@ export function useMarks(version: number): Marks {
   const hide = useCallback((photos: string[], hidden: boolean) => apply("marks_hide", { photos, hidden }), [apply]);
   const stack = useCallback((photos: string[], stack: string | null) => apply("marks_stack", { photos, stack }), [apply]);
   const unstack = useCallback((photos: string[]) => apply("marks_unstack", { photos }), [apply]);
+  const color = useCallback((stack: string, color: string) => apply("marks_color", { stack, color }), [apply]);
 
   const reload = useCallback(async () => {
     const s = await invoke<MarksState>("marks_state");
@@ -122,5 +126,5 @@ export function useMarks(version: number): Marks {
     return s;
   }, []);
 
-  return { state, reload, rate, heart, hide, stack, unstack };
+  return { state, reload, rate, heart, hide, stack, unstack, color };
 }

@@ -1,6 +1,6 @@
 # Feature 15: Stacks (reeksen)
 
-**Status:** In progress (plan accepted 2026-10-30; S01 done, S02–S04 built, to try in the app)
+**Status:** In progress (plan accepted 2026-10-30; S01 done, S02–S04 checked by Peter, S05 built)
 **Depends on:** Feature 13 (marks: stars and hearts, the message with undo), feature 14 (the right-click menu on photos, hidden photos)
 **Folder:** `F015-stacks`
 
@@ -78,6 +78,7 @@ restarts; the stacks themselves are shared, like stars and hearts.
 | [S02](stories/S02-the-grid.md) | The grid: a month's photos with stacks together, folded or unfolded; which photos a folded stack shows; the counts | In progress: built, to see once stacks can be made | S01 |
 | [S03](stories/S03-the-looks.md) | The looks: border, background, the stronger border when selected, the symbol that folds and unfolds | In progress: built, to see once stacks can be made | S02 |
 | [S04](stories/S04-making-and-changing.md) | Making, adding to and taking out of a stack from the right-click menu, with the message and undo | In progress: built, to try in the app | S03 |
+| [S05](stories/S05-choosing-a-color.md) | Choosing a stack's color from the right-click menu, shared, with undo (Peter's wish after trying S04) | In progress: built, to try in the app | S04 |
 
 ## Decisions
 

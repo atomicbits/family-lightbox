@@ -10,6 +10,7 @@ export type Step =
   | { kind: "heart"; text: string; after: boolean; before: Record<string, boolean> }
   | { kind: "hide"; text: string; after: boolean; before: Record<string, boolean> }
   | { kind: "stack"; text: string; after: string | null; before: Record<string, string | null> }
+  | { kind: "color"; text: string; stack: string; after: string; before: string }
   | { kind: "list"; text: string; done: ListDone };
 
 /** What undoing a step writes: per value, the photos to give it; and how many were left alone. */

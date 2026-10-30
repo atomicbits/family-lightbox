@@ -516,6 +516,12 @@ async fn marks_stack(photos: Vec<String>, stack: Option<String>, paths: State<'_
 }
 
 #[tauri::command]
+async fn marks_color(stack: String, color: String, paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || change_marks(&paths, marks::Change::Color { stack, color })).await
+}
+
+#[tauri::command]
 async fn marks_unstack(photos: Vec<String>, paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
     let paths = paths.inner().clone();
     on_blocking(move || change_marks(&paths, marks::Change::Unstack { photos })).await
@@ -817,7 +823,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, items_by_hash, count_per_month, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, count_per_month, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

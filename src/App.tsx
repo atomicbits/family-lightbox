@@ -21,7 +21,7 @@ import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
 import { hideText, listText, skippedText, stackText, undoHeart, undoHide, undoList, undoStack, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
 import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./lib/hidden";
-import { arrange, buildStacks, stackActions, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
+import { PALETTE, arrange, buildStacks, stackActions, stackColor, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
 import UndoIcon from "./components/UndoIcon";
 import ShortcutsOverlay from "./components/ShortcutsOverlay";
 import { isShortcutsKey } from "./lib/shortcuts";
@@ -417,6 +417,31 @@ export default function App() {
     }
   }, [blockedMarks, marks.state.stacks, marks.stack, marks.unstack, lists.say, undo.push, showToast]);
 
+  // A stack's color (F015/S05), shared, with the message and undo.
+  const changeColor = useCallback(async (stack: string, color: string, before: string) => {
+    if (blockedMarks) return lists.say(blockedMarks);
+    try {
+      await marks.color(stack, color);
+      const text = `reeks ${color} gemaakt`;
+      undo.push({ kind: "color", text, stack, after: color, before });
+      showToast(text, true);
+    } catch (e) {
+      lists.say(String(e));
+    }
+  }, [blockedMarks, marks.color, lists.say, undo.push, showToast]);
+
+  /** The colors to offer when the clicked photos are of one stack. */
+  const stackSwatches = (keys: string[]) => {
+    if (listId) return undefined;
+    const hashes = keys
+      .map((k) => { const { section, index } = parseKey(k); return itemsOf(sections[section]?.month)?.[index]?.hash; })
+      .filter((h): h is string => !!h);
+    const id = stackActions(hashes, stackIds).dissolve;
+    if (!id) return undefined;
+    const current = stackColor(id, marks.state.stack_colors[id]).name;
+    return { colors: PALETTE, current, onPick: (name: string) => { if (name !== current) changeColor(id, name, current); } };
+  };
+
   const stackMenu = (keys: string[]) => {
     if (listId) return [];
     const hashes = keys
@@ -466,7 +491,12 @@ export default function App() {
     setToast(null);
     try {
       let skipped = "";
-      if (step.kind === "list") {
+      if (step.kind === "color") {
+        const s = await marks.reload();
+        const now = stackColor(step.stack, s.stack_colors[step.stack]).name;
+        if (now === step.after) await marks.color(step.stack, step.before);
+        else skipped = "de kleur werd intussen gewijzigd, niet teruggezet";
+      } else if (step.kind === "list") {
         const inList = await lists.photosOf(step.done.id);
         const p = undoList(step.done, (h) => inList.has(h));
         if (p.photos.length) {
@@ -493,7 +523,7 @@ export default function App() {
     } catch (e) {
       lists.say(String(e));
     }
-  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, marks.hide, marks.stack, marks.unstack, me, showToast]);
+  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, marks.hide, marks.stack, marks.unstack, marks.color, me, showToast]);
 
   // ⌘? (Ctrl+? elsewhere) shows the shortcuts.
   const [showKeys, setShowKeys] = useState(false);
@@ -877,6 +907,7 @@ export default function App() {
             ...foldActions(menu.keys),
             ...stackMenu(menu.keys),
           ]}
+          swatches={stackSwatches(menu.keys)}
         />
       )}
       {device && device.device === null && device.error === null && (

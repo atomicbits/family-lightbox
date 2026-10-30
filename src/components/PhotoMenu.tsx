@@ -14,10 +14,12 @@ type Props = {
   blocked: string | null;
   onAddTo: (id: string) => void;
   onClose: () => void;
+  /** A row of colors to pick from (a stack's color, F015/S05). */
+  swatches?: { colors: { name: string; border: string }[]; current: string; onPick: (name: string) => void };
 };
 
 /** The right-click menu on the grid (F003/S05): the active list, and adding to any list. */
-export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo, onClose }: Props) {
+export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo, onClose, swatches }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -42,6 +44,21 @@ export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo
             {a.label}
           </button>
         ))}
+        {swatches && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5" title={blocked ?? undefined}>
+            <span className="text-xs text-neutral-400 mr-1">Kleur</span>
+            {swatches.colors.map((c) => (
+              <button
+                key={c.name}
+                disabled={!!blocked}
+                title={c.name}
+                className={"w-4 h-4 rounded-full disabled:opacity-40 " + (c.name === swatches.current ? "ring-2 ring-offset-1 ring-neutral-500 dark:ring-offset-neutral-900" : "")}
+                style={{ background: c.border }}
+                onClick={() => { swatches.onPick(c.name); onClose(); }}
+              />
+            ))}
+          </div>
+        )}
         {lists.length > 0 && (
           <>
             <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
