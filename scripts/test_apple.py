@@ -53,7 +53,10 @@ app.write_bytes(b"app")
 name = apple.upload_name(app)
 
 print("— names and history")
-check("upload name carries the hash", name.startswith("FamilyLightbox-") and name.endswith(".app.zip") and len(name) == len("FamilyLightbox-") + 12 + len(".app.zip"), name)
+check("upload name carries the hash", name.startswith("FamilyLightbox.app-") and name.endswith(".zip") and len(name) == len("FamilyLightbox.app-") + 12 + len(".zip"), name)
+dmg = d / "FamilyLightbox_0.4.4_aarch64.dmg"
+dmg.write_bytes(b"dmg")
+check("the version stays whole", apple.upload_name(dmg).startswith("FamilyLightbox_0.4.4_aarch64-") and apple.upload_name(dmg).endswith(".dmg"), apple.upload_name(dmg))
 hist = {"history": [
     {"name": name, "status": "Invalid", "id": "bad", "createdDate": "2026-10-30T22:00:00Z"},
     {"name": name, "status": "Accepted", "id": "old", "createdDate": "2026-10-30T21:00:00Z"},

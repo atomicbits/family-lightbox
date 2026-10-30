@@ -54,8 +54,7 @@ def upload_name(path: Path) -> str:
     with path.open("rb") as f:
         for block in iter(lambda: f.read(4 << 20), b""):
             h.update(block)
-    stem, dot, ext = path.name.partition(".")
-    return f"{stem}-{h.hexdigest()[:12]}{dot}{ext}"
+    return f"{path.stem}-{h.hexdigest()[:12]}{path.suffix}"
 
 
 def earlier(history: dict, name: str) -> dict | None:
