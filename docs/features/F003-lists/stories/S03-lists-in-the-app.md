@@ -74,3 +74,10 @@ and every photo in it carries a mark in the grid.
 
 - Peter tried it in the app: creating a list, showing it, adding by dragging and the menu,
   picking several; "de lijst werkt".
+
+### [2026-10-30] Fixed: "nog geen lijsten" when they couldn't be read
+
+- Peter: with the NAS half connected, the panel said "nog geen lijsten: + maakt er een" above
+  `/Volumes/Lists/devices.json niet leesbaar: Operation timed out`. There were lists; they just
+  couldn't be read. Now a reading problem shows only "lijsten nu niet te lezen", with the full
+  error in the tooltip and once in the messages and the log (F016); the + stays disabled.

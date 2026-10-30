@@ -132,8 +132,8 @@ export default function ListsPanel({ lists, month, dragging, onDrop }: Props) {
             {g.lists.map(row)}
           </div>
         ))}
-        {state && state.lists.length === 0 && !creating && (
-          <div className="px-3 pb-2 text-xs text-neutral-400">{blocked && state.source !== "nas" ? blocked : "nog geen lijsten: + maakt er een"}</div>
+        {state && state.lists.length === 0 && !creating && !state.problem && (
+          <div className="px-3 pb-2 text-xs text-neutral-400">{blocked ?? "nog geen lijsten: + maakt er een"}</div>
         )}
         {anyArchived && (
           <label className="flex items-center gap-1.5 px-3 py-1 text-xs text-neutral-400">
@@ -141,7 +141,11 @@ export default function ListsPanel({ lists, month, dragging, onDrop }: Props) {
             Gearchiveerd tonen
           </label>
         )}
-        {state?.problem && <div className="px-3 pb-2 text-xs text-amber-600">{state.problem}</div>}
+        {state?.problem && (
+          <div className="px-3 pb-2 text-xs text-amber-600" title={state.problem}>
+            lijsten nu niet te lezen; de details staan in de meldingen (⚠)
+          </div>
+        )}
         {state && state.source === "local" && state.lists.length > 0 && (
           <div className="px-3 pb-2 text-xs text-neutral-400">zonder NAS: alleen bekijken</div>
         )}
