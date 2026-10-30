@@ -113,3 +113,9 @@ Peter accepted all eleven proposals on 2026-10-30, with point 4 adjusted as writ
     *Reeks openklappen* / *dichtklappen*).
 11. **Dissolving.** Proposal: right-click in a stack also offers *Reeks opheffen*, which takes
     all its photos out at once (with undo).
+12. **Overlapping stacks** (Peter, 2026-10-30). The menu only offers *Reeks maken* when none of
+    the photos is in a stack yet, so one Mac can't make overlapping stacks. When two Macs make
+    stacks with a photo in common at the same moment, the contract's rule stands: the photo
+    goes to the stack whose event comes last, the other stack keeps the rest (and is no stack
+    once one photo is left). Accepted as is: rare, the same on both Macs, and undoable. No
+    message, no merge action.
