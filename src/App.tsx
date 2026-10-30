@@ -212,8 +212,16 @@ export default function App() {
 
   // The filter bar (F002/S03): kept per Mac; the core filters the index, a list is filtered here.
   const [filter, setFilterState] = useState<FilterState>(NO_FILTER);
+  const topMonthRef = useRef<string | null>(null);
   useEffect(() => { invoke<unknown>("get_filter").then((v) => setFilterState(readFilter(v))).catch(() => {}); }, []);
+  // the month at the top when the filter changes, to come back to once the new counts are in
+  const topOnFilter = useRef<string | null>(null);
+  const countsFor = useRef<string | null>(null);
   const setFilter = useCallback((f: FilterState) => {
+    const month = topMonthRef.current;
+    topOnFilter.current = month;
+    // a filter that changes no counts moves nothing; don't jump later on something else
+    setTimeout(() => { if (topOnFilter.current === month) topOnFilter.current = null; }, 3000);
     setFilterState(f);
     invoke("set_filter", { filter: isSet(f) ? f : null }).catch(() => {});
   }, []);
@@ -223,8 +231,9 @@ export default function App() {
   const [filteredCounts, setFilteredCounts] = useState<Record<string, number> | null>(null);
   useEffect(() => {
     if (!filterOn) return setFilteredCounts(null);
+    const key = filterKey;
     invoke<[string, number][]>("months_filtered", { filter: coreFilter })
-      .then((rows) => setFilteredCounts(Object.fromEntries(rows)))
+      .then((rows) => { countsFor.current = key; setFilteredCounts(Object.fromEntries(rows)); })
       .catch((e) => lists.say(String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, builds]);
@@ -336,6 +345,7 @@ export default function App() {
   // When photos are hidden or shown again (here or on the other Mac), keep the selection on the
   // same photo; the picks are cleared, their positions may have moved.
   const selectedPath = useRef<{ month: string; path: string } | null>(null);
+  const quietSelection = useRef(false);
   useEffect(() => {
     const month = selected ? sections[selected.section]?.month : undefined;
     const item = month ? itemsOf(month)?.[selected!.index] : undefined;
@@ -355,7 +365,11 @@ export default function App() {
     const stackOf = (path: string) => stackMembers.find((m) => m.path === path && m.hash in stackIds)?.hash;
     const h = stackOf(sp.path);
     if (i < 0 && h) i = items.findIndex((x) => stackIds[x.hash] === stackIds[h]);
-    setSelected(i >= 0 ? { section, index: i } : items.length ? { section, index: Math.min(selected?.index ?? 0, items.length - 1) } : null);
+    const next = i >= 0 ? { section, index: i } : items.length ? { section, index: Math.min(selected?.index ?? 0, items.length - 1) } : null;
+    if (next?.section !== selected?.section || next?.index !== selected?.index) {
+      quietSelection.current = true; // moved by the app: the grid stays where the user is
+      setSelected(next);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hiddenRec, sections, revealed, stackView]);
 
@@ -740,6 +754,16 @@ export default function App() {
   }, [builds]);
   const topSection = sections[top];
   const lastSection = sections.length - 1;
+  topMonthRef.current = topSection?.month ?? null;
+
+  // After a filter change, once the counts for it are in: the same month at the top (F002/S03).
+  useEffect(() => {
+    const month = topOnFilter.current;
+    if (!month || (filterOn && countsFor.current !== filterKey)) return;
+    topOnFilter.current = null;
+    const s = sections.findIndex((x) => x.month === month);
+    if (s >= 0) setJump({ section: s, nonce: Date.now() });
+  }, [sections, filterOn, filterKey]);
 
   // A month clicked while a list was shown: jump to it once the library is back.
   const pendingMonth = useRef<string | null>(null);
@@ -867,6 +891,7 @@ export default function App() {
               me={device?.device?.owner ?? null}
               dimHidden
               inList={!!listId}
+              quietSelection={quietSelection}
               activeBar={selHashes.length ? (size) => (
                 <MarksBar
                   count={selHashes.length}

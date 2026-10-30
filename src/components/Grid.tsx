@@ -45,6 +45,9 @@ type Props = {
   unfolded?: Set<string>;
   onToggleStack?: (id: string) => void;
   inList?: boolean;
+  /** Set when the app moved the selection itself (photos hidden, a filter changed): the grid then
+   * doesn't scroll to it, it stays where the user is. Read and cleared by the grid. */
+  quietSelection?: { current: boolean };
   /** The stars and heart for the selection, drawn on the selected tile (F013, on Peter's request). */
   activeBar?: (tile: number) => ReactNode;
   /** A tile starts being dragged (to a list in the sidebar). */
@@ -64,7 +67,7 @@ const BAND_PAD = 4;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, unfolded, onToggleStack, inList, activeBar, onDragTile, onMenu }: Props) {
+export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, unfolded, onToggleStack, inList, activeBar, quietSelection, onDragTile, onMenu }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -133,6 +136,7 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   layoutRef.current = layout;
   const selKey = selected ? `${selected.section}:${selected.index}` : null;
   useEffect(() => {
+    if (quietSelection?.current) { quietSelection.current = false; return; }
     if (selected) virtualizer.scrollToIndex(rowOf(layoutRef.current, selected, cols), { align: "auto" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selKey, cols, virtualizer]);

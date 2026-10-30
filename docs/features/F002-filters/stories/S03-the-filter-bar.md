@@ -58,3 +58,14 @@ a set filter is clear at a glance and cleared with one click; it is kept after a
   matching photos; a stack with none is left out. Done by giving the stacks' view a `isHidden`
   that also hides what doesn't match (`stacksShown`), so `arrange` and `stackDelta` work as they
   are. One vitest test; 109 tests.
+
+### [2026-10-30] The grid stays where it was when the filter changes
+
+- Peter: with a photo selected in one month and another month on screen, changing the filter
+  jumped the grid back to the selected photo. Two causes: the app put the selection back on the
+  same photo after the new layout, and the grid scrolls to every new selection; and the layout
+  itself changes with the counts.
+- A selection the app moves itself (photos hidden, a filter changed) now sets
+  `quietSelection`, and the grid doesn't scroll to it. A filter change remembers the month at the
+  top and jumps back to it once the counts for that filter are in (or forgets it after 3 s when
+  nothing changed).
