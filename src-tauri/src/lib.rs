@@ -350,14 +350,16 @@ fn make_job(paths: &Paths) -> previews_job::MakeJob {
     }
 }
 
-/// Start making previews, unless a sync or an index build runs, an update installs, or it is
-/// paused or running already.
+/// Start making previews, unless a sync or an index build runs, an update installs, there is no
+/// index yet, or it is paused or running already.
 fn start_making(app: &tauri::AppHandle) {
     #[cfg(target_os = "macos")]
     {
+        // without an index (a new Mac before its first sync) there is nothing to make yet
         let busy = app.state::<runner::SyncRunner>().status().running
             || app.state::<index::IndexRunner>().status().running
-            || app.state::<update::UpdateState>().installing();
+            || app.state::<update::UpdateState>().installing()
+            || !app.state::<Paths>().index().exists();
         if !busy {
             let job = make_job(&app.state::<Paths>());
             app.state::<previews_job::MakeRunner>().start(job, Arc::new(EventSink(app.clone())));

@@ -157,7 +157,8 @@ export default function App() {
       if (s.index_exists)
         api.months().then((m) => { if (gen === generation.current) setMonths(m); }).catch((e) => setError(String(e)));
       else setWaitingForIndex(true);
-      index.rebuild({ visible: !s.index_exists, onlyIfStale: false }).catch((e) => setError(String(e)));
+      // a new Mac has no working copy until the first sync made it; that sync builds the index
+      if (s.library_exists) index.rebuild({ visible: !s.index_exists, onlyIfStale: false }).catch((e) => setError(String(e)));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

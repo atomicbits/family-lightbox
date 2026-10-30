@@ -180,6 +180,12 @@ pub fn plan(job: &Job, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool)
             // A requested top-level folder that doesn't exist (a year without files) is fine;
             // one that was just listed and is gone now means the NAS went away.
             Err(e) if e.kind() == ErrorKind::NotFound && job.only.is_some() => continue,
+            // a year folder this user may not read (an ACL on the NAS): skipped, as the data
+            // contract asks (section 2); over SMB already looking at it is refused
+            Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+                p.skipped.push(name);
+                continue;
+            }
             Err(e) => return Err(Stop::Failed(format!("{}: {e}", path.display()))),
         };
         if meta.is_dir() {
@@ -229,7 +235,14 @@ fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut
                 walk(job, &e.path(), &child, p, progress, cancel)?;
             }
         } else if ft.is_file() {
-            let meta = e.metadata().map_err(|err| Stop::Failed(format!("{}: {err}", e.path().display())))?;
+            let meta = match e.metadata() {
+                Ok(m) => m,
+                Err(err) if err.kind() == ErrorKind::PermissionDenied => {
+                    p.skipped.push(child);
+                    continue;
+                }
+                Err(err) => return Err(Stop::Failed(format!("{}: {err}", e.path().display()))),
+            };
             consider(job, &child, &meta, p, progress, cancel)?;
         }
     }
@@ -549,6 +562,23 @@ mod tests {
         assert_eq!(p.skipped, vec!["2007"]);
         assert_eq!(o.copied_missing, 1);
         assert!(l.path().join("2008/01/b.jpg").exists() && !l.path().join("2007").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_year_folder_that_cannot_even_be_looked_at_is_skipped() {
+        // over SMB an ACL that denies a year folder already refuses to stat it; here a root that
+        // can be listed but not searched does the same
+        use std::os::unix::fs::PermissionsExt;
+        let (r, l) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        put(r.path(), "2007/01/a.jpg", b"x", t(1));
+        put(r.path(), "2008/01/b.jpg", b"y", t(1));
+        fs::set_permissions(r.path(), fs::Permissions::from_mode(0o444)).unwrap();
+        let result = plan(&job(r.path(), l.path()), &mut |_| {}, &AtomicBool::new(false));
+        fs::set_permissions(r.path(), fs::Permissions::from_mode(0o755)).unwrap();
+        let p = result.unwrap_or_else(|_| panic!("the sync stopped instead of skipping"));
+        assert_eq!(p.skipped, vec!["2007", "2008"]);
+        assert!(p.entries.is_empty());
     }
 
     #[cfg(unix)]

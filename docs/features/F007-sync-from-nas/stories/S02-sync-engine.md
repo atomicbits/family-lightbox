@@ -126,3 +126,15 @@ local file other than its own temporary files, and never writes to the NAS.
   and the CLI reads folder times (`library_months`). `execute` now notes each folder's local time
   before its first copy and restores it at the end, also after a cancel or an error. A folder the
   engine created gets the NAS folder's time. Test `folder_times_stay_as_they_were_or_follow_the_nas`.
+
+### [2026-10-30] Fix: a year folder that can't even be looked at
+
+On the first Mac of a user whose account may not read some year folders (an ACL on the NAS, data
+contract section 2), the sync stopped at once with "Permission denied": over SMB such a folder
+can't even be `stat`ed, and only a refused `read_dir` was treated as "skip". Now a refused
+`symlink_metadata` of a top-level folder, and a refused `metadata` of a file deeper down, are
+skipped and listed in `skipped` too. Test: a root that can be listed but not searched.
+
+Two follow-ups of the same first start: the app no longer builds the index at start when there is
+no working copy yet (the first sync makes it, and builds the index after), and making previews
+doesn't start without an index, so a new Mac logs no error for either.
