@@ -52,3 +52,10 @@ the label said 20:15 and every run since this story failed. The test now builds 
 local time. The same weakness in the lists test (`addedText`, a day off east of UTC+12) is fixed
 the same way. Both suites checked under UTC, Brussels, Auckland, Kiritimati, Los Angeles and
 Pago Pago.
+
+### [2026-10-30] Copying the messages
+
+On Lynn's Mac the text in *Meldingen* couldn't be copied: the app turns text selection off
+everywhere (`index.css`), and right-click is off too. The list is selectable now (`select-text`),
+so ⌘C works, and *Kopiëren* puts all messages on the clipboard as the log's lines, oldest first
+(`messagesText`), to send on.

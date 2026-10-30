@@ -14,6 +14,11 @@ export function pushMessage(list: Message[], m: Message, max = MAX_MESSAGES): Me
   return [m, ...list].slice(0, max);
 }
 
+/** The messages as lines of text, oldest first, as in the log file: to copy and send on. */
+export function messagesText(list: Message[]): string {
+  return [...list].reverse().map((m) => `${m.at} ${m.level.toUpperCase()} ${m.source} ${m.text}`).join("\n") + "\n";
+}
+
 /** "21:15" for today, "30 okt 21:15" for an earlier day. */
 export function timeLabel(at: string, now = new Date()): string {
   const d = new Date(at);

@@ -161,3 +161,8 @@ confirmation to fetch the previews, was the index built.
   counting the previews, waiting for the confirmation (with where to click), or copying them
   with files and GB; a failure is shown at the step where it happened.
 - Tests: the runner asks for the index before counting; the steps for every phase.
+
+No index build is asked for while the working copy doesn't exist yet: coming back to the window
+asked for one every 30 seconds during the first sync, and logged "werkkopie niet gevonden" on a
+new Mac. `index_rebuild` and the sync's requests now skip it quietly until the first manifests
+made the folder.

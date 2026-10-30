@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pushMessage, timeLabel, type Message } from "./messages";
+import { messagesText, pushMessage, timeLabel, type Message } from "./messages";
 import { fades, type SyncState } from "./sync";
 
 const m = (text: string): Message => ({ at: "2026-10-30T21:15:02+01:00", level: "warn", source: "synchronisatie", text });
@@ -9,6 +9,11 @@ describe("messages", () => {
     let list: Message[] = [];
     for (const t of ["a", "b", "c"]) list = pushMessage(list, m(t), 2);
     expect(list.map((x) => x.text)).toEqual(["c", "b"]);
+  });
+
+  it("copy as the log's lines, oldest first", () => {
+    const list = [{ ...m("b"), level: "error" as const }, m("a")];
+    expect(messagesText(list)).toBe("2026-10-30T21:15:02+01:00 WARN synchronisatie a\n2026-10-30T21:15:02+01:00 ERROR synchronisatie b\n");
   });
 
   it("show the time, with the day when it isn't today", () => {

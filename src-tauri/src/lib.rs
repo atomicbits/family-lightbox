@@ -385,6 +385,10 @@ impl runner::Sink for EventSink {
 impl EventSink {
     fn rebuild_index(&self) {
         let job = self.0.state::<Paths>().index_job();
+        // a new Mac has no working copy until the first sync made it: nothing to build, no error
+        if !job.library.is_dir() {
+            return;
+        }
         self.0.state::<index::IndexRunner>().request(job, Arc::new(EventSink(self.0.clone())));
     }
 }
@@ -528,7 +532,7 @@ fn previews_focus(month: Option<String>, runner: State<previews_job::MakeRunner>
 #[tauri::command]
 fn index_rebuild(only_if_stale: bool, app: tauri::AppHandle, paths: State<Paths>, runner: State<index::IndexRunner>) -> bool {
     let job = paths.index_job();
-    if only_if_stale && !runner.stale(&job) {
+    if !job.library.is_dir() || (only_if_stale && !runner.stale(&job)) {
         return false;
     }
     runner.request(job, Arc::new(EventSink(app)));
