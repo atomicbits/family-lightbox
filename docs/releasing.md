@@ -61,19 +61,20 @@ git push origin main v0.2.0        # through the leak check, like every push
 gh run watch -R atomicbits/family-lightbox   # the release run
 ```
 
-The `build` job checks, before anything is published:
+The run is five jobs (F004/S06), each handing its result to the next as an artifact, so a
+release that stops can be continued from the job that failed:
 
-- the tag equals the version in `tauri.conf.json`, `Cargo.toml` and `package.json`;
-- the leak check over the whole history;
-- the app: `codesign --verify --deep --strict`, `spctl` accepting it as a notarized Developer ID
-  app, and the stapled ticket;
-- exactly one `.app.tar.gz` with its `.sig`, and the app inside it notarized too;
-- exactly one `.dmg`, itself notarized and stapled too (`spctl --type open` accepting it as a
-  notarized Developer ID disk image): tauri-action only notarizes the app inside.
+| Job | What it does | Checks |
+|---|---|---|
+| `build` | the tag against the three versions, the leak check over the whole history, `tauri build` of the `.app` only, signed with the Developer ID (not notarized) | `codesign --verify --deep --strict` |
+| `notarize` | the zipped app to Apple with `notarytool`, as `FamilyLightbox-<hash>.app.zip`; a re-run finds that name in Apple's history and waits for the earlier submission instead of submitting again; the id is in the job summary | Apple's *Accepted* |
+| `staple` | the ticket stapled to the app | `stapler validate`, `spctl` as a notarized Developer ID app; the job fails if the ticket can't be stapled |
+| `package` | from the stapled app: the update payload (`.app.tar.gz`, signed with the update key by `tauri signer sign`) and the `.dmg` (`hdiutil`, with a link to Applications), which is signed, notarized and stapled itself | the app inside the payload notarized and stapled; the `.dmg` accepted by `spctl --type open` |
+| `publish` | (tag only) the GitHub Release, `latest.json` from the `.sig` (`scripts/build-latest-json.py`), the `.dmg`, the `.tar.gz` and the `.sig`, and `latest.json` last | |
 
-The `publish` job then creates the GitHub Release, builds `latest.json` from the `.sig`
-(`scripts/build-latest-json.py`), and uploads the `.dmg`, the `.tar.gz` and the `.sig`, and
-`latest.json` last.
+Every call to Apple (submit, wait, staple, validate, `spctl`) is tried up to five times with a
+growing pause (20, 40, 60, 80 s); a refusal by Apple (*Invalid*, *Rejected*) fails at once with
+Apple's log. The helper is `scripts/apple.py`, tested by `scripts/test_apple.py`.
 
 ## How an update reaches an installed app
 
@@ -104,6 +105,11 @@ xcrun stapler validate /Applications/FamilyLightbox.app
 And open it by double-click: no Gatekeeper warning.
 
 ## When something fails
+
+- **A release stopped halfway** (Apple's network, a runner): open the run, see which job failed,
+  and *Re-run failed jobs* (`gh run rerun <id> --failed`). The jobs before it keep their results;
+  a re-run of `notarize` reuses the submission of the same file. Never move or recreate the tag
+  for this.
 
 - **Notarization rejected**: the run prints a submission id. `xcrun notarytool log <id> --apple-id
   <Apple ID> --team-id <team id> --password <app-specific password>` gives the reason per file.

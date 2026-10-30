@@ -1,7 +1,7 @@
 # Story S06: A release in steps that can be retried, with the stapling made robust
 
 **Feature:** `F004-ci-and-releases`
-**Status:** Planned
+**Status:** In progress
 **Depends on:** S03, S04
 
 ## Goal
@@ -74,3 +74,16 @@ Today everything happens in one job; re-running it starts from scratch.
 ### [2026-10-30] Written
 
 After the failed release of 0.4.3; that release is retried as it stands while this story waits.
+
+### [2026-10-30] Built
+
+- `.github/workflows/release.yml`: five jobs. `build` signs the `.app` only (`--bundles app`, the
+  no-updater config, no `APPLE_ID`) and uploads it zipped with `ditto`; `notarize` and `staple`
+  work on that zip; `package` makes the payload (`tar`, `tauri signer sign`) and the `.dmg`
+  (`hdiutil`, signed with the certificate imported into a temporary keychain, notarized,
+  stapled) from the stapled app; `publish` as before, from the artifact `release-<version>`.
+  An unsigned dry run skips notarizing and stapling.
+- `scripts/apple.py` (`notarize`, `staple`, `validate`, `assess`) with retries and the reuse of a
+  submission by its hashed name; `scripts/test_apple.py` with a fake `xcrun` (14 checks).
+  `actionlint` clean, apart from an `ls | grep` in the unchanged publish job.
+- `docs/releasing.md`: the five jobs and what to do when a release stops.
