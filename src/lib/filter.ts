@@ -82,6 +82,25 @@ export function cameraButton(cameras: string[]): string {
   return `${cameras.length} camera's`;
 }
 
+/** A camera in the menu: name ("" unknown), photos and videos, latest `taken` (S04). */
+export type CameraCount = [camera: string, count: number, last: string | null];
+export type CameraOrder = "recent" | "count";
+
+/** Most recently used first (the default), or most photos first; "onbekend" always last. */
+export function sortCameras(cameras: CameraCount[], order: CameraOrder): CameraCount[] {
+  const last = (c: CameraCount) => c[2] ?? "";
+  return [...cameras].sort((a, b) =>
+    Number(a[0] === "") - Number(b[0] === "") ||
+    (order === "recent" ? last(b).localeCompare(last(a)) || b[1] - a[1] : b[1] - a[1] || last(b).localeCompare(last(a))) ||
+    a[0].localeCompare(b[0]));
+}
+
+/** "okt 2026" for when a camera was last used; "" when unknown. */
+export function lastUsedLabel(last: string | null): string {
+  const d = last ? new Date(last) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("nl-BE", { month: "short", year: "numeric" }) : "";
+}
+
 /** Ticks or unticks one camera; null is "Alle camera's", which clears the choice. */
 export function toggleCamera(cameras: string[], c: string | null): string[] {
   if (c === null) return [];

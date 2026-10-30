@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { cameraButton, cameraLabel, filterText, isSet, toggleCamera, type FilterState, type Kind, type StarsOp } from "../lib/filter";
+import { cameraButton, cameraLabel, filterText, isSet, lastUsedLabel, sortCameras, toggleCamera, type CameraCount, type CameraOrder, type FilterState, type Kind, type StarsOp } from "../lib/filter";
 
 type Props = {
   filter: FilterState;
@@ -8,8 +8,8 @@ type Props = {
   people: string[];
   /** "1 234 van 124 837" while a filter is set. */
   count: string | null;
-  /** The library's cameras with their counts, most first, "" for unknown (S04). */
-  cameras: [string, number][];
+  /** The library's cameras with their counts and when last used, "" for unknown (S04). */
+  cameras: CameraCount[];
 };
 
 const OPS: { op: StarsOp; label: string }[] = [{ op: "gte", label: "≥" }, { op: "eq", label: "=" }, { op: "lte", label: "≤" }];
@@ -19,8 +19,9 @@ const chip = (on: boolean) =>
   "px-1.5 py-0.5 rounded text-xs " + (on ? "bg-blue-600 text-white" : "text-neutral-500 hover:bg-neutral-200/70 dark:hover:bg-neutral-800");
 
 /** The camera button and its list (S04): light in the bar, as it is used less often. */
-function CameraMenu({ chosen, cameras, onChange }: { chosen: string[]; cameras: [string, number][]; onChange: (c: string[]) => void }) {
+function CameraMenu({ chosen, cameras, onChange }: { chosen: string[]; cameras: CameraCount[]; onChange: (c: string[]) => void }) {
   const [open, setOpen] = useState(false);
+  const [order, setOrder] = useState<CameraOrder>("recent");
   const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -43,12 +44,18 @@ function CameraMenu({ chosen, cameras, onChange }: { chosen: string[]; cameras: 
             <span className="flex-1 text-left">Alle camera's</span>
           </button>
           <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
+          <div className="flex items-center gap-1 px-3 pb-1 text-neutral-400">
+            <span>sorteer</span>
+            <button className={chip(order === "recent")} onClick={() => setOrder("recent")} title="laatst gebruikt eerst">recent</button>
+            <button className={chip(order === "count")} onClick={() => setOrder("count")} title="meeste foto's en video's eerst">aantal</button>
+          </div>
           {cameras.length === 0 && <div className="px-3 py-1 text-neutral-400">nog geen camera's in de index</div>}
-          {cameras.map(([c, n]) => (
+          {sortCameras(cameras, order).map(([c, n, last]) => (
             <button key={c} className="flex w-full items-center gap-2 px-3 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={() => onChange(toggleCamera(chosen, c))}>
               <input type="checkbox" readOnly checked={chosen.includes(c)} className="pointer-events-none" />
               <span className={"flex-1 text-left " + (c ? "" : "italic text-neutral-500")}>{cameraLabel(c)}</span>
-              <span className="tabular-nums text-neutral-400">{n.toLocaleString("nl-BE")}</span>
+              <span className="tabular-nums text-neutral-400" title="laatst gebruikt">{c ? lastUsedLabel(last) : ""}</span>
+              <span className="tabular-nums text-neutral-400 w-14 text-right">{n.toLocaleString("nl-BE")}</span>
             </button>
           ))}
         </div>

@@ -520,7 +520,14 @@ mod tests {
         assert_eq!(camera("CO7A9123.CR3").as_deref(), Some("Canon EOS R"));
         assert_eq!(camera("CO7A9140.MP4"), None);
         // photos and videos only; "" is unknown
-        assert_eq!(db.camera_counts().unwrap(), [("".to_string(), 2), ("Canon EOS R".to_string(), 1)]);
+        let counts = db.camera_counts().unwrap();
+        assert_eq!(
+            counts,
+            [
+                ("Canon EOS R".to_string(), 1, Some("2026-07-30T16:58:12+02:00".to_string())),
+                ("".to_string(), 2, Some("2026-07-30T17:00:00+02:00".to_string())),
+            ]
+        );
         let f1 = crate::filter::Filter { cameras: vec!["Canon EOS R".into()], ..Default::default() };
         assert_eq!(db.filtered_months(&f1).unwrap(), [("2026/07".to_string(), 1), ("2012/scans Peter".to_string(), 0)]);
         assert_eq!(db.filtered_items("2026/07", &f1).unwrap().len(), 1);

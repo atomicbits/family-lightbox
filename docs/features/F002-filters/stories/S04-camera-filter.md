@@ -44,3 +44,11 @@ more shows only their photos.
 - Some camera names are long ("EASTMAN KODAK COMPANY KODAK LS633 ZOOM DIGITAL CAMERA"): the
   button truncates, the list is as wide as the longest. Shortening the make belongs to the
   manifest's `camera_name` (LibraryLocal F011), if Peter wants it.
+
+### [2026-10-30] Most recently used first
+
+Peter asked to keep each camera's last use and sort recent to old by default. `camera_counts`
+now also gives the latest `taken` per camera and sorts on it, "onbekend" always last. The menu
+shows the month and year of the last use next to the count, with a toggle "recent" / "aantal"
+(recent is the default, not kept). `sortCameras` and `lastUsedLabel` in `filter.ts`, with
+tests; `pnpm test` 117 and `cargo test` 144 passed.

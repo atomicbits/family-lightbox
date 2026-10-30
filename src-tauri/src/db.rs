@@ -82,20 +82,21 @@ impl Db {
         j
     }
 
-    /// The cameras of the photos and videos with how many each, most first; "" for unknown
-    /// (F002/S04).
-    pub fn camera_counts(&self) -> Result<Vec<(String, i64)>, String> {
+    /// The cameras of the photos and videos with how many each and when last used (the latest
+    /// `taken`), most recent first; "" for unknown, always last (F002/S04).
+    pub fn camera_counts(&self) -> Result<Vec<(String, i64, Option<String>)>, String> {
         if !self.has_cameras {
             return Ok(vec![]);
         }
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT coalesce(cam.camera, ''), count(*) FROM items LEFT JOIN cameras cam ON cam.path = items.path
-                 WHERE kind IN ('photo', 'video') GROUP BY 1 ORDER BY 2 DESC, 1",
+                "SELECT coalesce(cam.camera, '') AS c, count(*), max(taken) AS last FROM items
+                 LEFT JOIN cameras cam ON cam.path = items.path
+                 WHERE kind IN ('photo', 'video') GROUP BY 1 ORDER BY c = '', last IS NULL, last DESC, 2 DESC, 1",
             )
             .map_err(|e| e.to_string())?;
-        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).map_err(|e| e.to_string())?;
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
     }
 

@@ -21,7 +21,7 @@ import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
 import { hideText, listText, skippedText, stackText, undoHeart, undoHide, undoList, undoStack, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
 import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./lib/hidden";
-import { NO_FILTER, isSet, matches, readFilter, toCore, type FilterState } from "./lib/filter";
+import { NO_FILTER, isSet, matches, readFilter, toCore, type CameraCount, type FilterState } from "./lib/filter";
 import FilterBar from "./components/FilterBar";
 import { PALETTE, arrange, buildStacks, stackActions, stackColor, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
 import UndoIcon from "./components/UndoIcon";
@@ -76,7 +76,7 @@ export default function App() {
   const previews = usePreviews();
   const lists = useLists();
   const messages = useMessages();
-  const [cameras, setCameras] = useState<[string, number][]>([]);
+  const [cameras, setCameras] = useState<CameraCount[]>([]);
   const [showMessages, setShowMessages] = useState(false);
   const openMessages = useCallback(() => { setShowMessages(true); messages.seen(); }, [messages.seen]);
   // an index problem shows for a moment in the footer; the details are in the messages (F016/S02)
@@ -143,7 +143,7 @@ export default function App() {
   // The cameras for the filter bar (F002/S04), again after every index build.
   useEffect(() => {
     if (!months.length) return;
-    invoke<[string, number][]>("cameras")
+    invoke<CameraCount[]>("cameras")
       .then(setCameras)
       .catch((e) => invoke("log_message", { level: "warn", source: "filter", text: `camera's niet gelezen: ${e}` }).catch(() => {}));
   }, [months]);

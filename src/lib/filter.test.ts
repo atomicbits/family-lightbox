@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_FILTER, cameraButton, cameraLabel, filterText, isSet, marksSet, matches, readFilter, toCore, toggleCamera, type FilterState } from "./filter";
+import { NO_FILTER, cameraButton, cameraLabel, filterText, isSet, marksSet, matches, readFilter, toCore, sortCameras, toggleCamera, type CameraCount, type FilterState } from "./filter";
 import { NO_MARKS } from "./marks";
 
 const r = (stars: number) => ({ stars, by: "x", at: "" });
@@ -59,5 +59,20 @@ describe("camera (S04)", () => {
     expect(matches({ hash: "a", kind: "photo", live: null, camera: null }, f)).toBe(true);
     expect(matches({ hash: "a", kind: "photo", live: null, camera: "Apple iPhone 12" }, f)).toBe(false);
     expect(matches({ hash: "a", kind: "photo", live: null, camera: "Apple iPhone 12" }, { ...f, cameras: [] })).toBe(true);
+  });
+});
+
+describe("camera order (S04)", () => {
+  const list: CameraCount[] = [
+    ["NIKON D80", 12075, "2014-08-02T10:00:00+02:00"],
+    ["", 70000, "2026-10-29T10:00:00+01:00"],
+    ["Canon EOS R", 9000, "2026-10-28T10:00:00+01:00"],
+    ["GoPro HD2", 8754, null],
+  ];
+  it("puts the most recently used first, unknown last", () => {
+    expect(sortCameras(list, "recent").map((c) => c[0])).toEqual(["Canon EOS R", "NIKON D80", "GoPro HD2", ""]);
+  });
+  it("or the most used first", () => {
+    expect(sortCameras(list, "count").map((c) => c[0])).toEqual(["NIKON D80", "Canon EOS R", "GoPro HD2", ""]);
   });
 });

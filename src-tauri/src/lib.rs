@@ -796,9 +796,9 @@ async fn items_filtered(month: String, filter: filter::Filter, paths: State<'_, 
     on_blocking(move || Db::open(&paths.index())?.filtered_items(&month, &filter)).await
 }
 
-/// The cameras with how many photos and videos each, "" for unknown (F002/S04).
+/// The cameras with how many photos and videos each and when last used, "" for unknown (F002/S04).
 #[tauri::command]
-async fn cameras(paths: State<'_, Paths>) -> Result<Vec<(String, i64)>, String> {
+async fn cameras(paths: State<'_, Paths>) -> Result<Vec<(String, i64, Option<String>)>, String> {
     let paths = paths.inner().clone();
     on_blocking(move || Db::open(&paths.index())?.camera_counts()).await
 }
