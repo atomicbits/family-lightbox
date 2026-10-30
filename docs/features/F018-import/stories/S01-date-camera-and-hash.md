@@ -1,7 +1,7 @@
 # Story S01: Reading the capture date and the camera natively, and hashing
 
 **Feature:** `F018-import`
-**Status:** In progress
+**Status:** Done (2026-10-30)
 **Depends on:** —
 
 ## Goal
@@ -58,3 +58,26 @@ give the same answer for the same file.
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built and checked
+
+- `capture.rs`: the reader, per format as in the NAS script (`tiff_tags`, `jpeg`, `png_date`,
+  `psd_date`, `avi_date`, `boxes`/`find_box`, `canon_uuid`, `cr3`, `heif`, `qt_keys`,
+  `quicktime_date`, `quicktime_camera`); `read(path) -> Capture { date, camera }` opens the file
+  once. Every read is bounded (at most 500 TIFF entries, 64 MB for an IFD offset, 4 MB for a PNG
+  text chunk, 8 MB for PSD's XMP, 1 MB for AVI, 64 KB for GPMF, 10 000 boxes per level) and
+  every offset is checked, so a broken file gives nothing.
+- `Taken::Clock` or `Taken::Instant`; `manifest_time` in this Mac's zone, a clock time in the
+  hour skipped by summer time moved an hour on. `camera_name` with the shortening of 3.5
+  (LibraryLocal F011/S03), written without regular expressions. `date_from_name`, `resolve` for
+  the order of 3.4, `kind_of` for 3.2.
+- `hash.rs`: `sha256_file` with the `sha2` crate.
+- `examples/capture.rs`: prints date and camera per file.
+- Tests: 10 new (every format from files the tests build, the fallbacks, every prefix and every
+  single-byte change of five samples without a panic, the camera names of `test-manifest-nas.py`,
+  the order of 3.4, dates in names, kinds, the hash of `abc`). `cargo test` 154 passed, clippy
+  clean.
+- **On real files**: 558 files from the index, up to 40 per extension at random (avi, cr3, dng,
+  gif, heic, jpeg, jpg, lrv, m4v, mov, mp4, mts, nef, png, psd, tif, webp), read over the SMB
+  mount: date (as the manifest writes it) and camera equal to `media-manifest-nas.py` for all
+  558. The NAS script itself is checked against exiftool in `test-manifest-nas.py`.

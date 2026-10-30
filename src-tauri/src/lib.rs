@@ -1,11 +1,13 @@
 //! Tauri-kern: leest de eigen index (F008) en de previews (datacontract sectie 4 en 7),
 //! serveert previews via het `preview://`-protocol en opent originelen.
 
+pub mod capture;
 mod config;
 mod connect;
 pub mod db;
 pub mod index;
 pub mod filter;
+pub mod hash;
 pub mod lists;
 pub mod log;
 pub mod marks;

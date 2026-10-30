@@ -119,7 +119,7 @@ keeps file names unique (two iPhones both make `IMG_0955.JPG`).
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-date-camera-and-hash.md) | Reading the capture date and the camera natively, and hashing (a port of the NAS script's reader, tested against exiftool) | In progress | — |
+| [S01](stories/S01-date-camera-and-hash.md) | Reading the capture date and the camera natively, and hashing (a port of the NAS script's reader, tested against exiftool) | Done | — |
 | [S02](stories/S02-manifest-and-push.md) | Writing a month's manifest and copying originals to the NAS over SMB, verified (the app's `push`); the data contract's transport and layout rules | Planned | S01 |
 | [S03](stories/S03-sources.md) | Sources: the drop folder's subfolders, synced folders, cards; their settings; the name proposed from the library | Planned | — |
 | [S04](stories/S04-the-plan.md) | The plan and the import screen: what is new per source, months, dates, duplicates by hash, conflicts | Planned | S01, S03 |
