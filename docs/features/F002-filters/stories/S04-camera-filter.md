@@ -15,7 +15,8 @@ more shows only their photos.
   mustn't get heavy): only a small button "Camera ▾"; the list opens below it on a click, and
   closes on a click outside or Esc.
 - **The list**: "Alle camera's" at the top, which clears the choice (no choice means all
-  cameras too); below it the cameras by count, most first, with "onbekend", each with a tick box,
+  cameras too); below it the cameras, most recently used first ("aantal" sorts by count; Peter,
+  2026-10-30), with "onbekend" last, each with a tick box,
   as many ticked as wanted. The list stays open while ticking. Should a drop-down turn out too
   cramped, the list goes in a filter panel that folds open below the bar instead.
 - **The button**: "Camera" when none is ticked, the camera's name for one, "3 camera's" for more,
