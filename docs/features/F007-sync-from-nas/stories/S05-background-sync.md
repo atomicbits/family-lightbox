@@ -145,3 +145,19 @@ very first full previews pass asks once, with the size and an estimate of the ti
   - no `.flb.partial` left in `~/Pictures/Previews`.
 - Still to do by hand in the app: the line during a start, *Synchroniseren* and ✕, and the dialog
   with empty `MEDIA_PREVIEWS` and `MEDIA_CONFIG`.
+
+### [2026-10-30] The first start shows its steps, and the months come earlier
+
+On Lynn's Mac (0.4.1) the window said only "index wordt gemaakt…" for a long time. In fact the
+first sync was running: the manifests, the lists, then counting the previews over the share
+(about a quarter of a million files over SMB, minutes), and only after that, or after the
+confirmation to fetch the previews, was the index built.
+
+- The runner now tells the app as soon as new manifests and the lists are in
+  (`Sink::manifests_in`), and the app builds the index then, before the count: the months show
+  while the previews are still counted.
+- Until there is an index, the window shows the steps (`FirstStart`, `firststart.ts`): connected
+  to the NAS, the manifests with "120 van 3 638 mappen" and a bar, the lists, the index, then
+  counting the previews, waiting for the confirmation (with where to click), or copying them
+  with files and GB; a failure is shown at the step where it happened.
+- Tests: the runner asks for the index before counting; the steps for every phase.

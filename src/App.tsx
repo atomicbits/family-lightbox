@@ -6,9 +6,11 @@ import MonthList from "./components/MonthList";
 import Grid from "./components/Grid";
 import Lightbox from "./components/Lightbox";
 import DeviceSetup from "./components/DeviceSetup";
+import FirstStart from "./components/FirstStart";
+import { firstStartSteps } from "./lib/firststart";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
-import { useNas } from "./lib/nas";
+import { nasSummary, useNas } from "./lib/nas";
 import { useSync } from "./lib/sync";
 import SyncLine from "./components/SyncLine";
 import UpdateLine from "./components/UpdateLine";
@@ -856,7 +858,7 @@ export default function App() {
       </header>
       {error || waitingForIndex ? (
         <div className="flex-1 grid place-items-center p-8 text-center whitespace-pre-wrap text-neutral-500">
-          {error ?? "index wordt gemaakt…"}
+          {error ?? <FirstStart steps={firstStartSteps(sync.state, !!index.state?.running, nasSummary(nas.mounts, nas.check, nas.attempts, nas.busy).state)} />}
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex relative">

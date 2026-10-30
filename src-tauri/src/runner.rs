@@ -57,6 +57,9 @@ pub trait Sink: Send + Sync + 'static {
     /// A year folder finished copying previews during a long sync (F008/S03): the app rebuilds
     /// the index so they show while the rest comes in.
     fn year_copied(&self) {}
+    /// New manifests are in, before the previews are counted: the app builds the index, so a new
+    /// Mac shows its months while the long count over the share runs.
+    fn manifests_in(&self) {}
 }
 
 /// During the copy, notices when it moves on to the next year folder. The year before has then
@@ -273,6 +276,9 @@ impl SyncRunner {
                     Err(sync::Stop::Failed(_)) => {}
                 }
             }
+            if out.copied > 0 {
+                sink.manifests_in();
+            }
         }
 
         let job = match jobs.previews {
@@ -364,6 +370,9 @@ mod tests {
         }
         fn year_copied(&self) {
             self.events.lock().unwrap().push(("year", Phase::Copying));
+        }
+        fn manifests_in(&self) {
+            self.events.lock().unwrap().push(("manifests_in", Phase::Lists));
         }
     }
 
@@ -463,6 +472,11 @@ mod tests {
         assert_eq!(phases.first(), Some(&Phase::Manifests));
         assert!(phases.contains(&Phase::Counting));
         assert_eq!(rec.events.lock().unwrap().last(), Some(&("done", Phase::AwaitingConfirmation)));
+        // the index is asked for before the previews are counted (a new Mac's long wait)
+        let order: Vec<_> = rec.events.lock().unwrap().iter().map(|e| e.0).collect();
+        let at = |what: &str| order.iter().position(|e| *e == what);
+        let counting = rec.events.lock().unwrap().iter().position(|e| e.1 == Phase::Counting);
+        assert!(at("manifests_in").is_some() && at("manifests_in") < counting, "{order:?}");
 
         let rec2 = Arc::new(Recorder::default());
         runner.start(Kind::Previews, true, jobs(lib_r, lib_l, pv_r, pv_l, cfg), rec2.clone()).unwrap().join().unwrap();
@@ -475,6 +489,7 @@ mod tests {
         assert_eq!(ev.last(), Some(&("done", Phase::Done)));
         assert!(config::load_state(cfg).previews_confirmed_at.is_some());
         assert!(!ev.iter().any(|e| e.0 == "year"), "one year: the rebuild after the sync covers it");
+        assert!(!ev.iter().any(|e| e.0 == "manifests_in"), "only the previews this time");
     }
 
     #[test]

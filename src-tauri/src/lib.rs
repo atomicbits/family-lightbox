@@ -376,6 +376,10 @@ impl runner::Sink for EventSink {
         // the copy goes on meanwhile; the build runs on its own thread (F008/S03)
         self.rebuild_index();
     }
+    fn manifests_in(&self) {
+        // the months show before the previews are counted, which takes minutes on a new Mac
+        self.rebuild_index();
+    }
 }
 
 impl EventSink {
