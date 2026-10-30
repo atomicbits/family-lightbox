@@ -1,6 +1,6 @@
 # Data contract
 
-*Version 1.2, 17 October 2026. This document sets down what the data shared by the CLI (`media`), the desktop app (FamilyLightbox) and the Lightroom plug-in looks like: folders, file names, manifests, previews, lists and local state. Everything stated here is binding for every component; anything not stated here is up to each component. Changes raise the version number and get a line in section 12.*
+*Version 1.3, 30 October 2026. This document sets down what the data shared by the CLI (`media`), the desktop app (FamilyLightbox) and the Lightroom plug-in looks like: folders, file names, manifests, previews, lists and local state. Everything stated here is binding for every component; anything not stated here is up to each component. Changes raise the version number and get a line in section 12.*
 
 *Moved into this repo, translated from Dutch, on 2026-10-26 (FamilyLightbox F007/S01). The section numbers are unchanged, so references such as "data contract 5.1" in code and documents stay valid. Operational details of the home network that a component doesn't need to follow the contract (SSH configuration, which account is denied which years, the name of the Drive mirror share) are kept in a private note outside this repo, `docs/nas-inrichting.md` in LibraryLocal.*
 
@@ -91,7 +91,7 @@ Between step 1 and 2 one more rule applies: a file without its own date takes th
 
 ```json
 {
-  "contract_version": "1.2",
+  "contract_version": "1.3",
   "folder": "2026/07",
   "month": "2026/07",
   "generated_at": "2026-10-21T22:14:03+02:00",
@@ -105,6 +105,7 @@ Between step 1 and 2 one more rule applies: a file without its own date takes th
       "source": "EOSR",
       "taken": "2026-07-30T16:58:12+02:00",
       "taken_from": "exif",
+      "camera": "Canon EOS R",
       "mtime": "2026-07-30T16:58:14+02:00",
       "sidecars": ["2026/07/EOSR/photos/2026-07-30/CO7A9123.xmp"]
     }
@@ -120,6 +121,7 @@ Rules:
 - `generated_by` is a device name (section 7) or `raven` if the NAS made the manifest itself (`media manifest nas`).
 - `taken` is `null` if no source gave a date (then `taken_from` is `"none"` and the modification time decided the month folder).
 - `sidecars` holds the sidecars of this file; sidecars don't appear as their own entry in `files`. A sidecar without a partner (same stem in the same folder) does get its own entry with `kind` `sidecar`, so it doesn't drop out of sight.
+- `camera` (from 1.3) is the make and model from the original's own metadata (EXIF IFD0, a CR3's CMT1, a HEIC's Exif item, an iPhone film's `com.apple.quicktime.make`/`.model`, a GoPro film's GPMF `MINF` with make `GoPro`): the two joined with a space, the make left out when the model starts with it or its first word (`Canon EOS R`, `Apple iPhone 13 Pro`, `NIKON D600`, `GoPro HERO7 Black`). Missing: the camera is unknown. Every model is its own camera; two devices of the same model are one. For photos and videos only. A reader of 1.2 ignores it.
 - `mtime` is informative; `size` and `hash` are normative.
 - The manifest is rewritten by the device that last pushes to that year subfolder or makes its manifest, as a merge of the existing manifest on the NAS and the files known locally: per `path` the entry with the most recent `generated_at` origin wins; an entry for a path that no longer exists on the NAS is removed, never the file.
 - A file only counts as "on the NAS" when (a) it is in the manifest, (b) the file exists on the NAS with the same `size`, and (c) for `media thin` in addition the hash has been recomputed in place or this device's rsync transfer with checksum succeeded (section 10).
@@ -359,6 +361,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 | Version | Date | What |
 |---|---|---|
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
+| 1.3 | 2026-10-30 | Section 3.5: the field `camera`, make and model from the original's metadata, written by `media-manifest-nas.py` and the CLI (LibraryLocal F011); manifests of 1.2 stay valid and are rewritten with it. |
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `stack` and `unstack`, a photo's stack decided by its last event (FamilyLightbox F015/S01). |
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `hide` and `unhide`, shared per photo, the last one decides (FamilyLightbox F014/S01). |
 | 1.2 (addition) | 2026-10-30 | Section 5.5: stars and hearts as events in `Lists/marks/<device>.jsonl`, merged like the lists; the app's sync copies them too (FamilyLightbox F013/S01). List events unchanged. |
