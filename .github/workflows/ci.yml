@@ -22,7 +22,7 @@ env:
 jobs:
   check:
     name: tests, clippy and the leak check (macOS)
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - name: Checkout (full history, for the leak check)
