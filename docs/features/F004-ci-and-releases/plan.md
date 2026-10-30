@@ -100,6 +100,7 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
 | [S02](stories/S02-ci.md) | CI on every push and pull request (macOS runner), including the leak check | Done | S01 |
 | [S03](stories/S03-signed-release.md) | Signed and notarized macOS release on a version tag, with the version script and the runbook | Done | S02 |
 | [S04](stories/S04-updates.md) | Updates: the Tauri updater with its own key, `latest.json` on GitHub Releases, *Bijwerken* in the app | In progress (v0.2.0 released; live update test deferred) | S03 |
+| [S06](stories/S06-release-in-resumable-steps.md) | A release in steps that can be retried (build, notarize, staple, package, publish) with robust stapling | Planned | S03, S04 |
 | S05 | First install on Lynn's Mac, and the checks left by features 6–8 | Planned | S03 |
 
 ## Decisions and open points
