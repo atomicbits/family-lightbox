@@ -169,3 +169,11 @@ without being asked, and never in the middle of a sync.
 - **Deferred** (Peter, 2026-10-27): the live update from an installed `v0.2.0` to a next release.
   It will be tested later, automatically, rather than by hand now. Until then this story stays
   In progress.
+
+### [2026-10-30] v0.4.0 released
+
+Built on `macos-15` (after a green dry run with the retried staple checks), published with the
+`.dmg`, the update payload and `latest.json` (version 0.4.0). Checked after download: the `.dmg`
+is accepted as a notarized Developer ID disk image and its ticket validates. Lynn's first
+install (F004/S05) is to be done with this version, which brings the new first start (F006/S06).
+Installed apps on 0.3.0 should be offered the update.
