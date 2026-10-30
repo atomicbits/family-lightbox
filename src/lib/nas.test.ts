@@ -39,3 +39,10 @@ describe("nasSummary", () => {
     expect(nasSummary(null, null, [], false).state).toBe("busy");
   });
 });
+
+describe("without a NAS set up (F006/S06)", () => {
+  it("says so and offers no connecting", () => {
+    const none = { host: "", library: [], previews: [], lists: [], exports: [] };
+    expect(nasSummary(none, null, [], false)).toMatchObject({ label: "niet ingesteld", action: null });
+  });
+});

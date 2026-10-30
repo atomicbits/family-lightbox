@@ -1049,7 +1049,7 @@ export default function App() {
         />
       )}
       {device && device.device === null && device.error === null && (
-        <DeviceSetup onDone={(d) => setDevice({ ...device, device: d })} />
+        <DeviceSetup nas={nas} onDone={(d) => setDevice({ ...device, device: d })} />
       )}
       {showSettings && (
         <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />

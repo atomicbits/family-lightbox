@@ -2,7 +2,7 @@
 //! serveert previews via het `preview://`-protocol en opent originelen.
 
 pub mod capture;
-mod config;
+pub mod config;
 mod connect;
 pub mod db;
 pub mod index;
@@ -12,8 +12,8 @@ pub mod lists;
 pub mod log;
 pub mod manifest;
 pub mod marks;
-mod mounts;
-mod nas;
+pub mod mounts;
+pub mod nas;
 #[cfg(target_os = "macos")]
 pub mod preview;
 #[cfg(target_os = "macos")]
@@ -156,6 +156,9 @@ async fn connect_nas(allow_ui: bool, paths: State<'_, Paths>) -> Result<ConnectR
     let config = paths.config.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (settings, _) = config::load_settings(&config);
+        if settings.nas_host.trim().is_empty() {
+            return Err("nog geen NAS ingesteld: geef de naam van je NAS in de instellingen".to_string());
+        }
         let before = mounts::find_shares(&mounts::system_mounts(), &settings);
         let todo = connect::to_connect(&before, &settings);
         #[cfg(target_os = "macos")]
@@ -172,6 +175,30 @@ async fn connect_nas(allow_ui: bool, paths: State<'_, Paths>) -> Result<ConnectR
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// What the welcome proposes (F006/S06): the owner from the NAS user `Lists` is mounted with, a
+/// device name from the Mac's name, and the devices the NAS knows already.
+#[derive(serde::Serialize)]
+pub struct Whoami {
+    pub user: Option<String>,
+    pub owner: String,
+    pub device: String,
+    pub computer: String,
+    pub known: Vec<nas::Known>,
+}
+
+#[tauri::command]
+fn nas_whoami(paths: State<Paths>) -> Whoami {
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let lists = mounts::NasMounts::chosen(&found.lists);
+    let user = lists.and_then(|m| m.user.clone());
+    let known = lists.map(|m| nas::known_devices(Path::new(&m.mount_point))).unwrap_or_default();
+    let owner = user.as_deref().map(nas::owner_from_user).unwrap_or_default();
+    let computer = nas::computer_name();
+    let device = nas::propose_device(&computer, &owner, &known);
+    Whoami { user, owner, device, computer, known }
 }
 
 #[derive(serde::Serialize)]
@@ -884,6 +911,8 @@ pub fn run() {
             if let Some(main) = app.get_webview_window("main") {
                 window::restore(&main);
             }
+            // an installation from before F006/S06 had the NAS built in: keep it
+            config::adopt_host(&app.state::<Paths>().config, &mounts::system_mounts());
             #[cfg(target_os = "macos")]
             {
                 let paused = config::load_state(&app.state::<Paths>().config).previews_paused;
@@ -905,7 +934,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

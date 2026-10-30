@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { accessLabel, anyMissing, mountLabel, registrationLabel } from "./api";
-import { deviceNameProblem, hostProblem, ownerProblem, proposeDeviceName, shareProblem } from "./device";
+import { deviceNameProblem, hostProblem, ownerProblem, people, shareProblem, takenBy } from "./device";
 
 describe("device identity", () => {
-  it("proposes mbp-<owner>", () => {
-    expect(proposeDeviceName("lynn")).toBe("mbp-lynn");
-    expect(proposeDeviceName(" Lynn ")).toBe("mbp-lynn");
+  it("knows whose device name is taken and who the NAS knows (F006/S06)", () => {
+    const known = [{ name: "mbp-anna", owner: "anna" }, { name: "imac", owner: "anna" }, { name: "mbp-jan", owner: "jan" }];
+    expect(takenBy("mbp-jan", "anna", known)).toBe("jan");
+    expect(takenBy("mbp-anna", "anna", known)).toBeNull();
+    expect(takenBy("new", "anna", known)).toBeNull();
+    expect(people(known)).toEqual([{ owner: "anna", devices: ["mbp-anna", "imac"] }, { owner: "jan", devices: ["mbp-jan"] }]);
   });
 
   it("checks device names like the Rust rules", () => {

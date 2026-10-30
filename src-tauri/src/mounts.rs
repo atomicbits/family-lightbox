@@ -71,7 +71,7 @@ pub fn parse_source(from: &str) -> Option<Source> {
     })
 }
 
-fn bare_host(host: &str) -> String {
+pub fn bare_host(host: &str) -> String {
     let h = host.to_ascii_lowercase();
     for suffix in ["._smb._tcp.local", "._afpovertcp._tcp.local", ".local"] {
         if let Some(stripped) = h.strip_suffix(suffix) {
@@ -97,6 +97,8 @@ pub struct Mount {
 
 #[derive(Debug, Default, PartialEq, Serialize)]
 pub struct NasMounts {
+    /// The NAS from the settings; empty while none is set up (F006/S06).
+    pub host: String,
     pub library: Vec<Mount>,
     pub previews: Vec<Mount>,
     pub lists: Vec<Mount>,
@@ -136,6 +138,7 @@ fn mounts_of(raw: &[RawMount], host: &str, share: &str) -> Vec<Mount> {
 pub fn find_shares(raw: &[RawMount], settings: &Settings) -> NasMounts {
     let (h, s) = (&settings.nas_host, &settings.shares);
     NasMounts {
+        host: h.clone(),
         library: mounts_of(raw, h, &s.library),
         previews: mounts_of(raw, h, &s.previews),
         lists: mounts_of(raw, h, &s.lists),
@@ -192,7 +195,7 @@ mod tests {
             raw("//peter@raven._afpovertcp._tcp.local/Datasets", "/Volumes/Datasets", "afpfs"),
             raw("//lynn@raven2/Previews", "/Volumes/Previews", "smbfs"),
         ];
-        let found = find_shares(&list, &Settings::default());
+        let found = find_shares(&list, &Settings { nas_host: "raven".into(), ..Settings::default() });
         assert_eq!(found.library.len(), 2);
         let chosen = NasMounts::chosen(&found.library).unwrap();
         assert_eq!((chosen.mount_point.as_str(), chosen.fs_type.as_str()), ("/Volumes/Library-1", "smbfs"));
@@ -205,7 +208,7 @@ mod tests {
     #[test]
     fn a_single_afp_mount_is_chosen() {
         let list = vec![raw("//peter@raven._afpovertcp._tcp.local/Library", "/Volumes/Library", "afpfs")];
-        let found = find_shares(&list, &Settings::default());
+        let found = find_shares(&list, &Settings { nas_host: "raven".into(), ..Settings::default() });
         assert_eq!(NasMounts::chosen(&found.library).unwrap().mount_point, "/Volumes/Library");
     }
 

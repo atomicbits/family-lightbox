@@ -70,7 +70,8 @@ export const config = {
 };
 
 export type Mount = { mount_point: string; fs_type: string; server: string; user: string | null; chosen: boolean };
-export type NasMounts = Record<keyof Shares, Mount[]>;
+/** The four shares with their mounts, and the NAS from the settings (empty: none set up). */
+export type NasMounts = Record<keyof Shares, Mount[]> & { host?: string };
 
 export type Attempt = { share: keyof Shares; name: string; outcome: { kind: string; code?: number }; message: string };
 export type ConnectResult = { attempts: Attempt[]; mounts: NasMounts };
@@ -79,6 +80,16 @@ export const nas = {
   mounts: () => invoke<NasMounts>("nas_mounts"),
   connect: (allowUi: boolean) => invoke<ConnectResult>("connect_nas", { allowUi }),
   check: () => invoke<NasCheck>("nas_check"),
+  whoami: () => invoke<Whoami>("nas_whoami"),
+};
+
+/** What the welcome proposes from the NAS (F006/S06). */
+export type Whoami = {
+  user: string | null;
+  owner: string;
+  device: string;
+  computer: string;
+  known: { name: string; owner: string; label: string }[];
 };
 
 export type Access = { mounted: boolean; readable: boolean; writable: boolean | null; problem: string | null };
@@ -105,9 +116,11 @@ export function registrationLabel(r: Registration): string {
   }
 }
 
+const SHARE_KEYS: (keyof Shares)[] = ["library", "previews", "lists", "exports"];
+
 /** True when at least one share has no mount. */
 export function anyMissing(m: NasMounts): boolean {
-  return Object.values(m).some((list) => list.length === 0);
+  return SHARE_KEYS.some((k) => m[k].length === 0);
 }
 
 /** "/Volumes/Library · AFP" for the mount the app uses, or null when the share isn't mounted. */

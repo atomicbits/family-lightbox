@@ -20,6 +20,7 @@ export function nasSummary(
   busy: boolean,
 ): NasSummary {
   if (busy || mounts === null) return { state: "busy", label: "bezig…", tone: "grey", action: null };
+  if (mounts.host === "") return { state: "disconnected", label: "niet ingesteld", tone: "grey", action: null };
   if (attempts.some((a) => a.outcome.kind === "unreachable"))
     return { state: "unreachable", label: "NAS niet bereikbaar", tone: "grey", action: "retry" };
   const mounted = KEYS.filter((k) => mounts[k].some((m) => m.chosen)).length;

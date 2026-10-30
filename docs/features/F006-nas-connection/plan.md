@@ -90,6 +90,7 @@ registered device to write as. Without the NAS the app keeps working on what is 
 | [S03](stories/S03-connect-missing-shares.md) | Connect missing shares with NetFS and the macOS sign-in dialog | Done on Peter's Mac; Lynn's Mac deferred | S02 |
 | [S04](stories/S04-check-access-and-register-device.md) | Check access per share and register the device in `Lists/devices.json` | Done on Peter's Mac; Lynn's Mac deferred | S02 |
 | [S05](stories/S05-connection-indicator.md) | Connection indicator and *Verbinden* in the UI | Done on Peter's Mac; Lynn's Mac deferred | S03, S04 |
+| [S06](stories/S06-nas-first-then-who.md) | First start without built-in names: the NAS first (signing in with your own account), then who you are, proposed from the NAS | Built; to check on Lynn's Mac | S01–S04 |
 
 ## Contract changes
 

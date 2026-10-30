@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn connects_only_what_has_no_mount_lists_first() {
-        let s = Settings::default();
+        let s = Settings { nas_host: "raven".into(), ..Settings::default() };
         let keys = |f: &NasMounts| to_connect(f, &s).into_iter().map(|(k, _)| k).collect::<Vec<_>>();
         let none = NasMounts::default();
         assert_eq!(keys(&none), vec![ShareKey::Lists, ShareKey::Library, ShareKey::Previews, ShareKey::Exports]);
@@ -239,6 +239,7 @@ mod tests {
             previews: vec![mount("smbfs")],
             lists: vec![mount("smbfs")],
             exports: vec![mount("smbfs")],
+            ..NasMounts::default()
         };
         assert!(keys(&all).is_empty());
         assert_eq!(to_connect(&none, &s)[0].1, "Lists");

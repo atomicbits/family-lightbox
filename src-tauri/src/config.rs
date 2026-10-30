@@ -29,18 +29,14 @@ impl Default for Shares {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// Empty until the user names a NAS or one is found (F006/S06): the app knows no family's NAS.
     pub nas_host: String,
     pub shares: Shares,
 }
 
-impl Default for Settings {
-    fn default() -> Self {
-        Settings { nas_host: "raven".into(), shares: Shares::default() }
-    }
-}
 
 /// Settings from `dir`, or the defaults. A broken file is reported, never replaced.
 pub fn load_settings(dir: &Path) -> (Settings, Option<String>) {
@@ -98,6 +94,30 @@ pub fn save_settings(dir: &Path, s: &Settings) -> Result<(), String> {
         let _ = fs::remove_file(&tmp);
         format!("{}: {e}", dir.join(SETTINGS_FILE).display())
     })
+}
+
+/// Without a settings file: the NAS of a `Lists` share that is mounted and holds `devices.json`,
+/// or else the host of the CLI's `nas.library` in `state.json` (data contract 7), written once to
+/// the settings so an existing installation keeps its NAS (F006/S06). `None` when there is a
+/// settings file already or nothing was found.
+pub fn adopt_host(dir: &Path, mounts: &[crate::mounts::RawMount]) -> Option<String> {
+    if dir.join(SETTINGS_FILE).exists() {
+        return None;
+    }
+    let lists = Shares::default().lists;
+    let from_mount = mounts.iter().filter(|m| m.fs_type == "smbfs" || m.fs_type == "afpfs").find_map(|m| {
+        let s = crate::mounts::parse_source(&m.from)?;
+        (s.share.eq_ignore_ascii_case(&lists) && m.on.join(crate::nas::DEVICES_FILE).is_file()).then(|| crate::mounts::bare_host(&s.server))
+    });
+    let from_cli = || {
+        let state: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("state.json")).ok()?).ok()?;
+        let spec = state["nas"]["library"].as_str()?;
+        let (host, _) = spec.split_once(':').filter(|_| !spec.starts_with('/'))?;
+        Some(host.to_string())
+    };
+    let host = from_mount.or_else(from_cli).filter(|h| host_problem(h).is_none())?;
+    save_settings(dir, &Settings { nas_host: host.clone(), shares: Shares::default() }).ok()?;
+    Some(host)
 }
 
 pub const STATE_FILE: &str = "familylightbox-state.json";
@@ -207,11 +227,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_host_is_adopted_once_from_a_mount_or_the_cli() {
+        use crate::mounts::RawMount;
+        let dir = tempfile::tempdir().unwrap();
+        let lists = dir.path().join("mnt/Lists");
+        fs::create_dir_all(&lists).unwrap();
+        let mount = |from: &str| RawMount { from: from.into(), on: lists.clone(), fs_type: "smbfs".into() };
+        // a Lists share without devices.json isn't the NAS of this app
+        assert_eq!(adopt_host(dir.path(), &[mount("//anna@nas1._smb._tcp.local/Lists")]), None);
+        fs::write(lists.join("devices.json"), "{}").unwrap();
+        assert_eq!(adopt_host(dir.path(), &[mount("//anna@nas1._smb._tcp.local/Lists")]).as_deref(), Some("nas1"));
+        assert_eq!(load_settings(dir.path()).0.nas_host, "nas1");
+        // with a settings file nothing is adopted again
+        assert_eq!(adopt_host(dir.path(), &[mount("//anna@other/Lists")]), None);
+        assert_eq!(load_settings(dir.path()).0.nas_host, "nas1");
+
+        let cli = tempfile::tempdir().unwrap();
+        fs::write(cli.path().join("state.json"), r#"{"nas": {"library": "box:/volume1/Library"}}"#).unwrap();
+        assert_eq!(adopt_host(cli.path(), &[]).as_deref(), Some("box"));
+        let path_only = tempfile::tempdir().unwrap();
+        fs::write(path_only.path().join("state.json"), r#"{"nas": {"library": "/Volumes/Library"}}"#).unwrap();
+        assert_eq!(adopt_host(path_only.path(), &[]), None);
+        assert!(!path_only.path().join(SETTINGS_FILE).exists());
+    }
+
+    #[test]
     fn defaults_when_missing_and_nothing_written() {
         let dir = tempfile::tempdir().unwrap();
         let (s, err) = load_settings(dir.path());
         assert_eq!(s, Settings::default());
-        assert_eq!(s.nas_host, "raven");
+        assert_eq!(s.nas_host, "");
         assert_eq!(s.shares.lists, "Lists");
         assert!(err.is_none());
         assert!(!dir.path().join(SETTINGS_FILE).exists());
@@ -223,7 +268,7 @@ mod tests {
         fs::write(dir.path().join(SETTINGS_FILE), r#"{"shares": {"library": "Fotos"}}"#).unwrap();
         let (s, err) = load_settings(dir.path());
         assert!(err.is_none());
-        assert_eq!(s.nas_host, "raven");
+        assert_eq!(s.nas_host, "");
         assert_eq!(s.shares.library, "Fotos");
         assert_eq!(s.shares.previews, "Previews");
     }
@@ -253,7 +298,7 @@ mod tests {
     #[test]
     fn invalid_settings_are_refused_and_the_file_stays() {
         let dir = tempfile::tempdir().unwrap();
-        save_settings(dir.path(), &Settings::default()).unwrap();
+        save_settings(dir.path(), &Settings { nas_host: "raven".into(), ..Settings::default() }).unwrap();
         let before = fs::read_to_string(dir.path().join(SETTINGS_FILE)).unwrap();
         for host in ["", "smb://raven", "raven/Library", "ra ven"] {
             let s = Settings { nas_host: host.into(), ..Settings::default() };

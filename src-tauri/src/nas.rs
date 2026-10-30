@@ -181,6 +181,82 @@ pub fn register(lists: &Path, me: &Entry, before_rename: &dyn Fn()) -> Registrat
     )
 }
 
+/// A device the NAS knows already, from `Lists/devices.json` (F006/S06).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Known {
+    pub name: String,
+    pub owner: String,
+    pub label: String,
+}
+
+/// The devices in `devices.json` that aren't retired; none when it is missing or broken.
+pub fn known_devices(lists: &Path) -> Vec<Known> {
+    let Some(doc) = fs::read_to_string(lists.join(DEVICES_FILE)).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()) else {
+        return Vec::new();
+    };
+    let text = |d: &Value, k: &str| d.get(k).and_then(Value::as_str).unwrap_or("").to_string();
+    doc.get("devices")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|d| d.get("retired").is_none())
+        .map(|d| Known { name: text(d, "name"), owner: text(d, "owner"), label: text(d, "label") })
+        .filter(|k| !k.name.is_empty() && !k.owner.is_empty())
+        .collect()
+}
+
+/// The owner proposed from the NAS user a share is mounted with: `WORKGROUP;Lynn` → `lynn`,
+/// letters and digits only; empty when that doesn't fit the owner rule.
+pub fn owner_from_user(user: &str) -> String {
+    let name = user.rsplit([';', '\\']).next().unwrap_or("");
+    let o: String = name.to_lowercase().chars().filter(|c| c.is_ascii_lowercase() || c.is_ascii_digit()).collect();
+    let o = o.trim_start_matches(|c: char| c.is_ascii_digit()).chars().take(32).collect::<String>();
+    if crate::config::owner_problem(&o).is_none() { o } else { String::new() }
+}
+
+/// A device name from the Mac's own name: `MBP Lynn (2)` → `mbp-lynn-2`; empty when nothing fits.
+pub fn device_slug(computer: &str) -> String {
+    let mut s = String::new();
+    for c in computer.to_lowercase().chars() {
+        if c.is_ascii_lowercase() || c.is_ascii_digit() {
+            s.push(c);
+        } else if !s.ends_with('-') {
+            s.push('-');
+        }
+    }
+    let s = s.trim_start_matches(|c: char| !c.is_ascii_lowercase());
+    let s: String = s.chars().take(32).collect();
+    let s = s.trim_end_matches('-').to_string();
+    if crate::config::device_name_problem(&s).is_none() { s } else { String::new() }
+}
+
+/// The device name to propose: from the Mac's name (else `<owner>-mac`), with `-2`, `-3` … when
+/// the NAS has that name for another owner already.
+pub fn propose_device(computer: &str, owner: &str, known: &[Known]) -> String {
+    let base = match device_slug(computer) {
+        s if !s.is_empty() => s,
+        _ if !owner.is_empty() => format!("{owner}-mac"),
+        _ => String::new(),
+    };
+    let taken = |n: &str| known.iter().any(|k| k.name == n && k.owner != owner);
+    if base.is_empty() || !taken(&base) {
+        return base;
+    }
+    (2..100).map(|i| format!("{}-{i}", base.chars().take(29).collect::<String>())).find(|n| !taken(n)).unwrap_or_default()
+}
+
+/// The Mac's own name as its owner gave it (*System Settings › General › Sharing*).
+pub fn computer_name() -> String {
+    #[cfg(target_os = "macos")]
+    if let Ok(out) = std::process::Command::new("/usr/sbin/scutil").args(["--get", "ComputerName"]).output() {
+        let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if out.status.success() && !name.is_empty() {
+            return name;
+        }
+    }
+    local_label("")
+}
+
 /// The Mac's local host name without `.local`, or "Mac van <owner>".
 pub fn local_label(owner: &str) -> String {
     #[cfg(target_os = "macos")]
@@ -436,5 +512,41 @@ mod tests {
         let t = now_local();
         assert_eq!(t.len(), 25, "{t}");
         assert!(chrono::DateTime::parse_from_rfc3339(&t).is_ok());
+    }
+
+    #[test]
+    fn proposals_from_the_nas_user_and_the_macs_name() {
+        assert_eq!(owner_from_user("lynn"), "lynn");
+        assert_eq!(owner_from_user("WORKGROUP;Anna"), "anna");
+        assert_eq!(owner_from_user("DOMAIN\\jan.de.smet"), "jandesmet");
+        assert_eq!(owner_from_user("42"), "");
+        assert_eq!(device_slug("MBP Lynn (Si)"), "mbp-lynn-si");
+        assert_eq!(device_slug("Lynns-MacBook-Pro"), "lynns-macbook-pro");
+        assert_eq!(device_slug("2e Mac van Jan"), "e-mac-van-jan");
+        assert_eq!(device_slug("Ö"), "");
+        assert_eq!(device_slug(&"a".repeat(40)).len(), 32);
+        let known = vec![
+            Known { name: "mbp-anna".into(), owner: "anna".into(), label: "MBP Anna".into() },
+            Known { name: "mbp-anna-2".into(), owner: "jan".into(), label: "x".into() },
+        ];
+        // the same person's name is theirs; someone else's gets a number that is still free
+        assert_eq!(propose_device("MBP Anna", "anna", &known), "mbp-anna");
+        assert_eq!(propose_device("MBP Anna", "kim", &known), "mbp-anna-3");
+        assert_eq!(propose_device("Ö", "kim", &known), "kim-mac");
+        assert_eq!(propose_device("Ö", "", &known), "");
+    }
+
+    #[test]
+    fn known_devices_without_the_retired_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(known_devices(dir.path()).is_empty());
+        fs::write(
+            dir.path().join(DEVICES_FILE),
+            r#"{"devices": [{"name": "mbp-anna", "owner": "anna", "label": "MBP Anna"}, {"name": "old", "owner": "jan", "retired": "2026-01-01T00:00:00+01:00"}, {"owner": "x"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(known_devices(dir.path()), [Known { name: "mbp-anna".into(), owner: "anna".into(), label: "MBP Anna".into() }]);
+        fs::write(dir.path().join(DEVICES_FILE), "{broken").unwrap();
+        assert!(known_devices(dir.path()).is_empty());
     }
 }

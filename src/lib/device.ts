@@ -1,11 +1,6 @@
 // Device and settings rules for instant feedback in the UI. Rust checks again on save and is the
 // authority (src-tauri/src/config.rs); keep both in step.
 
-/** Proposed device name for an owner: `mbp-<owner>`. */
-export function proposeDeviceName(owner: string): string {
-  return `mbp-${owner.trim().toLowerCase()}`;
-}
-
 const lower = (c: string) => c >= "a" && c <= "z";
 const digit = (c: string) => c >= "0" && c <= "9";
 
@@ -15,10 +10,22 @@ export function deviceNameProblem(name: string): string | null {
   return ok ? null : "2 tot 32 tekens: kleine letters, cijfers en '-', beginnend met een letter";
 }
 
-/** `^[a-z][a-z0-9]{1,31}$`: a short lowercase name such as `lynn`. */
+/** `^[a-z][a-z0-9]{1,31}$`: a short lowercase name such as `anna`. */
 export function ownerProblem(owner: string): string | null {
   const ok = owner.length >= 2 && owner.length <= 32 && lower(owner[0]) && [...owner].every((c) => lower(c) || digit(c));
   return ok ? null : "2 tot 32 tekens: kleine letters en cijfers, beginnend met een letter";
+}
+
+/** The device name is taken on the NAS by someone else: their name, or null. */
+export function takenBy(name: string, owner: string, known: { name: string; owner: string }[]): string | null {
+  return known.find((k) => k.name === name && k.owner !== owner)?.owner ?? null;
+}
+
+/** The people the NAS knows, each with their devices, for the welcome. */
+export function people(known: { name: string; owner: string }[]): { owner: string; devices: string[] }[] {
+  const by = new Map<string, string[]>();
+  for (const k of known) by.set(k.owner, [...(by.get(k.owner) ?? []), k.name]);
+  return [...by].map(([owner, devices]) => ({ owner, devices })).sort((a, b) => a.owner.localeCompare(b.owner));
 }
 
 /** Same rule as `host_problem` in Rust. */
