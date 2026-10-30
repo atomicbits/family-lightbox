@@ -1,7 +1,7 @@
 # Story S04: The camera in the filter bar
 
 **Feature:** `F002-filters`
-**Status:** Built (2026-10-30), to check in the app
+**Status:** Done (2026-10-30)
 **Depends on:** S01, S03
 
 ## Goal
@@ -53,3 +53,8 @@ now also gives the latest `taken` per camera and sorts on it, "onbekend" always 
 shows the month and year of the last use next to the count, with a toggle "recent" / "aantal"
 (recent is the default, not kept). `sortCameras` and `lastUsedLabel` in `filter.ts`, with
 tests; `pnpm test` 117 and `cargo test` 144 passed.
+
+### [2026-10-30] Checked
+
+Peter: the camera filter looks realistic now. Long names are shortened in the manifest
+(LibraryLocal F011/S03).
