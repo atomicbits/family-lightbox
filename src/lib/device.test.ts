@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { accessLabel, anyMissing, mountLabel, registrationLabel } from "./api";
-import { deviceNameProblem, hostProblem, ownerProblem, people, shareProblem, takenBy } from "./device";
+import { deviceNameProblem, freeText, hostProblem, ownerProblem, parentOf, people, shareProblem, takenBy } from "./device";
+
+describe("the local folder (F006/S07)", () => {
+  it("says how much room there is", () => {
+    expect(freeText(812.4e9)).toBe("812 GB vrij");
+    expect(freeText(1.23e12)).toBe("1,2 TB vrij");
+    expect(freeText(null)).toBe("");
+  });
+  it("finds the folder the three share", () => {
+    expect(parentOf({ library: "/a/FL/Library", previews: "/a/FL/Previews", lists: "/a/FL/Lists" })).toBe("/a/FL");
+    expect(parentOf({ library: "/a/LibraryLocal", previews: "/b/Previews", lists: "/a/Lists" })).toBeNull();
+  });
+});
 
 describe("device identity", () => {
   it("knows whose device name is taken and who the NAS knows (F006/S06)", () => {

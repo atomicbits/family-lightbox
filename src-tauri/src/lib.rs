@@ -34,7 +34,9 @@ use std::sync::Arc;
 use tauri::http::{header, Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 
-/// Waar de CLI haar spullen zet (datacontract 7). Overschrijfbaar met MEDIA_CONFIG, MEDIA_PREVIEWS, MEDIA_LIBRARY, MEDIA_LISTS.
+/// Where the app keeps its things (data contract 7): the local folders from the settings
+/// (F006/S07), else in the proposed folder; `MEDIA_CONFIG`, `MEDIA_PREVIEWS`, `MEDIA_LIBRARY` and
+/// `MEDIA_LISTS` win, as for the CLI.
 #[derive(Clone)]
 pub struct Paths {
     pub config: PathBuf,
@@ -57,11 +59,17 @@ fn env_path(name: &str, default: PathBuf) -> PathBuf {
 
 pub fn paths() -> Paths {
     let h = home();
+    let config = env_path("MEDIA_CONFIG", h.join(".config").join("media"));
+    // an installation from before F006/S06 used the CLI's places: keep them
+    config::adopt_local(&config, &h);
+    let local = config::load_settings(&config).0.local;
+    let proposal = config::proposed_folder(&h);
+    let pick = |set: &str, name: &str| if set.is_empty() { proposal.join(name) } else { PathBuf::from(set) };
     Paths {
-        config: env_path("MEDIA_CONFIG", h.join(".config").join("media")),
-        previews: env_path("MEDIA_PREVIEWS", h.join("Pictures").join("Previews")),
-        library: env_path("MEDIA_LIBRARY", h.join("Pictures").join("LibraryLocal")),
-        lists: env_path("MEDIA_LISTS", h.join("Pictures").join("Lists")),
+        previews: env_path("MEDIA_PREVIEWS", pick(&local.previews, "Previews")),
+        library: env_path("MEDIA_LIBRARY", pick(&local.library, "Library")),
+        lists: env_path("MEDIA_LISTS", pick(&local.lists, "Lists")),
+        config,
     }
 }
 
@@ -199,6 +207,64 @@ fn nas_whoami(paths: State<Paths>) -> Whoami {
     let computer = nas::computer_name();
     let device = nas::propose_device(&computer, &owner, &known);
     Whoami { user, owner, device, computer, known }
+}
+
+/// The local folders (F006/S07): where they are now, whether they were chosen or adopted, the
+/// folder proposed on a new Mac, and the free space there.
+#[derive(serde::Serialize)]
+pub struct LocalFolders {
+    pub library: String,
+    pub previews: String,
+    pub lists: String,
+    pub chosen: bool,
+    pub proposal: String,
+}
+
+#[tauri::command]
+fn local_folders(paths: State<Paths>) -> LocalFolders {
+    let chosen = config::load_settings(&paths.config).0.local.is_set();
+    LocalFolders {
+        library: paths.library.display().to_string(),
+        previews: paths.previews.display().to_string(),
+        lists: paths.lists.display().to_string(),
+        chosen,
+        proposal: config::proposed_folder(&home()).display().to_string(),
+    }
+}
+
+/// The free space on the disk of `path`, or of the nearest folder above it that exists.
+#[tauri::command]
+fn free_space(path: String) -> Option<u64> {
+    let mut p = PathBuf::from(path);
+    while !p.exists() {
+        p = p.parent()?.to_path_buf();
+    }
+    disk_free(&p)
+}
+
+#[cfg(target_os = "macos")]
+fn disk_free(p: &Path) -> Option<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let c = std::ffi::CString::new(p.as_os_str().as_bytes()).ok()?;
+    let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+    // SAFETY: a valid NUL-terminated path and a struct statvfs to fill
+    (unsafe { libc::statvfs(c.as_ptr(), &mut st) } == 0).then(|| st.f_bavail as u64 * st.f_frsize as u64)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn disk_free(_: &Path) -> Option<u64> {
+    None
+}
+
+#[tauri::command]
+fn choose_local(folder: String, paths: State<Paths>) -> Result<config::Local, String> {
+    config::choose_local(&paths.config, Path::new(&folder))
+}
+
+/// Starts the app again, so a new local folder is used everywhere (F006/S07).
+#[tauri::command]
+fn relaunch(app: tauri::AppHandle) {
+    app.restart();
 }
 
 #[derive(serde::Serialize)]
@@ -898,9 +964,11 @@ fn preview_response(previews: &Path, uri_path: &str) -> Response<Vec<u8>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let previews_root = paths().previews.clone();
+    let paths = paths();
+    let previews_root = paths.previews.clone();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_window_state::Builder::new()
@@ -922,7 +990,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .manage(paths())
+        .manage(paths)
         .manage(runner::SyncRunner::default())
         .manage(index::IndexRunner::default())
         .manage(update::UpdateState::default())
@@ -936,7 +1004,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

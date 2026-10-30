@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { accessLabel, anyMissing, config, mountLabel, registrationLabel, type DeviceState, type Settings as S, type SettingsState, type Shares } from "../lib/api";
+import { accessLabel, anyMissing, config, mountLabel, registrationLabel, type DeviceState, type LocalFolders, type Settings as S, type SettingsState, type Shares } from "../lib/api";
 import type { Nas } from "../lib/nas";
 import type { Sync } from "../lib/sync";
 import { outcomeText, type Index } from "../lib/indexer";
@@ -25,6 +25,8 @@ export default function Settings({ device, nas, sync, index, update, previews, o
   // again when a run ends, so the counts and failures are current
   useEffect(() => { if (!making) loadOverview(); }, [making]);
   const [state, setState] = useState<SettingsState | null>(null);
+  const [folders, setFolders] = useState<LocalFolders | null>(null);
+  useEffect(() => { config.localFolders().then(setFolders).catch(() => {}); }, []);
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const { mounts, attempts, check, busy: connecting } = nas;
@@ -81,6 +83,17 @@ export default function Settings({ device, nas, sync, index, update, previews, o
           )}
           {device && <div className="text-xs text-neutral-400 font-mono">{device.path}</div>}
         </section>
+
+        {folders && (
+          <section className="space-y-1">
+            <h3 className="font-medium">Lokale kopieën</h3>
+            <div className="text-xs text-neutral-500 font-mono space-y-0.5">
+              <div>originelen: {folders.library}</div>
+              <div>previews: {folders.previews}</div>
+              <div>lijsten: {folders.lists}</div>
+            </div>
+          </section>
+        )}
 
         <section className="space-y-1">
           <div className="flex items-center gap-2">

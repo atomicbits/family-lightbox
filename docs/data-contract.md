@@ -291,7 +291,7 @@ Exports are end products: never rewritten automatically, but pushed and synced t
 ~/.config/media/familylightbox-index.sqlite  the app's own index, the same tables as `index.sqlite`; only the app writes it
 ~/.config/media/familylightbox-previews.sqlite  which hash each preview was made from, and what failed; only the app writes it, not part of the contract
 ~/.config/media/familylightbox.log  the app's warnings and errors, one line each; at 1 MB renamed to `.log.1`; not part of the contract
-~/.config/media/familylightbox.json  the app's settings (NAS name, names of the shares); not part of the contract
+~/.config/media/familylightbox.json  the app's settings (NAS name, names of the shares, its local folders); not part of the contract
 ~/.config/media/familylightbox-state.json  the app's own state (for example when the first previews pass was confirmed); not part of the contract
 ~/Pictures/LibraryLocal/         working copy of Library (partial)
 ~/Pictures/Previews/             copy of Previews (complete)
@@ -299,6 +299,7 @@ Exports are end products: never rewritten automatically, but pushed and synced t
 ~/Pictures/Exports/              own exports, get pushed
 ```
 
+- The three local folders above are the CLI's places. FamilyLightbox keeps its own in its settings, chosen at first start (one folder holding `Library`, `Previews` and `Lists`, proposed as `~/Pictures/FamilyLightbox`); an installation that has the CLI's working copy keeps the CLI's places. The environment variables `MEDIA_LIBRARY`, `MEDIA_PREVIEWS` and `MEDIA_LISTS` override both.
 - The working copy of `Library` follows the same path rules as the NAS; a path means the same file in both places.
 - `index.sqlite` is not part of the contract (each component may build its own index), but MUST be rebuildable from the contract files without loss of information.
   The CLI's index (`media index`) has a table `folders` (folder, month, contract_version, generated_at, generated_by, n_files) and a table `items` (path, folder, month, size, hash, taken, taken_from, kind, source, sidecars as a JSON list, `local` = the original is local, `preview` = the preview is local), with indexes on month, hash and taken. The app may read it; only the CLI writes it.

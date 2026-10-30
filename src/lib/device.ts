@@ -28,6 +28,20 @@ export function people(known: { name: string; owner: string }[]): { owner: strin
   return [...by].map(([owner, devices]) => ({ owner, devices })).sort((a, b) => a.owner.localeCompare(b.owner));
 }
 
+/** "812 GB vrij", "1,2 TB vrij", or "" when unknown. */
+export function freeText(bytes: number | null): string {
+  if (bytes === null) return "";
+  if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(1).replace(".", ",")} TB vrij`;
+  return `${Math.floor(bytes / 1e9)} GB vrij`;
+}
+
+/** The folder that holds the three local folders, if they share one. */
+export function parentOf(l: { library: string; previews: string; lists: string }): string | null {
+  const up = (p: string) => p.replace(/\/[^/]+\/?$/, "");
+  const a = up(l.library);
+  return a && a === up(l.previews) && a === up(l.lists) ? a : null;
+}
+
 /** Same rule as `host_problem` in Rust. */
 export function hostProblem(host: string): string | null {
   if (host === "") return "de naam van de NAS is leeg";

@@ -109,7 +109,10 @@ export default function App() {
   const lastRefresh = useRef(0);
 
   // NAS at start, once the device is known: quiet connect without a dialog, then the check.
-  const hasDevice = device?.device != null;
+  // the NAS, the sync and the rest start once this Mac has a device and its local folder (F006/S07)
+  const [localChosen, setLocalChosen] = useState<boolean | null>(null);
+  const hasDevice = device?.device != null && localChosen === true;
+  const welcome = device !== null && device.error === null && (device.device === null || localChosen === false);
   useEffect(() => {
     if (!hasDevice) return;
     lastRefresh.current = Date.now();
@@ -152,6 +155,7 @@ export default function App() {
   // index the grid waits for the first build.
   useEffect(() => {
     config.device().then(setDevice);
+    config.localFolders().then((l) => setLocalChosen(l.chosen)).catch(() => setLocalChosen(true));
     const gen = generation.current;
     api.status().then((s) => {
       if (s.index_exists)
@@ -675,7 +679,7 @@ export default function App() {
 
   // toetsenbord op het raster: pijltjes (met shift: een reeks), spatie/enter opent, Esc wist de
   // keuze; in een lijst haalt ⌫ de gekozen foto's eruit
-  const dialog = showSettings || confirming || (device !== null && device.device === null && device.error === null);
+  const dialog = showSettings || confirming || welcome;
   useEffect(() => {
     if (open || dialog) return;
     const onKey = (e: KeyboardEvent) => {
@@ -1049,8 +1053,8 @@ export default function App() {
           swatches={stackSwatches(menu.keys)}
         />
       )}
-      {device && device.device === null && device.error === null && (
-        <DeviceSetup nas={nas} onDone={(d) => setDevice({ ...device, device: d })} />
+      {welcome && device && (
+        <DeviceSetup nas={nas} device={device.device} onDone={(d) => setDevice({ ...device, device: d })} />
       )}
       {showSettings && (
         <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />

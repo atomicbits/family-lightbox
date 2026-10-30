@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { config, nas as nasApi, type Device, type Shares, type Whoami } from "../lib/api";
-import { deviceNameProblem, hostProblem, ownerProblem, people, shareProblem, takenBy } from "../lib/device";
+import { open } from "@tauri-apps/plugin-dialog";
+import { config, nas as nasApi, type Device, type LocalFolders, type Settings, type Shares, type Whoami } from "../lib/api";
+import { deviceNameProblem, freeText, hostProblem, ownerProblem, parentOf, people, shareProblem, takenBy } from "../lib/device";
 import type { Nas } from "../lib/nas";
 
-type Props = { nas: Nas; onDone: (d: Device) => void };
+/** `device`: this Mac has one already, and only the local folder is still to choose (F006/S07). */
+type Props = { nas: Nas; device: Device | null; onDone: (d: Device) => void };
 
 const SHARES: { key: keyof Shares; label: string }[] = [
   { key: "library", label: "originelen" },
@@ -18,10 +20,14 @@ const button = "px-3 py-1.5 rounded bg-neutral-900 text-white dark:bg-white dark
 /** First start (F006/S06): connect to your NAS with your own account, then who you are, proposed
  * from that account and the devices the NAS knows. No names are built in. Browsing keeps working
  * behind it; it can't be dismissed, because writing lists needs a device. */
-export default function DeviceSetup({ nas, onDone }: Props) {
-  const [step, setStep] = useState<"nas" | "who" | null>(null);
+export default function DeviceSetup({ nas, device, onDone }: Props) {
+  const [step, setStep] = useState<"nas" | "who" | "folder" | null>(null);
   const [host, setHost] = useState("");
   const [shares, setShares] = useState<Shares | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [local, setLocal] = useState<LocalFolders | null>(null);
+  const [folder, setFolder] = useState("");
+  const [free, setFree] = useState<number | null>(null);
   const [otherNames, setOtherNames] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,8 +48,13 @@ export default function DeviceSetup({ nas, onDone }: Props) {
   useEffect(() => {
     (async () => {
       const s = await config.settings();
+      setSettings(s.settings);
       setHost(s.settings.nas_host);
       setShares(s.settings.shares);
+      const l = await config.localFolders();
+      setLocal(l);
+      setFolder(l.chosen ? parentOf(l) ?? "" : l.proposal);
+      if (device) return setStep("folder");
       const m = await nasApi.mounts();
       if (s.settings.nas_host && m.lists.some((x) => x.chosen)) await toWho();
       else setStep("nas");
@@ -55,7 +66,8 @@ export default function DeviceSetup({ nas, onDone }: Props) {
     setBusy(true);
     setError(null);
     try {
-      await config.saveSettings({ nas_host: host.trim(), shares });
+      // the whole settings, so a chosen local folder stays
+      await config.saveSettings({ ...(settings ?? { local: { library: "", previews: "", lists: "" } }), nas_host: host.trim(), shares });
       await nas.connect(true);
       const m = await nasApi.mounts();
       if (m.lists.some((x) => x.chosen)) await toWho();
@@ -67,14 +79,32 @@ export default function DeviceSetup({ nas, onDone }: Props) {
     }
   };
 
-  const save = () => {
+  // the free space where the local copies would go
+  useEffect(() => {
+    if (!folder) return setFree(null);
+    config.freeSpace(folder).then(setFree).catch(() => setFree(null));
+  }, [folder]);
+
+  const pickFolder = async () => {
+    const f = await open({ directory: true, defaultPath: folder || undefined, title: "Map voor de lokale kopieën" });
+    if (typeof f === "string") setFolder(f);
+  };
+
+  /** A new folder is kept and the app starts again so everything uses it (F006/S07). */
+  const save = async () => {
     setBusy(true);
     setError(null);
-    config
-      .createDevice(name, owner)
-      .then(onDone)
-      .catch((e) => setError(String(e)))
-      .finally(() => setBusy(false));
+    try {
+      const choose = local !== null && !local.chosen;
+      if (choose) await config.chooseLocal(folder);
+      const d = device ?? (await config.createDevice(name, owner));
+      if (choose) await config.relaunch();
+      else onDone(d);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const hostErr = host.trim() ? hostProblem(host.trim()) : "geef de naam of het adres van je NAS";
@@ -87,6 +117,18 @@ export default function DeviceSetup({ nas, onDone }: Props) {
     setOwner(o);
     if (!nameEdited && !who?.device) setName(o ? `${o}-mac` : "");
   };
+  const folderPicker = (
+    <div className="space-y-1">
+      <span>Map voor de lokale kopieën</span>
+      <div className="flex gap-2 items-center">
+        <input className={`flex-1 ${field} font-mono text-xs`} value={folder} onChange={(e) => setFolder(e.target.value)} />
+        <button className="px-2 py-1 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700" onClick={pickFolder}>Kies…</button>
+      </div>
+      <div className="text-xs text-neutral-500">
+        previews, lijsten en de foto's die je lokaal houdt{free !== null ? ` · ${freeText(free)}` : ""}
+      </div>
+    </div>
+  );
   const failed = nas.attempts.filter((a) => a.outcome.kind !== "mounted" && a.outcome.kind !== "already_mounted");
 
   return (
@@ -136,6 +178,21 @@ export default function DeviceSetup({ nas, onDone }: Props) {
           </>
         )}
 
+        {step === "folder" && (
+          <>
+            <p className="text-neutral-500">
+              Kies waar FamilyLightbox op deze laptop zijn kopieën bewaart. Daarna start de app opnieuw.
+            </p>
+            {folderPicker}
+            {error && <div className="text-red-600 whitespace-pre-wrap">{error}</div>}
+            <div className="flex justify-end">
+              <button className={button} disabled={busy || !folder.trim()} onClick={save}>
+                Bewaar
+              </button>
+            </div>
+          </>
+        )}
+
         {step === "who" && (
           <>
             <p className="text-neutral-500">
@@ -169,12 +226,13 @@ export default function DeviceSetup({ nas, onDone }: Props) {
               <input className={`w-full ${field} font-mono`} value={name} onChange={(e) => { setName(e.target.value); setNameEdited(true); }} />
               {name && nameErr && <div className="text-amber-600">{nameErr}</div>}
             </label>
+            {local && !local.chosen && step === "who" && folderPicker}
             {error && <div className="text-red-600 whitespace-pre-wrap">{error}</div>}
             <div className="flex justify-between items-center">
               <button className="text-xs text-neutral-500 hover:underline" disabled={busy} onClick={() => { setError(null); setStep("nas"); }}>
                 ‹ NAS
               </button>
-              <button className={button} disabled={busy || !!ownerErr || !!nameErr} onClick={save}>
+              <button className={button} disabled={busy || !!ownerErr || !!nameErr || (local !== null && !local.chosen && !folder.trim())} onClick={save}>
                 Bewaar
               </button>
             </div>

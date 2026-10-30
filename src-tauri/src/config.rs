@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub const SETTINGS_FILE: &str = "familylightbox.json";
 pub const DEVICE_FILE: &str = "device.json";
@@ -35,6 +35,73 @@ pub struct Settings {
     /// Empty until the user names a NAS or one is found (F006/S06): the app knows no family's NAS.
     pub nas_host: String,
     pub shares: Shares,
+    /// Where this Mac keeps its local copies (F006/S07); empty until chosen or adopted.
+    pub local: Local,
+}
+
+/// The local working copy of `Library`, the copy of `Previews` and the read copy of `Lists`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Local {
+    pub library: String,
+    pub previews: String,
+    pub lists: String,
+}
+
+impl Local {
+    /// The three places inside one chosen folder.
+    pub fn inside(folder: &Path) -> Local {
+        let p = |n: &str| folder.join(n).display().to_string();
+        Local { library: p("Library"), previews: p("Previews"), lists: p("Lists") }
+    }
+
+    pub fn is_set(&self) -> bool {
+        !self.library.is_empty() && !self.previews.is_empty() && !self.lists.is_empty()
+    }
+}
+
+/// The folder proposed on a new Mac (F006/S07).
+pub fn proposed_folder(home: &Path) -> PathBuf {
+    home.join("Pictures").join("FamilyLightbox")
+}
+
+/// The CLI's places, which an existing installation keeps (data contract 7).
+pub fn cli_local(home: &Path) -> Local {
+    let p = |n: &str| home.join("Pictures").join(n).display().to_string();
+    Local { library: p("LibraryLocal"), previews: p("Previews"), lists: p("Lists") }
+}
+
+/// Without folders in the settings and with the CLI's working copy present, the CLI's places are
+/// written to the settings once, as they are, so nothing moves (F006/S07).
+pub fn adopt_local(dir: &Path, home: &Path) -> Option<Local> {
+    let (mut s, err) = load_settings(dir);
+    let cli = cli_local(home);
+    if err.is_some() || s.local.is_set() || !Path::new(&cli.library).is_dir() {
+        return None;
+    }
+    s.local = cli.clone();
+    write_settings(dir, &s).ok()?;
+    Some(cli)
+}
+
+/// Checks that `folder` can hold the local copies (it is created if needed and a test file can be
+/// written), then keeps it in the settings.
+pub fn choose_local(dir: &Path, folder: &Path) -> Result<Local, String> {
+    if !folder.is_absolute() {
+        return Err(format!("{}: geen volledig pad", folder.display()));
+    }
+    let err = |e: std::io::Error| format!("{}: {e}", folder.display());
+    fs::create_dir_all(folder).map_err(err)?;
+    let test = folder.join(format!(".familylightbox-{}.tmp", std::process::id()));
+    fs::write(&test, b"x").map_err(err)?;
+    let _ = fs::remove_file(&test);
+    let (mut s, problem) = load_settings(dir);
+    if let Some(p) = problem {
+        return Err(p);
+    }
+    s.local = Local::inside(folder);
+    write_settings(dir, &s)?;
+    Ok(s.local)
 }
 
 
@@ -86,6 +153,12 @@ pub fn save_settings(dir: &Path, s: &Settings) -> Result<(), String> {
             return Err(p);
         }
     }
+    write_settings(dir, s)
+}
+
+/// Writes the settings without checking the NAS name, for what the app adopts or the user picks
+/// before a NAS is set up.
+fn write_settings(dir: &Path, s: &Settings) -> Result<(), String> {
     fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let tmp = dir.join(format!("{SETTINGS_FILE}.tmp"));
     let body = serde_json::to_string_pretty(s).map_err(|e| e.to_string())? + "\n";
@@ -96,12 +169,13 @@ pub fn save_settings(dir: &Path, s: &Settings) -> Result<(), String> {
     })
 }
 
-/// Without a settings file: the NAS of a `Lists` share that is mounted and holds `devices.json`,
-/// or else the host of the CLI's `nas.library` in `state.json` (data contract 7), written once to
-/// the settings so an existing installation keeps its NAS (F006/S06). `None` when there is a
-/// settings file already or nothing was found.
+/// Without a NAS in the settings: the NAS of a `Lists` share that is mounted and holds
+/// `devices.json`, or else the host of the CLI's `nas.library` in `state.json` (data contract 7),
+/// written once to the settings so an existing installation keeps its NAS (F006/S06). `None` when
+/// a NAS is set already, the settings file is broken, or nothing was found.
 pub fn adopt_host(dir: &Path, mounts: &[crate::mounts::RawMount]) -> Option<String> {
-    if dir.join(SETTINGS_FILE).exists() {
+    let (mut s, err) = load_settings(dir);
+    if err.is_some() || !s.nas_host.is_empty() {
         return None;
     }
     let lists = Shares::default().lists;
@@ -116,7 +190,8 @@ pub fn adopt_host(dir: &Path, mounts: &[crate::mounts::RawMount]) -> Option<Stri
         Some(host.to_string())
     };
     let host = from_mount.or_else(from_cli).filter(|h| host_problem(h).is_none())?;
-    save_settings(dir, &Settings { nas_host: host.clone(), shares: Shares::default() }).ok()?;
+    s.nas_host = host.clone();
+    write_settings(dir, &s).ok()?;
     Some(host)
 }
 
@@ -238,7 +313,7 @@ mod tests {
         fs::write(lists.join("devices.json"), "{}").unwrap();
         assert_eq!(adopt_host(dir.path(), &[mount("//anna@nas1._smb._tcp.local/Lists")]).as_deref(), Some("nas1"));
         assert_eq!(load_settings(dir.path()).0.nas_host, "nas1");
-        // with a settings file nothing is adopted again
+        // with a NAS set nothing is adopted again
         assert_eq!(adopt_host(dir.path(), &[mount("//anna@other/Lists")]), None);
         assert_eq!(load_settings(dir.path()).0.nas_host, "nas1");
 
@@ -249,6 +324,46 @@ mod tests {
         fs::write(path_only.path().join("state.json"), r#"{"nas": {"library": "/Volumes/Library"}}"#).unwrap();
         assert_eq!(adopt_host(path_only.path(), &[]), None);
         assert!(!path_only.path().join(SETTINGS_FILE).exists());
+    }
+
+    #[test]
+    fn the_local_folders_are_adopted_or_chosen() {
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join(".config/media");
+        // a new Mac: nothing to adopt, nothing written
+        assert_eq!(adopt_local(&dir, home.path()), None);
+        assert!(!dir.join(SETTINGS_FILE).exists());
+        // the CLI's working copy is there: its three places are kept, next to a host adopted later
+        fs::create_dir_all(home.path().join("Pictures/LibraryLocal")).unwrap();
+        let cli = adopt_local(&dir, home.path()).unwrap();
+        assert!(cli.library.ends_with("Pictures/LibraryLocal") && cli.previews.ends_with("Pictures/Previews"));
+        assert_eq!(adopt_local(&dir, home.path()), None);
+        fs::write(dir.join("state.json"), r#"{"nas": {"library": "box:/volume1/Library"}}"#).unwrap();
+        assert_eq!(adopt_host(&dir, &[]).as_deref(), Some("box"));
+        let s = load_settings(&dir).0;
+        assert_eq!((s.nas_host.as_str(), s.local), ("box", cli));
+
+        // a chosen folder: the three places inside it, kept with what was there
+        let chosen = home.path().join("Disk/Foto's");
+        let l = choose_local(&dir, &chosen).unwrap();
+        assert_eq!(l, Local::inside(&chosen));
+        assert!(chosen.is_dir() && fs::read_dir(&chosen).unwrap().count() == 0);
+        assert_eq!(load_settings(&dir).0.nas_host, "box");
+        assert!(choose_local(&dir, Path::new("relative")).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_that_cannot_be_written_is_refused() {
+        use std::os::unix::fs::PermissionsExt;
+        let home = tempfile::tempdir().unwrap();
+        let ro = home.path().join("ro");
+        fs::create_dir_all(&ro).unwrap();
+        fs::set_permissions(&ro, fs::Permissions::from_mode(0o555)).unwrap();
+        let r = choose_local(&home.path().join("cfg"), &ro.join("x"));
+        fs::set_permissions(&ro, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(r.is_err());
+        assert!(!home.path().join("cfg").join(SETTINGS_FILE).exists());
     }
 
     #[test]

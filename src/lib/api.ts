@@ -57,7 +57,10 @@ export function previewUrl(path: string, thumb: boolean): string {
 }
 
 export type Shares = { library: string; previews: string; lists: string; exports: string };
-export type Settings = { nas_host: string; shares: Shares };
+/** The local folders (F006/S07); empty strings until chosen or adopted. */
+export type Local = { library: string; previews: string; lists: string };
+export type Settings = { nas_host: string; shares: Shares; local: Local };
+export type LocalFolders = Local & { chosen: boolean; proposal: string };
 export type SettingsState = { settings: Settings; error: string | null; path: string };
 export type Device = { name: string; owner: string };
 export type DeviceState = { device: Device | null; error: string | null; path: string };
@@ -67,6 +70,10 @@ export const config = {
   saveSettings: (settings: Settings) => invoke<void>("save_settings", { settings }),
   device: () => invoke<DeviceState>("device"),
   createDevice: (name: string, owner: string) => invoke<Device>("create_device", { name, owner }),
+  localFolders: () => invoke<LocalFolders>("local_folders"),
+  freeSpace: (path: string) => invoke<number | null>("free_space", { path }),
+  chooseLocal: (folder: string) => invoke<Local>("choose_local", { folder }),
+  relaunch: () => invoke<void>("relaunch"),
 };
 
 export type Mount = { mount_point: string; fs_type: string; server: string; user: string | null; chosen: boolean };
