@@ -4,6 +4,7 @@ import { api, previewUrl } from "../lib/api";
 import { fileName, takenLabel } from "../lib/months";
 import { addedText, type Member } from "../lib/lists";
 import { heartView, type Rating } from "../lib/marks";
+import VideoIcon from "./VideoIcon";
 
 type Props = {
   item: Item;
@@ -80,6 +81,16 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
         <span className="font-medium">{fileName(item.path)}</span>
         <span className="text-neutral-400">{takenLabel(item.taken)}</span>
         {item.source && <span className="text-neutral-400">{item.source}</span>}
+        {item.kind === "video" && (
+          <span className="flex items-center gap-1 text-neutral-400" title="video">
+            <VideoIcon size={14} /> video
+          </span>
+        )}
+        {!item.local && (
+          <span className="rounded bg-white/15 text-neutral-300 text-xs px-1.5 py-0.5" title="het origineel staat alleen op de NAS">
+            NAS
+          </span>
+        )}
         <span className="flex-1" />
         {message && <span className="text-amber-300">{message}</span>}
         <span title={rating ? `${rating.stars} ${rating.stars === 1 ? "ster" : "sterren"} van ${rating.by}` : undefined}>{bar}</span>

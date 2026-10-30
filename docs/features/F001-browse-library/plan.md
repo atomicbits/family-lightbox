@@ -57,3 +57,8 @@ The first version was built before this process and has no stories. Changes sinc
 |---|---|---|---|
 | [S01](stories/S01-continuous-timeline.md) | One continuous grid across months and years | Done | — |
 | [S02](stories/S02-window-size.md) | The window opens at the size and place it had, fitted to a smaller screen | Done | — |
+
+## Small changes
+
+- 2026-10-30: the lightbox's bar shows the video icon and "NAS" like the tiles (Peter: they were
+  missing in the large view).
