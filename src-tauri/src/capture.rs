@@ -156,7 +156,7 @@ fn tiff_ifd(r: &mut R, base: u64, le: bool, off: u64, wanted: &[u16], depth: u32
     let Some(n) = u16e(&r.at(base + off, 2), le) else { return };
     let n = n.min(500) as u64;
     let entries = r.at(base + off + 2, 12 * n);
-    for e in entries.chunks_exact(12) {
+    for e in entries.as_chunks::<12>().0 {
         let (Some(tag), Some(typ), Some(count)) = (u16e(e, le), u16e(&e[2..], le), u32e(&e[4..], le)) else { continue };
         let val = &e[8..12];
         if tag == TAG_EXIF_IFD && (typ == 4 || typ == 13) {
