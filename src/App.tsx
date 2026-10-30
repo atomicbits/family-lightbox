@@ -21,6 +21,8 @@ import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
 import { hideText, listText, skippedText, stackText, undoHeart, undoHide, undoList, undoStack, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
 import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./lib/hidden";
+import { NO_FILTER, isSet, matches, readFilter, toCore, type FilterState } from "./lib/filter";
+import FilterBar from "./components/FilterBar";
 import { PALETTE, arrange, buildStacks, stackActions, stackColor, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
 import UndoIcon from "./components/UndoIcon";
 import ShortcutsOverlay from "./components/ShortcutsOverlay";
@@ -208,17 +210,56 @@ export default function App() {
     isHidden: (x) => x.hash in hiddenRec && !revealed.has(x.month),
   }), [stackMembers, stackIds, unfolded, marks.state, hiddenRec, revealed]);
 
+  // The filter bar (F002/S03): kept per Mac; the core filters the index, a list is filtered here.
+  const [filter, setFilterState] = useState<FilterState>(NO_FILTER);
+  useEffect(() => { invoke<unknown>("get_filter").then((v) => setFilterState(readFilter(v))).catch(() => {}); }, []);
+  const setFilter = useCallback((f: FilterState) => {
+    setFilterState(f);
+    invoke("set_filter", { filter: isSet(f) ? f : null }).catch(() => {});
+  }, []);
+  const filterOn = isSet(filter);
+  const coreFilter = useMemo(() => toCore(filter, marks.state, revealed), [filter, marks.state, revealed]);
+  const filterKey = useMemo(() => (filterOn ? JSON.stringify(coreFilter) : ""), [filterOn, coreFilter]);
+  const [filteredCounts, setFilteredCounts] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    if (!filterOn) return setFilteredCounts(null);
+    invoke<[string, number][]>("months_filtered", { filter: coreFilter })
+      .then((rows) => setFilteredCounts(Object.fromEntries(rows)))
+      .catch((e) => lists.say(String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, builds]);
+  const listShown = useMemo(() => {
+    if (!listView || !filterOn) return listView;
+    const marksIn = new Set(coreFilter.marks?.hashes ?? []);
+    const byMonth = new Map<string, Item[]>();
+    for (const [month, items] of listView.byMonth) {
+      const keep = items.filter((i) => matches(i, coreFilter, marksIn));
+      if (keep.length) byMonth.set(month, keep);
+    }
+    const sections = listView.sections.filter((s) => byMonth.has(s.month)).map((s) => ({ month: s.month, count: byMonth.get(s.month)!.length }));
+    return { ...listView, byMonth, sections };
+  }, [listView, filterOn, coreFilter]);
+  const fetchItems = useCallback((month: string) =>
+    filterOn ? invoke<Item[]>("items_filtered", { month, filter: coreFilter }) : api.items(month),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [filterKey]);
+
   const shownMonths = useMemo(() => {
+    if (filterOn && filteredCounts) {
+      return withRevealed(withHidden(months, hiddenPerMonth), revealed).map((m) => ({ ...m, filtered: filteredCounts[m.month] ?? 0 }));
+    }
     const ms = withRevealed(withHidden(months, hiddenPerMonth), revealed);
     return stackView.stacks.size === 0
       ? ms
       : ms.map((m) => { const n = stackDelta(m.month, stackView).stacks; return n === (m.stacks ?? 0) ? m : { ...m, stacks: n }; });
-  }, [months, hiddenPerMonth, revealed, stackView]);
+  }, [months, hiddenPerMonth, revealed, stackView, filterOn, filteredCounts]);
 
   // A month's tiles from its items: hidden ones out (unless shown), stacks together (F014, F015).
+  // With a filter set the core has left hidden photos out already, and stacks aren't folded: the
+  // grid shows exactly what matches (F002/S03).
   const monthTiles = useCallback((month: string, items: Item[]) =>
-    arrange(month, revealed.has(month) ? items : visibleItems(items, hiddenRec), stackIds, stackView),
-  [revealed, hiddenRec, stackIds, stackView]);
+    filterOn ? items : arrange(month, revealed.has(month) ? items : visibleItems(items, hiddenRec), stackIds, stackView),
+  [filterOn, revealed, hiddenRec, stackIds, stackView]);
 
   // The library (or the list) as sections, newest month first, with their counts.
   // The same object while the months and their counts stay the same: new previews only change the
@@ -226,11 +267,11 @@ export default function App() {
   const stableSections = useRef<Section[]>([]);
   const sections = useMemo(() => {
     const library = () =>
-      toSections(shownMonths).map((s) => (stackView.stacks.size ? { ...s, count: s.count + stackDelta(s.month, stackView).delta } : s));
-    const next = showingList ? listView!.sections : listId ? [] : library();
+      toSections(shownMonths).map((s) => (stackView.stacks.size && !filterOn ? { ...s, count: s.count + stackDelta(s.month, stackView).delta } : s));
+    const next = showingList ? listShown!.sections : listId ? [] : library();
     if (!sameSections(stableSections.current, next)) stableSections.current = next;
     return stableSections.current;
-  }, [shownMonths, listView, listId, showingList, stackView]);
+  }, [shownMonths, listShown, listId, showingList, stackView, filterOn]);
 
   // Another view: start at the top, without a selection.
   useEffect(() => {
@@ -258,8 +299,7 @@ export default function App() {
         if (!month || cache.current.has(month) || inFlight.current.has(month)) continue;
         inFlight.current.add(month);
         const gen = generation.current;
-        api
-          .items(month)
+        fetchItems(month)
           .then((items) => {
             if (gen !== generation.current) return;
             cache.current.set(month, items);
@@ -269,11 +309,18 @@ export default function App() {
           .finally(() => inFlight.current.delete(month));
       }
     },
-    [sections, listId],
+    [sections, listId, fetchItems],
   );
+  // a new filter: the months' items again, through it
+  useEffect(() => {
+    ++generation.current;
+    cache.current = new Map();
+    inFlight.current.clear();
+    setReneed((n) => n + 1);
+  }, [filterKey]);
   useEffect(() => { if (reneed > 0) need(lastWanted.current); }, [reneed]); // eslint-disable-line react-hooks/exhaustive-deps
   const itemsOf = (month: string) => {
-    if (listId) return listView?.byMonth.get(month);
+    if (listId) return listShown?.byMonth.get(month);
     const items = cache.current.get(month);
     return items && monthTiles(month, items);
   };
@@ -347,16 +394,16 @@ export default function App() {
       const { section, index } = parseKey(k);
       const month = sections[section]?.month;
       if (!month) continue;
-      let items = listId ? listView?.byMonth.get(month) ?? [] : cache.current.get(month);
+      let items = listId ? listShown?.byMonth.get(month) ?? [] : cache.current.get(month);
       if (!items) {
-        items = await api.items(month);
+        items = await fetchItems(month);
         cache.current.set(month, items);
       }
       if (!listId) items = monthTiles(month, items);
       if (items[index]) out.push(items[index]);
     }
     return out;
-  }, [sections, listId, listView, monthTiles]);
+  }, [sections, listId, listShown, monthTiles, fetchItems]);
 
   // Stars and hearts for the selection (F013/S03): the picked tiles, or the selected one.
   const me = device?.device?.owner ?? null;
@@ -653,12 +700,12 @@ export default function App() {
     (async () => {
       try {
         const m = await api.months();
-        const items = anchor ? await api.items(anchor.month).catch(() => undefined) : undefined;
+        const items = anchor ? await fetchItems(anchor.month).catch(() => undefined) : undefined;
         // the months on screen are fetched again before the old ones are dropped, so the grid
         // never shows empty tiles in between
         const onScreen = lastWanted.current.map((s) => sections[s]?.month).filter((x): x is string => !!x && x !== anchor?.month);
         const fresh = await Promise.all(
-          onScreen.map((month) => api.items(month).then((it) => [month, it] as [string, Item[]]).catch(() => null)),
+          onScreen.map((month) => fetchItems(month).then((it) => [month, it] as [string, Item[]]).catch(() => null)),
         );
         if (gen !== generation.current) return;
         const next = toSections(withRevealed(withHidden(m, hiddenPerMonth), revealed))
@@ -725,7 +772,14 @@ export default function App() {
             </span>
           )}
         </div>
-        <div />
+        <div className="flex items-center justify-center min-w-0">
+          <FilterBar
+            filter={filter}
+            onChange={setFilter}
+            people={[...new Set([...(me ? [me] : []), ...Object.values(marks.state.hearts).flatMap((h) => Object.keys(h))])].sort()}
+            count={filterOn ? `${sections.reduce((n, s) => n + s.count, 0).toLocaleString("nl-BE")} van ${months.reduce((n, m) => n + m.photos + m.videos, 0).toLocaleString("nl-BE")}` : null}
+          />
+        </div>
         <div className="flex items-center justify-end gap-2">
           <label className="flex items-center gap-1.5 text-neutral-400" title="grootte van de miniaturen">
             <span className="text-xs">▫</span>

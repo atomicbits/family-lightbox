@@ -14,7 +14,7 @@ export function yearOf(month: string): string {
   return month.slice(0, 4);
 }
 
-export type YearGroup = { year: string; months: MonthSummary[]; photos: number; videos: number; hidden: number };
+export type YearGroup = { year: string; months: MonthSummary[]; photos: number; videos: number; hidden: number; filtered?: number };
 
 /** Groepeert per jaar, nieuwste jaar eerst; de volgorde binnen een jaar is die van de invoer. */
 export function groupByYear(months: MonthSummary[]): YearGroup[] {
@@ -26,6 +26,7 @@ export function groupByYear(months: MonthSummary[]): YearGroup[] {
     g.photos += m.photos;
     g.videos += m.videos;
     if (!m.revealed) g.hidden += m.hidden ?? 0;
+    if (m.filtered !== undefined) g.filtered = (g.filtered ?? 0) + m.filtered;
     groups.set(y, g);
   }
   return [...groups.values()].sort((a, b) => b.year.localeCompare(a.year));

@@ -39,8 +39,8 @@ export default function MonthList({ months, selected, onSelect, onMenu }: Props)
               {g.year}
               {g.months.some((m) => m.revealed && m.hidden) && <RevealedMark />}
             </span>
-            <span className="text-xs font-normal text-neutral-400 tabular-nums" title={countTitle(g.photos + g.videos - g.hidden, g.hidden)}>
-              {g.photos + g.videos - g.hidden}
+            <span className="text-xs font-normal text-neutral-400 tabular-nums" title={countTitle(g.filtered ?? g.photos + g.videos - g.hidden, g.hidden)}>
+              {g.filtered ?? g.photos + g.videos - g.hidden}
             </span>
           </button>
           {!closed.has(g.year) &&
@@ -56,7 +56,9 @@ export default function MonthList({ months, selected, onSelect, onMenu }: Props)
                     "w-full flex items-center justify-between pl-9 pr-3 py-1 text-left " +
                     (active
                       ? "bg-blue-600 text-white"
-                      : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800")
+                      : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800") +
+                    // nothing here matches the filter (F002/S03)
+                    (m.filtered === 0 && !active ? " opacity-40" : "")
                   }
                   title={`${countTitle(shownCount(m), m.revealed ? 0 : m.hidden ?? 0, m.stacks ?? 0)}; ${m.previews} previews, ${m.local} originelen lokaal`}
                 >

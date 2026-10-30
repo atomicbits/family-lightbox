@@ -13,6 +13,8 @@ export type MonthSummary = {
   revealed?: boolean;
   /** How many stacks stand in it (F015/S02). */
   stacks?: number;
+  /** How many of its photos match the filter, when one is set (F002/S03). */
+  filtered?: number;
 };
 
 export type Item = {

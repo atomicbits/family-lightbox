@@ -230,6 +230,19 @@ fn log_message(level: log::Level, source: String, text: String, app: tauri::AppH
     report(&app, level, &source, &text);
 }
 
+/// The filter kept on this Mac (F002/S03).
+#[tauri::command]
+fn get_filter(paths: State<Paths>) -> Option<serde_json::Value> {
+    config::load_state(&paths.config).filter
+}
+
+#[tauri::command]
+fn set_filter(filter: Option<serde_json::Value>, paths: State<Paths>) -> Result<(), String> {
+    let mut state = config::load_state(&paths.config);
+    state.filter = filter;
+    config::save_state(&paths.config, &state)
+}
+
 /// Where the log is, for the overlay.
 #[tauri::command]
 fn log_path(paths: State<Paths>) -> String {
@@ -880,7 +893,7 @@ pub fn run() {
             status, months, items, reveal, open_original, settings, save_settings, device, create_device,
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
-            log_message, log_path,
+            log_message, log_path, get_filter, set_filter,
             lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])

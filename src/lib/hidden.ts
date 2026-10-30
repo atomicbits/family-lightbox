@@ -11,7 +11,8 @@ export function withHidden(months: MonthSummary[], perMonth: Record<string, numb
 }
 
 /** How many photos and videos a month shows: its hidden ones too while they are shown (S04). */
-export const shownCount = (m: MonthSummary): number => m.photos + m.videos - (m.revealed ? 0 : m.hidden ?? 0);
+export const shownCount = (m: MonthSummary): number =>
+  m.filtered ?? m.photos + m.videos - (m.revealed ? 0 : m.hidden ?? 0);
 
 /** The months whose hidden photos are shown for now (F014/S04), marked. */
 export function withRevealed(months: MonthSummary[], revealed: Set<string>): MonthSummary[] {

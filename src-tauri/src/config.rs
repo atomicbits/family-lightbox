@@ -111,6 +111,8 @@ pub struct AppState {
     pub previews_confirmed_at: Option<String>,
     /// Making previews was paused by hand (F012/S03); stays paused until resumed.
     pub previews_paused: bool,
+    /// The filter bar's filter (F002/S03), as the frontend keeps it; kept after a restart.
+    pub filter: Option<serde_json::Value>,
 }
 
 /// The state, or the default when it is missing or broken (a broken file is left alone).
