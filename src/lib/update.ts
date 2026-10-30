@@ -51,7 +51,8 @@ export function updateLine(s: UpdateState, syncing: boolean): UpdateLine | null 
   if (!s.offer) return s.installError ? { text: s.installError, button: null, tone: "red" } : null;
   // a failed download keeps the offer, so the button stays for another try
   return {
-    text: s.installError ?? `Versie ${s.offer.version} beschikbaar`,
+    // a grey button says why in words, not only in its tooltip
+    text: s.installError ?? `Versie ${s.offer.version} beschikbaar${syncing ? ", na de synchronisatie" : ""}`,
     button: {
       label: "Bijwerken",
       disabled: syncing,

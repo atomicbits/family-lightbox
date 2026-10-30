@@ -184,3 +184,11 @@ The fixes for the first start on Lynn's Mac: the sync skips a year folder the us
 look at, the index and previews wait for the first sync, and the local folder is chosen (F006/S07;
 a Mac that has a device already gets only that question). Published and checked as for 0.4.0:
 the `.dmg` is accepted as notarized, its ticket validates, `latest.json` says 0.4.1.
+
+### [2026-10-30] Bijwerken in the settings too
+
+On Lynn's Mac *Controleren op updates* in the settings said that 0.4.1 is available, but offered
+no way to install it: *Bijwerken* was only in the footer, behind the panel. The *Over* section
+now shows the same line with *Bijwerken* once a newer version is found (and the progress while
+it installs). A button that is grey during a sync now says so in its text too ("…, na de
+synchronisatie"), not only in its tooltip. In 0.4.0 and 0.4.1 the footer's button is the way.

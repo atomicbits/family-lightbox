@@ -17,6 +17,7 @@ describe("updateLine", () => {
   it("waits for a running sync", () => {
     const line = updateLine({ ...initial, offer }, true)!;
     expect(line.button).toMatchObject({ disabled: true, title: "na de synchronisatie" });
+    expect(line.text).toBe("Versie 0.2.1 beschikbaar, na de synchronisatie");
   });
 
   it("shows the download progress, without a button", () => {

@@ -4,6 +4,7 @@ import type { Nas } from "../lib/nas";
 import type { Sync } from "../lib/sync";
 import { outcomeText, type Index } from "../lib/indexer";
 import { hostProblem, shareProblem } from "../lib/device";
+import UpdateLine from "./UpdateLine";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
 
@@ -235,7 +236,12 @@ export default function Settings({ device, nas, sync, index, update, previews, o
               {update.state.checking ? "Controleren…" : "Controleren op updates"}
             </button>
           </div>
-          {update.state.checked && <div className="text-neutral-500">{update.state.checked}</div>}
+          {/* a newer version is installed from here too, not only from the bar behind this panel */}
+          {update.state.offer || update.state.installing ? (
+            <UpdateLine update={update} syncing={!!sync.state?.running} />
+          ) : (
+            update.state.checked && <div className="text-neutral-500">{update.state.checked}</div>
+          )}
           {update.state.checkError && <div className="text-red-600 whitespace-pre-wrap">{update.state.checkError}</div>}
         </section>
 
