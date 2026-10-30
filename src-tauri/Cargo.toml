@@ -1,6 +1,6 @@
 [package]
 name = "family-lightbox"
-version = "0.4.1"
+version = "0.4.2"
 description = "Bladeren en selecteren in de gezinsfotobibliotheek"
 authors = ["Atomic Bits"]
 edition = "2024"
