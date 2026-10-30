@@ -5,6 +5,7 @@ import type { Sync } from "../lib/sync";
 import { outcomeText, type Index } from "../lib/indexer";
 import { hostProblem, shareProblem } from "../lib/device";
 import UpdateLine from "./UpdateLine";
+import ImportSettings from "./ImportSettings";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
 
@@ -30,6 +31,7 @@ export default function Settings({ device, nas, sync, index, update, previews, o
   useEffect(() => { config.localFolders().then(setFolders).catch(() => {}); }, []);
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [saves, setSaves] = useState(0);
   const { mounts, attempts, check, busy: connecting } = nas;
 
   const load = () => config.settings().then((s) => { setState(s); setDraft(s.settings); });
@@ -51,7 +53,7 @@ export default function Settings({ device, nas, sync, index, update, previews, o
   const save = () =>
     config
       .saveSettings(draft)
-      .then(() => { setMessage("bewaard"); return load().then(nas.refresh); })
+      .then(() => { setMessage("bewaard"); setSaves((n) => n + 1); return load().then(nas.refresh); })
       .catch((e) => setMessage(String(e)));
 
   const connect = () => nas.connect(true);
@@ -215,6 +217,8 @@ export default function Settings({ device, nas, sync, index, update, previews, o
           )}
           <div className="text-xs text-neutral-400 font-mono">{state.path}</div>
         </section>
+
+        <ImportSettings value={draft.import} onChange={(i) => setDraft({ ...draft, import: i })} version={saves} />
 
         <section className="space-y-1">
           <div className="flex items-center gap-2">

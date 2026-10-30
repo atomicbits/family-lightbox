@@ -82,6 +82,31 @@ impl Db {
         j
     }
 
+    /// Per source, the paths of its originals in ordinary month folders (F018/S03), for
+    /// `sources::layouts`.
+    pub fn source_paths(&self) -> Result<Vec<(String, String)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT source, path FROM items WHERE source IS NOT NULL AND kind IN ('photo', 'video') AND folder GLOB '[0-9][0-9][0-9][0-9]/[0-9][0-9]'")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
+    /// The sources a camera's photos and videos are under, with how many each, most first
+    /// (F018/S03).
+    pub fn sources_of_camera(&self, camera: &str) -> Result<Vec<(String, i64)>, String> {
+        if !self.has_cameras {
+            return Ok(vec![]);
+        }
+        let mut stmt = self
+            .conn
+            .prepare("SELECT source, count(*) FROM items JOIN cameras cam ON cam.path = items.path WHERE cam.camera = ?1 AND source IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([camera], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
     /// The cameras of the photos and videos with how many each and when last used (the latest
     /// `taken`), most recent first; "" for unknown, always last (F002/S04).
     pub fn camera_counts(&self) -> Result<Vec<(String, i64, Option<String>)>, String> {

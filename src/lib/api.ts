@@ -59,7 +59,23 @@ export function previewUrl(path: string, thumb: boolean): string {
 export type Shares = { library: string; previews: string; lists: string; exports: string };
 /** The local folders (F006/S07); empty strings until chosen or adopted. */
 export type Local = { library: string; previews: string; lists: string };
-export type Settings = { nas_host: string; shares: Shares; local: Local };
+/** Where new photos come from on this Mac (F018/S03). */
+export type SourceSettings = { name: string; exclude: string[]; ignore: boolean; delete_imported: boolean };
+export type Synced = { path: string; photos: string; videos: string };
+export type Import = { drop_folders: string[]; synced: Synced[]; sources: Record<string, SourceSettings> };
+export type Layout = { split: boolean; day: boolean };
+export type Found = {
+  kind: "drop" | "synced" | "card";
+  path: string;
+  name: string;
+  videos: string;
+  layout: Layout;
+  known: boolean;
+  camera: string | null;
+  ignore: boolean;
+  problem: string | null;
+};
+export type Settings = { nas_host: string; shares: Shares; local: Local; import: Import };
 export type LocalFolders = Local & { chosen: boolean; proposal: string };
 export type SettingsState = { settings: Settings; error: string | null; path: string };
 export type Device = { name: string; owner: string };
@@ -74,6 +90,7 @@ export const config = {
   freeSpace: (path: string) => invoke<number | null>("free_space", { path }),
   chooseLocal: (folder: string) => invoke<Local>("choose_local", { folder }),
   relaunch: () => invoke<void>("relaunch"),
+  importSources: () => invoke<Found[]>("import_sources"),
 };
 
 export type Mount = { mount_point: string; fs_type: string; server: string; user: string | null; chosen: boolean };

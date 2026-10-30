@@ -20,6 +20,7 @@ pub mod preview;
 pub mod previews_job;
 pub mod previews_plan;
 pub mod push;
+pub mod sources;
 mod pull;
 mod runner;
 mod sync;
@@ -207,6 +208,20 @@ fn nas_whoami(paths: State<Paths>) -> Whoami {
     let computer = nas::computer_name();
     let device = nas::propose_device(&computer, &owner, &known);
     Whoami { user, owner, device, computer, known }
+}
+
+/// What the import can take from on this Mac (F018/S03), with names and layouts from the library.
+#[tauri::command]
+async fn import_sources(paths: State<'_, Paths>) -> Result<Vec<sources::Found>, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || {
+        let import = config::load_settings(&paths.config).0.import;
+        let db = Db::open(&paths.index()).ok();
+        let layouts = db.as_ref().and_then(|d| d.source_paths().ok()).map(|p| sources::layouts(&p)).unwrap_or_default();
+        let of_camera = |c: &str| db.as_ref().and_then(|d| d.sources_of_camera(c).ok()).unwrap_or_default();
+        Ok(sources::discover(&import, Path::new("/Volumes"), &layouts, &of_camera))
+    })
+    .await
 }
 
 /// The local folders (F006/S07): where they are now, whether they were chosen or adopted, the
@@ -1012,7 +1027,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, import_sources, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

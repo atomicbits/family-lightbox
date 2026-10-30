@@ -37,6 +37,41 @@ pub struct Settings {
     pub shares: Shares,
     /// Where this Mac keeps its local copies (F006/S07); empty until chosen or adopted.
     pub local: Local,
+    /// Where new photos come from on this Mac (F018/S03).
+    pub import: Import,
+}
+
+/// The import's sources on this Mac (F018/S03).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Import {
+    /// Folders whose subfolders are sources (the offload folder).
+    pub drop_folders: Vec<String>,
+    /// Folders another app keeps in sync, never written to.
+    pub synced: Vec<Synced>,
+    /// Per subfolder of a drop folder, by its folder name.
+    pub sources: std::collections::BTreeMap<String, SourceSettings>,
+}
+
+/// A synced folder and the sources its photos and its videos go to.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Synced {
+    pub path: String,
+    pub photos: String,
+    pub videos: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SourceSettings {
+    /// Another name in the library than the folder's; empty: the folder's name.
+    pub name: String,
+    /// Names left out (`*-mask.png`).
+    pub exclude: Vec<String>,
+    pub ignore: bool,
+    /// After an import verified on the NAS, delete from `_imported/` (off by default).
+    pub delete_imported: bool,
 }
 
 /// The local working copy of `Library`, the copy of `Previews` and the read copy of `Lists`.
