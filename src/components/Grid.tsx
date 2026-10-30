@@ -6,6 +6,7 @@ import { addedText, type Member } from "../lib/lists";
 import { heartView, markSize, marksLines, starsText, type MarksState } from "../lib/marks";
 import { lastOfStack, stackColor, type StackColor } from "../lib/stacks";
 import StackIcon from "./StackIcon";
+import VideoIcon from "./VideoIcon";
 import { columnsFor, rowWidth } from "../lib/grid";
 import { fileName, monthLabel, yearOf } from "../lib/months";
 import { buildLayout, rowOf, sectionsInRange, type Section, type Sel } from "../lib/timeline";
@@ -273,7 +274,9 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
         </div>
       )}
       {item.kind === "video" && (
-        <span className="absolute bottom-1 left-1 rounded bg-black/60 text-white text-[10px] px-1">video</span>
+        <span className="absolute bottom-1 left-1 leading-none" title="video">
+          <VideoIcon size={Math.max(12, markSize(size))} />
+        </span>
       )}
       {!item.local && (
         <span className="absolute top-1 left-1 rounded bg-black/50 text-white text-[10px] px-1" title="origineel alleen op de NAS">
