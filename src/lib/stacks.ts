@@ -146,3 +146,22 @@ export function stackActions(hashes: string[], ids: Record<string, string>): Sta
     dissolve: one,
   };
 }
+
+/** A stack's band in one row of the grid (F015, on Peter's request): from column `from` to `to`,
+ * open on a side where the stack goes on in the row before or after. */
+export type Band = { id: string; from: number; to: number; openLeft: boolean; openRight: boolean };
+
+/** The bands of a row: the tiles `start` to `start + n - 1` of a month's tiles. */
+export function bands(tiles: { hash: string }[], start: number, n: number, ids: Record<string, string>): Band[] {
+  const out: Band[] = [];
+  const idAt = (i: number) => (i >= 0 && i < tiles.length ? ids[tiles[i].hash] : undefined);
+  for (let c = 0; c < n; c++) {
+    const id = idAt(start + c);
+    if (!id) continue;
+    const last = out[out.length - 1];
+    if (last && last.id === id && last.to === c - 1) last.to = c;
+    else out.push({ id, from: c, to: c, openLeft: c === 0 && idAt(start - 1) === id, openRight: false });
+  }
+  for (const b of out) b.openRight = b.to === n - 1 && idAt(start + n) === b.id;
+  return out;
+}

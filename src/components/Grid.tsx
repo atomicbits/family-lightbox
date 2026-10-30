@@ -4,7 +4,7 @@ import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
 import { addedText, type Member } from "../lib/lists";
 import { heartView, markSize, marksLines, starsText, type MarksState } from "../lib/marks";
-import { lastOfStack, stackColor, type StackColor } from "../lib/stacks";
+import { bands, lastOfStack, stackColor, type StackColor } from "../lib/stacks";
 import StackIcon from "./StackIcon";
 import VideoIcon from "./VideoIcon";
 import LiveIcon from "./LiveIcon";
@@ -54,6 +54,8 @@ type Props = {
 };
 
 const GAP = 8;
+/** How far a stack's band reaches beyond its tiles; two stacks side by side keep GAP − 2·BAND_PAD apart. */
+const BAND_PAD = 3;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
@@ -167,6 +169,27 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
           const n = Math.min(cols, section.count - start);
           return (
             <div key={v.key} className="absolute left-0 flex" style={{ top: v.start, height: tile, gap: GAP }}>
+              {/* one band per stack in this row, around its tiles together (F015) */}
+              {!inList && items && bands(items, start, n, ids).map((b) => {
+                const c = stackColor(b.id, marks?.stack_colors[b.id]);
+                const w = selectedStacks.has(b.id) ? 3 : 2;
+                const left = b.openLeft ? -GAP : b.from * (tile + GAP) - BAND_PAD;
+                const right = b.openRight ? (b.to + 1) * (tile + GAP) : (b.to + 1) * tile + b.to * GAP + BAND_PAD;
+                const side = `${w}px solid ${c.border}`;
+                return (
+                  <div
+                    key={`band-${b.id}-${b.from}`}
+                    className="absolute pointer-events-none"
+                    style={{
+                      left, width: right - left, top: -BAND_PAD, height: tile + 2 * BAND_PAD,
+                      background: c.bg,
+                      borderTop: side, borderBottom: side,
+                      borderLeft: b.openLeft ? "none" : side, borderRight: b.openRight ? "none" : side,
+                      borderRadius: `${b.openLeft ? 0 : 9}px ${b.openRight ? 0 : 9}px ${b.openRight ? 0 : 9}px ${b.openLeft ? 0 : 9}px`,
+                    }}
+                  />
+                );
+              })}
               {Array.from({ length: n }, (_, i) => {
                 const index = start + i;
                 const item = items?.[index];
@@ -248,10 +271,8 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
       style={{
         width: size,
         height: size,
-        // a stack: a colored border with a light background of its color around the photo (F015/S03)
-        ...(stack && (stack.thin
-          ? { border: `2px solid ${stack.color.border}` }
-          : { border: `${stack.strong ? 3 : 2}px solid ${stack.color.border}`, background: stack.color.bg, padding: 4 })),
+        // in a list a stack shows as a thin border per tile; in the library the row draws a band
+        ...(stack?.thin ? { border: `2px solid ${stack.color.border}` } : {}),
       }}
     >
       {picked && <span className="absolute inset-0 bg-blue-500/25 pointer-events-none" />}

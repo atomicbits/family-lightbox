@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrange, buildStacks, folded, lastOfStack, stackActions, stackColor, stackDelta, type Member, type View } from "./stacks";
+import { arrange, bands, buildStacks, folded, lastOfStack, stackActions, stackColor, stackDelta, type Member, type View } from "./stacks";
 
 const m = (hash: string, taken: string, month = "2026/07"): Member => ({
   path: `${month}/${hash}`, folder: "f", kind: "photo", taken, taken_from: null, source: null, size: 1, hash, local: false, preview: true, month,
@@ -92,5 +92,20 @@ describe("stacks with a filter", () => {
     const none = view({ isHidden: (x) => x.hash.startsWith("a") });
     expect(hashes(arrange("2026/07", [l1, l2], ids, none))).toEqual(["l1", "l2"]);
     expect(stackDelta("2026/07", none)).toEqual({ delta: 0, stacks: 0 });
+  });
+});
+
+describe("a stack's band in a row", () => {
+  const tiles = ["a1", "a2", "a3", "b1", "b2", "x", "a9"].map((hash) => ({ hash }));
+  const ids2 = { a1: "s", a2: "s", a3: "s", b1: "t", b2: "t", a9: "s" };
+  it("joins a stack's tiles, keeps two stacks apart, and opens where it goes on", () => {
+    // a row of 4 from tile 1: a2 a3 | b1 b2 — s goes on from the row before, t goes on after
+    expect(bands(tiles, 1, 4, ids2)).toEqual([
+      { id: "s", from: 0, to: 1, openLeft: true, openRight: false },
+      { id: "t", from: 2, to: 3, openLeft: false, openRight: false },
+    ]);
+    expect(bands(tiles, 0, 2, ids2)).toEqual([{ id: "s", from: 0, to: 1, openLeft: false, openRight: true }]);
+    // the same stack id again after another photo is a new band
+    expect(bands(tiles, 4, 3, ids2).map((b) => [b.id, b.from, b.to])).toEqual([["t", 0, 0], ["s", 2, 2]]);
   });
 });

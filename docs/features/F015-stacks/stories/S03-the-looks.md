@@ -48,3 +48,13 @@ its last shown tile, to fold or unfold it.
 ### [2026-10-30] Checked
 
 - Peter in the app: "de reeks werkt".
+
+### [2026-10-30] One band around the stack's tiles
+
+- Peter: a stack didn't read as one, each tile had its own border, and two stacks of the same
+  color side by side couldn't be told apart. Now each row draws one band per stack behind its
+  tiles (`bands` in `stacks.ts`): a border of the stack's color with its light background, around
+  the stack's tiles in that row together, 3 px beyond them; open (square, no border) on a side
+  where the stack goes on in the row before or after; rounded at the stack's start and end. Two
+  stacks side by side keep 2 px apart with their rounded ends, so the same color still shows two.
+  In a list, the tiles keep their thin border. One vitest test; 110 tests.
