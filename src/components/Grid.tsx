@@ -4,7 +4,7 @@ import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
 import { addedText, type Member } from "../lib/lists";
 import { heartView, markSize, marksLines, starsText, type MarksState } from "../lib/marks";
-import { cell, lastOfStack, stackColor, type StackColor } from "../lib/stacks";
+import { cell, lastOfStack, pieces, stackColor, type StackColor } from "../lib/stacks";
 import StackIcon from "./StackIcon";
 import VideoIcon from "./VideoIcon";
 import LiveIcon from "./LiveIcon";
@@ -53,10 +53,10 @@ type Props = {
   onMenu?: (sel: Sel, x: number, y: number) => void;
 };
 
-const GAP = 12;
-/** How far a stack's outline reaches beyond its tiles: just outside the 3 px selection ring; two
- * stacks side by side keep GAP − 2·BAND_PAD apart. */
-const BAND_PAD = 5;
+const GAP = 14;
+/** Where a stack's border starts beyond its tiles: 1 px outside the 3 px selection ring. With a 2 px
+ * border, two stacks side by side keep GAP − 2·(BAND_PAD + 2) = 2 px apart. */
+const BAND_PAD = 4;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
@@ -170,30 +170,25 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
           const n = Math.min(cols, section.count - start);
           return (
             <div key={v.key} className="absolute left-0 flex" style={{ top: v.start, height: tile, gap: GAP }}>
-              {/* the stacks' outline: per tile, its background reaches into the gap towards
-                  neighbors of the same stack, with a border only on the other sides (F015) */}
+              {/* the stacks' outline (F015): every tile's piece of the shape, first wide in the
+                  border color, then at BAND_PAD in the light color on top; z-index orders the two
+                  layers across rows, under the tiles */}
               {!inList && items && Array.from({ length: n }, (_, i) => {
                 const k = cell(items, start + i, cols, ids);
                 if (!k) return null;
                 const c = stackColor(k.id, marks?.stack_colors[k.id]);
-                const side = `${selectedStacks.has(k.id) ? 3 : 2}px solid ${c.border}`;
+                const w = selectedStacks.has(k.id) ? 3 : 2;
                 const x = i * (tile + GAP);
-                const l = k.left ? GAP / 2 : BAND_PAD, r = k.right ? GAP / 2 : BAND_PAD;
-                const t = k.up ? GAP / 2 : BAND_PAD, bt = k.down ? GAP / 2 : BAND_PAD;
-                const round = (a: boolean, b: boolean) => (a || b ? 0 : 10);
-                return (
-                  <div
-                    key={`stack-${start + i}`}
-                    className="absolute pointer-events-none"
-                    style={{
-                      left: x - l, width: tile + l + r, top: -t, height: tile + t + bt,
-                      background: c.bg,
-                      borderLeft: k.left ? "none" : side, borderRight: k.right ? "none" : side,
-                      borderTop: k.up ? "none" : side, borderBottom: k.down ? "none" : side,
-                      borderRadius: `${round(k.left, k.up)}px ${round(k.right, k.up)}px ${round(k.right, k.down)}px ${round(k.left, k.down)}px`,
-                    }}
-                  />
-                );
+                return [
+                  ...pieces(k, x, tile, GAP, BAND_PAD + w, 10 + w).map((p, j) => (
+                    <div key={`sb-${start + i}-${j}`} className="absolute pointer-events-none"
+                      style={{ left: p.left, top: p.top, width: p.width, height: p.height, borderRadius: p.radius, background: c.border, zIndex: 1 }} />
+                  )),
+                  ...pieces(k, x, tile, GAP, BAND_PAD, 10).map((p, j) => (
+                    <div key={`sf-${start + i}-${j}`} className="absolute pointer-events-none"
+                      style={{ left: p.left, top: p.top, width: p.width, height: p.height, borderRadius: p.radius, background: c.fill, zIndex: 2 }} />
+                  )),
+                ];
               })}
               {Array.from({ length: n }, (_, i) => {
                 const index = start + i;
@@ -270,7 +265,7 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
       onContextMenu={onContextMenu}
       title={[title, member && addedText(member), hidden && "verborgen"].filter(Boolean).join("\n")}
       className={
-        "relative rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
+        "relative z-[3] rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
         (active ? "ring-3 ring-blue-500" : picked ? "ring-3 ring-blue-300" : "")
       }
       style={{

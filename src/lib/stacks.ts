@@ -104,15 +104,19 @@ export const PALETTE = [
   { name: "grijs", border: "#94a3b8", bg: "rgba(148, 163, 184, 0.24)" },
 ];
 
-export type StackColor = (typeof PALETTE)[number];
+/** A stack's colors: the border, a light translucent background, and the same light color made
+ * opaque on the page's background (`Canvas`), to lay over the border where shapes join. */
+export type StackColor = (typeof PALETTE)[number] & { fill: string };
+
+const withFill = (c: (typeof PALETTE)[number]): StackColor => ({ ...c, fill: `color-mix(in srgb, ${c.border} 20%, Canvas)` });
 
 /** The color chosen for the stack, or else the same one from its id on every Mac. */
 export function stackColor(id: string, chosen?: string): StackColor {
   const picked = chosen ? PALETTE.find((c) => c.name === chosen) : undefined;
-  if (picked) return picked;
+  if (picked) return withFill(picked);
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
+  return withFill(PALETTE[h % PALETTE.length]);
 }
 
 /** Whether tile `i` of a month's tiles is the last one shown of its stack, where the symbol goes. */
@@ -151,7 +155,7 @@ export function stackActions(hashes: string[], ids: Record<string, string>): Sta
  * stack is drawn as one outline around all its tiles, over several rows (F015, on Peter's request):
  * the background reaches into the gap towards such a neighbor, and a border runs only on the other
  * sides. */
-export type Cell = { id: string; left: boolean; right: boolean; up: boolean; down: boolean };
+export type Cell = { id: string; left: boolean; right: boolean; up: boolean; down: boolean; downRight: boolean };
 
 /** Tile `i` of a month's tiles, laid out `cols` to a row. */
 export function cell(tiles: { hash: string }[], i: number, cols: number, ids: Record<string, string>): Cell | null {
@@ -165,5 +169,25 @@ export function cell(tiles: { hash: string }[], i: number, cols: number, ids: Re
     right: col < cols - 1 && same(i + 1),
     up: same(i - cols),
     down: same(i + cols),
+    downRight: col < cols - 1 && same(i + cols + 1),
   };
+}
+
+export type Piece = { left: number; top: number; width: number; height: number; radius: string };
+
+/** The shape of a stack around one tile at (x, 0), reaching `pad` beyond it: the tile's rectangle
+ * (rounded only on corners with no neighbor on either side), a bridge across the gap to a neighbor
+ * of the same stack on the right or below, and the gap's corner when four tiles of the stack meet.
+ * Drawn once wide in the border color and once at `pad` in the light color on top, the union of all
+ * tiles' pieces leaves an even border around the whole stack, inner bends included. */
+export function pieces(k: Cell, x: number, tile: number, gap: number, pad: number, r: number): Piece[] {
+  const round = (a: boolean, b: boolean) => (a || b ? "0" : `${r}px`);
+  const out: Piece[] = [{
+    left: x - pad, top: -pad, width: tile + 2 * pad, height: tile + 2 * pad,
+    radius: `${round(k.left, k.up)} ${round(k.right, k.up)} ${round(k.right, k.down)} ${round(k.left, k.down)}`,
+  }];
+  if (k.right) out.push({ left: x + tile, top: -pad, width: gap, height: tile + 2 * pad, radius: "0" });
+  if (k.down) out.push({ left: x - pad, top: tile, width: tile + 2 * pad, height: gap, radius: "0" });
+  if (k.right && k.down && k.downRight) out.push({ left: x + tile, top: tile, width: gap, height: gap, radius: "0" });
+  return out;
 }

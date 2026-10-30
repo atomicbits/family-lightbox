@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrange, buildStacks, cell, folded, lastOfStack, stackActions, stackColor, stackDelta, type Member, type View } from "./stacks";
+import { arrange, buildStacks, cell, pieces, folded, lastOfStack, stackActions, stackColor, stackDelta, type Member, type View } from "./stacks";
 
 const m = (hash: string, taken: string, month = "2026/07"): Member => ({
   path: `${month}/${hash}`, folder: "f", kind: "photo", taken, taken_from: null, source: null, size: 1, hash, local: false, preview: true, month,
@@ -100,10 +100,20 @@ describe("a stack's outline over rows", () => {
   const tiles = ["x", "a1", "a2", "a3", "a4", "a5", "y", "z"].map((hash) => ({ hash }));
   const ids2 = { a1: "s", a2: "s", a3: "s", a4: "s", a5: "s" };
   it("joins neighbors of the same stack in every direction, never across a row's end", () => {
-    expect(cell(tiles, 1, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: true });
-    expect(cell(tiles, 3, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: false, down: false });
-    expect(cell(tiles, 4, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: false });
-    expect(cell(tiles, 5, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: true, down: false });
+    expect(cell(tiles, 1, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: true, downRight: false });
+    expect(cell(tiles, 3, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: false, down: false, downRight: false });
+    expect(cell(tiles, 4, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: false, downRight: false });
+    expect(cell(tiles, 5, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: true, down: false, downRight: false });
     expect(cell(tiles, 0, 4, ids2)).toBeNull();
+  });
+});
+
+describe("the pieces of a stack's shape", () => {
+  it("bridge the gaps to neighbors and fill a corner only where four tiles meet", () => {
+    const k = { id: "s", left: false, right: true, up: false, down: true, downRight: false };
+    const p = pieces(k, 0, 100, 14, 4, 10);
+    expect(p.map((x) => [x.left, x.top, x.width, x.height])).toEqual([[-4, -4, 108, 108], [100, -4, 14, 108], [-4, 100, 108, 14]]);
+    expect(p[0].radius).toBe("10px 0 0 0");
+    expect(pieces({ ...k, downRight: true }, 0, 100, 14, 4, 10)).toHaveLength(4);
   });
 });

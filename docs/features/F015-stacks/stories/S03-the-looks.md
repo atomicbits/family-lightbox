@@ -70,3 +70,18 @@ its last shown tile, to fold or unfold it.
   sides have a border. Together they make one shape around the stack, also over rows, like a text
   selection. The gap between tiles went from 8 to 12 px and the outline sits 5 px outside the
   tiles, just outside the 3 px selection ring; two stacks side by side keep 2 px apart.
+
+### [2026-10-30] Inner bends, and 1 px outside the selection
+
+- Peter: the inner bends of the outline weren't right, and the stack's line should sit 1 px
+  outside the selection ring.
+- The outline is now drawn as two layers of the same shape (`pieces` in `stacks.ts`): per tile its
+  rectangle (rounded only where no neighbor is on either side), a bridge across the gap to a
+  neighbor of the same stack on the right or below, and the gap's corner when four tiles of the
+  stack meet. First wide in the border color (z-index 1), then 4 px beyond the tiles in the light
+  color made opaque on the page's background (`color-mix` with `Canvas`, z-index 2); the tiles on
+  top (z-index 3). The union leaves an even border around the whole stack, inner bends included,
+  across rows. The gap between tiles is 14 px: the border starts 4 px out, 1 px beyond the 3 px
+  selection ring, and two stacks side by side keep 2 px apart.
+- Checked by rendering the same pieces for a stack with inner bends over three rows, next to a
+  second stack and a selected tile.
