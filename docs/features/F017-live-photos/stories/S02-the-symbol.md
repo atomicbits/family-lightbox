@@ -1,7 +1,7 @@
 # Story S02: The Live Photo symbol on the tile and in the lightbox
 
 **Feature:** `F017-live-photos`
-**Status:** In progress: built and tested; to see in the app
+**Status:** Done
 **Depends on:** S01
 
 ## Goal
@@ -30,3 +30,7 @@ lightbox, with the photo it belongs to as the tooltip.
 - `LiveIcon.tsx`, `liveTitle(item)`; the tile and the lightbox's bar show it instead of the
   camera for a video with a `live` photo. One vitest test; 104 tests, `tsc` and `pnpm build`
   clean. The icon checked as an image: it reads as Apple's Live symbol.
+
+### [2026-10-30] Checked
+
+- Peter in the app: "dat werkt".

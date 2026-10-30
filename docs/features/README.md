@@ -166,4 +166,4 @@ no folder yet.
 | 14 | [Hiding photos](F014-hide-photos/plan.md): hide practical photos for both of us, from the right-click menu, with undo; show them per month or year until a restart | In progress (S01 done, S02–S04 built) | 13 |
 | 15 | [Stacks](F015-stacks/plan.md): near-identical photos in a stack, folded to the ones that matter, unfolded with a click; shared | In progress (S01 done, S02–S04 built) | 13, 14 |
 | 16 | [Messages and a log](F016-messages/plan.md): warnings and errors in a list behind a ⚠ in the footer and in a log file; footer lines fade | In progress (S01 done, S02 built) | 7, 12, 13 |
-| 17 | [Live Photos](F017-live-photos/plan.md): recognize the short videos of Live Photos and give them a symbol of their own | In progress (S01 done, S02 built) | 8 |
+| 17 | [Live Photos](F017-live-photos/plan.md): recognize the short videos of Live Photos and give them a symbol of their own | Done | 8 |
