@@ -85,3 +85,16 @@ its last shown tile, to fold or unfold it.
   selection ring, and two stacks side by side keep 2 px apart.
 - Checked by rendering the same pieces for a stack with inner bends over three rows, next to a
   second stack and a selected tile.
+
+### [2026-10-30] Rounded inner bends; the symbol on hover
+
+- Peter: round the inner bends too, and show the fold symbol when the mouse is over the stack, so
+  it can be used while something else is selected.
+- `pieces` adds, for each inner bend (two neighbors of the stack around a corner whose diagonal
+  isn't one), a square in the gap filled except a quarter circle (`radial-gradient`), its center
+  14 px out from the tile in both directions for both layers, so the border keeps its width around
+  the bend (radius 10 for the light layer, 8 for the border layer). `Cell` knows all four
+  diagonals now. Checked by rendering the real `stacks.ts`.
+- The grid keeps the stack under the mouse; its last shown tile shows the symbol as when one of its
+  photos is selected (the border stays thin until something of the stack is selected).
+- One vitest test for the inner bend's piece; 112 tests.

@@ -4,7 +4,7 @@ import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
 import { addedText, type Member } from "../lib/lists";
 import { heartView, markSize, marksLines, starsText, type MarksState } from "../lib/marks";
-import { cell, lastOfStack, pieces, stackColor, type StackColor } from "../lib/stacks";
+import { cell, lastOfStack, pieces, stackColor, type Piece, type StackColor } from "../lib/stacks";
 import StackIcon from "./StackIcon";
 import VideoIcon from "./VideoIcon";
 import LiveIcon from "./LiveIcon";
@@ -54,6 +54,10 @@ type Props = {
 };
 
 const GAP = 14;
+
+/** A piece's color; an inner bend's piece leaves out a quarter circle around the arc's center. */
+const paint = (p: Piece, color: string) =>
+  p.fillet ? `radial-gradient(circle at ${p.fillet}, transparent ${p.width}px, ${color} ${p.width + 0.5}px)` : color;
 /** Where a stack's border starts beyond its tiles: 1 px outside the 3 px selection ring. With a 2 px
  * border, two stacks side by side keep GAP − 2·(BAND_PAD + 2) = 2 px apart. */
 const BAND_PAD = 4;
@@ -90,6 +94,9 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   useEffect(() => virtualizer.measure(), [layout, tile, virtualizer]);
 
   const visible = virtualizer.getVirtualItems();
+
+  // The stack under the mouse shows its symbol too, so it can be folded with a selection elsewhere.
+  const [hoverStack, setHoverStack] = useState<string | null>(null);
 
   // The stacks with a selected or picked photo: their border is stronger, with the symbol.
   const selectedStacks = new Set<string>();
@@ -182,11 +189,11 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                 return [
                   ...pieces(k, x, tile, GAP, BAND_PAD + w, 10 + w).map((p, j) => (
                     <div key={`sb-${start + i}-${j}`} className="absolute pointer-events-none"
-                      style={{ left: p.left, top: p.top, width: p.width, height: p.height, borderRadius: p.radius, background: c.border, zIndex: 1 }} />
+                      style={{ left: p.left, top: p.top, width: p.width, height: p.height, borderRadius: p.radius, background: paint(p, c.border), zIndex: 1 }} />
                   )),
                   ...pieces(k, x, tile, GAP, BAND_PAD, 10).map((p, j) => (
                     <div key={`sf-${start + i}-${j}`} className="absolute pointer-events-none"
-                      style={{ left: p.left, top: p.top, width: p.width, height: p.height, borderRadius: p.radius, background: c.fill, zIndex: 2 }} />
+                      style={{ left: p.left, top: p.top, width: p.width, height: p.height, borderRadius: p.radius, background: paint(p, c.fill), zIndex: 2 }} />
                   )),
                 ];
               })}
@@ -215,7 +222,7 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                         color: stackColor(id, marks?.stack_colors[id]),
                         strong,
                         thin: !!inList,
-                        symbol: !inList && strong && !!items && lastOfStack(items, index, ids),
+                        symbol: !inList && (strong || hoverStack === id) && !!items && lastOfStack(items, index, ids),
                         open: !!unfolded?.has(id),
                         onToggle: () => onToggleStack?.(id),
                       };
@@ -229,6 +236,8 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                       onDragTile?.(sel);
                     }}
                     onContextMenu={(e) => { e.preventDefault(); onMenu?.(sel, e.clientX, e.clientY); }}
+                    onMouseEnter={() => setHoverStack(ids[item.hash] ?? null)}
+                    onMouseLeave={() => setHoverStack(null)}
                     onDoubleClick={() => onOpen(sel)}
                   />
                 ) : (
@@ -249,12 +258,13 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
 
 type TileStack = { color: StackColor; strong: boolean; thin: boolean; symbol: boolean; open: boolean; onToggle: () => void };
 
-function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, stack, bar, title, onClick, onDoubleClick, onDragStart, onContextMenu }: {
+function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, stack, bar, title, onClick, onDoubleClick, onDragStart, onContextMenu, onMouseEnter, onMouseLeave }: {
   item: Item; size: number; active: boolean; member: Member | null; picked: boolean; hidden: boolean; stack: TileStack | null;
   bar?: ReactNode;
   rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null; title: string;
   onClick: (e: MouseEvent) => void; onDoubleClick: () => void;
   onDragStart: (e: DragEvent) => void; onContextMenu: (e: MouseEvent) => void;
+  onMouseEnter: () => void; onMouseLeave: () => void;
 }) {
   return (
     <div
@@ -263,6 +273,8 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
       onDoubleClick={onDoubleClick}
       onDragStart={onDragStart}
       onContextMenu={onContextMenu}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       title={[title, member && addedText(member), hidden && "verborgen"].filter(Boolean).join("\n")}
       className={
         "relative z-[3] rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +

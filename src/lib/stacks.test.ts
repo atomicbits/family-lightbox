@@ -100,20 +100,33 @@ describe("a stack's outline over rows", () => {
   const tiles = ["x", "a1", "a2", "a3", "a4", "a5", "y", "z"].map((hash) => ({ hash }));
   const ids2 = { a1: "s", a2: "s", a3: "s", a4: "s", a5: "s" };
   it("joins neighbors of the same stack in every direction, never across a row's end", () => {
-    expect(cell(tiles, 1, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: true, downRight: false });
-    expect(cell(tiles, 3, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: false, down: false, downRight: false });
-    expect(cell(tiles, 4, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: false, downRight: false });
-    expect(cell(tiles, 5, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: true, down: false, downRight: false });
+    expect(cell(tiles, 1, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: true, upLeft: false, upRight: false, downLeft: true, downRight: false });
+    expect(cell(tiles, 3, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: false, down: false, upLeft: false, upRight: false, downLeft: false, downRight: false });
+    expect(cell(tiles, 4, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: false, upLeft: false, upRight: true, downLeft: false, downRight: false });
+    expect(cell(tiles, 5, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: true, down: false, upLeft: false, upRight: true, downLeft: false, downRight: false });
     expect(cell(tiles, 0, 4, ids2)).toBeNull();
   });
 });
 
 describe("the pieces of a stack's shape", () => {
   it("bridge the gaps to neighbors and fill a corner only where four tiles meet", () => {
-    const k = { id: "s", left: false, right: true, up: false, down: true, downRight: false };
-    const p = pieces(k, 0, 100, 14, 4, 10);
+    const k = { id: "s", left: false, right: true, up: false, down: true, upLeft: false, upRight: false, downLeft: false, downRight: false };
+    const p = pieces(k, 0, 100, 14, 4, 10).filter((x) => !x.fillet);
     expect(p.map((x) => [x.left, x.top, x.width, x.height])).toEqual([[-4, -4, 108, 108], [100, -4, 14, 108], [-4, 100, 108, 14]]);
     expect(p[0].radius).toBe("10px 0 0 0");
-    expect(pieces({ ...k, downRight: true }, 0, 100, 14, 4, 10)).toHaveLength(4);
+    // without the diagonal it is an inner bend, rounded; with it, the gap's corner is filled instead
+    expect(pieces(k, 0, 100, 14, 4, 10).filter((x) => x.fillet).map((x) => x.fillet)).toEqual(["100% 100%"]);
+    expect(pieces({ ...k, downRight: true }, 0, 100, 14, 4, 10).filter((x) => !x.fillet)).toHaveLength(4);
+  });
+});
+
+describe("inner bends", () => {
+  it("get a rounding piece in the gap, centered the same for both layers", () => {
+    const k = { id: "s", left: true, right: false, up: true, down: false, upLeft: false, upRight: false, downLeft: false, downRight: false };
+    const bg = pieces(k, 0, 100, 14, 4, 10).find((p) => p.fillet);
+    const border = pieces(k, 0, 100, 14, 6, 12).find((p) => p.fillet);
+    expect(bg).toMatchObject({ left: -14, top: -14, width: 10, height: 10, fillet: "0 0" });
+    expect(border).toMatchObject({ left: -14, top: -14, width: 8, height: 8 });
+    expect(pieces({ ...k, upLeft: true }, 0, 100, 14, 4, 10).some((p) => p.fillet)).toBe(false);
   });
 });

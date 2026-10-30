@@ -155,7 +155,11 @@ export function stackActions(hashes: string[], ids: Record<string, string>): Sta
  * stack is drawn as one outline around all its tiles, over several rows (F015, on Peter's request):
  * the background reaches into the gap towards such a neighbor, and a border runs only on the other
  * sides. */
-export type Cell = { id: string; left: boolean; right: boolean; up: boolean; down: boolean; downRight: boolean };
+export type Cell = {
+  id: string;
+  left: boolean; right: boolean; up: boolean; down: boolean;
+  upLeft: boolean; upRight: boolean; downLeft: boolean; downRight: boolean;
+};
 
 /** Tile `i` of a month's tiles, laid out `cols` to a row. */
 export function cell(tiles: { hash: string }[], i: number, cols: number, ids: Record<string, string>): Cell | null {
@@ -169,18 +173,23 @@ export function cell(tiles: { hash: string }[], i: number, cols: number, ids: Re
     right: col < cols - 1 && same(i + 1),
     up: same(i - cols),
     down: same(i + cols),
+    upLeft: col > 0 && same(i - cols - 1),
+    upRight: col < cols - 1 && same(i - cols + 1),
+    downLeft: col > 0 && same(i + cols - 1),
     downRight: col < cols - 1 && same(i + cols + 1),
   };
 }
 
-export type Piece = { left: number; top: number; width: number; height: number; radius: string };
+/** A rectangle of a stack's shape; `fillet` is a corner of the gap (the side of the square where
+ * the arc's center lies) that rounds an inner bend: filled except a quarter circle. */
+export type Piece = { left: number; top: number; width: number; height: number; radius: string; fillet?: string };
 
 /** The shape of a stack around one tile at (x, 0), reaching `pad` beyond it: the tile's rectangle
  * (rounded only on corners with no neighbor on either side), a bridge across the gap to a neighbor
  * of the same stack on the right or below, and the gap's corner when four tiles of the stack meet.
  * Drawn once wide in the border color and once at `pad` in the light color on top, the union of all
  * tiles' pieces leaves an even border around the whole stack, inner bends included. */
-export function pieces(k: Cell, x: number, tile: number, gap: number, pad: number, r: number): Piece[] {
+export function pieces(k: Cell, x: number, tile: number, gap: number, pad: number, r: number, bend = gap): Piece[] {
   const round = (a: boolean, b: boolean) => (a || b ? "0" : `${r}px`);
   const out: Piece[] = [{
     left: x - pad, top: -pad, width: tile + 2 * pad, height: tile + 2 * pad,
@@ -189,5 +198,14 @@ export function pieces(k: Cell, x: number, tile: number, gap: number, pad: numbe
   if (k.right) out.push({ left: x + tile, top: -pad, width: gap, height: tile + 2 * pad, radius: "0" });
   if (k.down) out.push({ left: x - pad, top: tile, width: tile + 2 * pad, height: gap, radius: "0" });
   if (k.right && k.down && k.downRight) out.push({ left: x + tile, top: tile, width: gap, height: gap, radius: "0" });
+  // inner bends: two neighbors of the stack around a corner whose diagonal isn't one; the arc's center
+  // lies `bend` out from the tile in both directions, the same for both layers
+  const f = bend - pad;
+  if (f > 0) {
+    if (k.up && k.left && !k.upLeft) out.push({ left: x - bend, top: -bend, width: f, height: f, radius: "0", fillet: "0 0" });
+    if (k.up && k.right && !k.upRight) out.push({ left: x + tile + pad, top: -bend, width: f, height: f, radius: "0", fillet: "100% 0" });
+    if (k.down && k.left && !k.downLeft) out.push({ left: x - bend, top: tile + pad, width: f, height: f, radius: "0", fillet: "0 100%" });
+    if (k.down && k.right && !k.downRight) out.push({ left: x + tile + pad, top: tile + pad, width: f, height: f, radius: "0", fillet: "100% 100%" });
+  }
   return out;
 }
