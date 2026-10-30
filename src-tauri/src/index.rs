@@ -26,6 +26,7 @@ const SCHEMA: &str = "
     CREATE INDEX IF NOT EXISTS items_hash ON items(hash);
     CREATE INDEX IF NOT EXISTS items_taken ON items(taken);
     CREATE TABLE IF NOT EXISTS live_photos (video TEXT PRIMARY KEY, photo TEXT);
+    CREATE TABLE IF NOT EXISTS cameras (path TEXT PRIMARY KEY, camera TEXT);
 ";
 
 /// The number of an iPhone file name, `IMG_1234` or `IMG_E1234` at the end of its stem, also after
@@ -100,6 +101,8 @@ struct Entry {
     taken: Option<String>,
     taken_from: Option<String>,
     sidecars: Option<Vec<String>>,
+    /// Make and model (data contract 1.3, F002/S01); kept apart from `items`, which mirrors the CLI.
+    camera: Option<String>,
 }
 
 #[derive(Serialize, Clone, Debug, Default, PartialEq)]
@@ -180,6 +183,7 @@ fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Resu
             .prepare("INSERT OR REPLACE INTO items VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)")
             .map_err(err)?;
         let mut folder_row = tx.prepare("INSERT OR REPLACE INTO folders VALUES (?1,?2,?3,?4,?5,?6)").map_err(err)?;
+        let mut camera_row = tx.prepare("INSERT OR REPLACE INTO cameras VALUES (?1, ?2)").map_err(err)?;
         for mf in paths {
             let dir = mf.parent().unwrap_or(mf);
             let rel = dir.strip_prefix(library).unwrap_or(dir).to_string_lossy().replace('\\', "/");
@@ -205,6 +209,9 @@ fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Resu
                     local as i64, preview as i64
                 ])
                 .map_err(err)?;
+                if let (true, Some(camera)) = (media, r.camera.as_deref().filter(|c| !c.trim().is_empty())) {
+                    camera_row.execute(params![r.path, camera]).map_err(err)?;
+                }
                 match kind {
                     Some("photo") => out.photos += 1,
                     Some("video") => out.videos += 1,
@@ -417,7 +424,8 @@ mod tests {
                 "generated_at": "2026-10-21T22:14:03+02:00", "generated_by": "mbp-peter",
                 "files": [
                     {"path": p, "size": 25, "hash": "sha256:a", "kind": "photo", "source": "EOSR",
-                     "taken": "2026-07-30T16:58:12+02:00", "taken_from": "exif", "sidecars": [x]},
+                     "taken": "2026-07-30T16:58:12+02:00", "taken_from": "exif", "sidecars": [x],
+                     "camera": "Canon EOS R"},
                     {"path": v, "size": 90, "hash": "sha256:b", "kind": "video", "source": "EOSR",
                      "taken": "2026-07-30T17:00:00+02:00", "taken_from": "exif"},
                     {"path": o, "size": 1, "hash": "sha256:c", "kind": "sidecar", "source": "EOSR",
@@ -500,6 +508,24 @@ mod tests {
         assert_eq!(months.iter().map(|m| m.month.as_str()).collect::<Vec<_>>(), ["2026/07", "2012/scans Peter"]);
         assert_eq!((months[0].photos, months[0].videos, months[0].previews, months[0].local), (1, 1, 2, 1));
         assert_eq!(db.items("2026/07").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn the_camera_reaches_the_items_the_counts_and_the_filter() {
+        let f = fixture();
+        build(&f.library, &f.previews, &f.target).unwrap();
+        let db = Db::open(&f.target).unwrap();
+        let items = db.items("2026/07").unwrap();
+        let camera = |suffix: &str| items.iter().find(|i| i.path.ends_with(suffix)).unwrap().camera.clone();
+        assert_eq!(camera("CO7A9123.CR3").as_deref(), Some("Canon EOS R"));
+        assert_eq!(camera("CO7A9140.MP4"), None);
+        // photos and videos only; "" is unknown
+        assert_eq!(db.camera_counts().unwrap(), [("".to_string(), 2), ("Canon EOS R".to_string(), 1)]);
+        let f1 = crate::filter::Filter { cameras: vec!["Canon EOS R".into()], ..Default::default() };
+        assert_eq!(db.filtered_months(&f1).unwrap(), [("2026/07".to_string(), 1), ("2012/scans Peter".to_string(), 0)]);
+        assert_eq!(db.filtered_items("2026/07", &f1).unwrap().len(), 1);
+        let unknown = crate::filter::Filter { cameras: vec!["".into()], ..Default::default() };
+        assert_eq!(db.filtered_items("2026/07", &unknown).unwrap()[0].kind, "video");
     }
 
     #[test]

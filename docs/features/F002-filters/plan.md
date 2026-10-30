@@ -1,6 +1,6 @@
 # Feature 2: Filters
 
-**Status:** In progress (plan accepted 2026-10-30; S02 done, S03 built)
+**Status:** In progress (plan accepted 2026-10-30; S01 and S02 done, S03 built)
 **Depends on:** Feature 13 (stars and hearts), feature 17 (Live Photos), and the CLI's feature 11 in LibraryLocal (the camera in the manifest)
 **Folder:** `F002-filters`
 
@@ -60,7 +60,7 @@ set. The date needs no filter: the month list is there for that.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-camera-in-the-index.md) | The camera in the app's index, from the manifests | Planned | LibraryLocal F011/S01 |
+| [S01](stories/S01-camera-in-the-index.md) | The camera in the app's index, from the manifests | Done | LibraryLocal F011/S01 |
 | [S02](stories/S02-filtering-in-the-core.md) | Filtering in the Rust core: the months with their counts and a month's items for a filter | Done | — |
 | [S03](stories/S03-the-filter-bar.md) | The filter bar in the toolbar: stars, hearts, kind, camera; kept after a restart | In progress: built, to try in the app | S02 |
 | [S04](stories/S04-camera-filter.md) | The camera in the filter bar | Planned | S01, S03 |

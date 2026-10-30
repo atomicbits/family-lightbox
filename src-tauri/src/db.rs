@@ -32,12 +32,16 @@ pub struct Item {
     pub preview: bool,
     /// For the video of a Live Photo: the path of its photo (F017/S01).
     pub live: Option<String>,
+    /// Make and model from the manifest, or none (F002/S01).
+    pub camera: Option<String>,
 }
 
-/// The columns of an `Item`, from `items` joined with `live_photos` as `lp` when the index has it.
-fn item_columns(has_live: bool) -> String {
+/// The columns of an `Item`, from `items` joined with `live_photos` as `lp` and `cameras` as `cam`
+/// where the index has them (see `Db::joins`).
+fn item_columns(has_live: bool, has_cameras: bool) -> String {
     let live = if has_live { "lp.photo" } else { "NULL" };
-    format!("items.path, folder, kind, taken, taken_from, source, size, hash, local, preview, {live}")
+    let camera = if has_cameras { "cam.camera" } else { "NULL" };
+    format!("items.path, folder, kind, taken, taken_from, source, size, hash, local, preview, {live}, {camera}")
 }
 
 fn item_from(r: &rusqlite::Row, at: usize) -> rusqlite::Result<Item> {
@@ -53,17 +57,48 @@ fn item_from(r: &rusqlite::Row, at: usize) -> rusqlite::Result<Item> {
         local: r.get::<_, i64>(at + 8)? != 0,
         preview: r.get::<_, i64>(at + 9)? != 0,
         live: r.get(at + 10)?,
+        camera: r.get(at + 11)?,
     })
 }
 
 #[derive(Debug)]
 pub struct Db {
     conn: Connection,
-    /// An index built before F017 has no `live_photos` table.
+    /// An index built before F017 has no `live_photos` table, before F002/S01 no `cameras`.
     has_live: bool,
+    has_cameras: bool,
 }
 
 impl Db {
+    /// The joins that `item_columns` reads from.
+    fn joins(&self) -> String {
+        let mut j = String::new();
+        if self.has_live {
+            j.push_str(" LEFT JOIN live_photos lp ON lp.video = items.path");
+        }
+        if self.has_cameras {
+            j.push_str(" LEFT JOIN cameras cam ON cam.path = items.path");
+        }
+        j
+    }
+
+    /// The cameras of the photos and videos with how many each, most first; "" for unknown
+    /// (F002/S04).
+    pub fn camera_counts(&self) -> Result<Vec<(String, i64)>, String> {
+        if !self.has_cameras {
+            return Ok(vec![]);
+        }
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT coalesce(cam.camera, ''), count(*) FROM items LEFT JOIN cameras cam ON cam.path = items.path
+                 WHERE kind IN ('photo', 'video') GROUP BY 1 ORDER BY 2 DESC, 1",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
     pub fn open(path: &Path) -> Result<Db, String> {
         if !path.is_file() {
             return Err(format!(
@@ -78,11 +113,13 @@ impl Db {
         .map_err(|e| format!("index openen mislukt: {e}"))?;
         // the app may be replacing the index at this moment (the rename is atomic)
         conn.busy_timeout(Duration::from_secs(3)).map_err(|e| e.to_string())?;
-        let has_live = conn
-            .query_row("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'live_photos'", [], |r| r.get::<_, i64>(0))
-            .map_err(|e| e.to_string())?
-            > 0;
-        Ok(Db { conn, has_live })
+        let table = |name: &str| -> Result<bool, String> {
+            conn.query_row("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?1", [name], |r| r.get::<_, i64>(0))
+                .map(|n| n > 0)
+                .map_err(|e| e.to_string())
+        };
+        let (has_live, has_cameras) = (table("live_photos")?, table("cameras")?);
+        Ok(Db { conn, has_live, has_cameras })
     }
 
     /// Alle maanden (nieuwste eerst) met tellingen; alleen foto's en video's tellen mee.
@@ -143,20 +180,23 @@ impl Db {
     /// Each month with how many of its photos and videos match the filter (F002/S02), newest
     /// first; months with none are kept with 0, so the month list can dim them.
     pub fn filtered_months(&self, f: &crate::filter::Filter) -> Result<Vec<(String, i64)>, String> {
-        let join = if self.has_live { "LEFT JOIN live_photos lp ON lp.video = items.path" } else { "" };
+        let join = self.joins();
         let live = if self.has_live { "lp.photo IS NOT NULL" } else { "0" };
+        let camera = if self.has_cameras { "cam.camera" } else { "NULL" };
         let sql = format!(
-            "SELECT coalesce(month, folder), coalesce(hash, ''), kind, {live} FROM items {join}
+            "SELECT coalesce(month, folder), coalesce(hash, ''), kind, {live}, {camera} FROM items {join}
              WHERE kind IN ('photo', 'video')"
         );
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
         let mut counts: std::collections::BTreeMap<String, i64> = std::collections::BTreeMap::new();
         let rows = stmt
-            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, bool>(3)?)))
+            .query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, bool>(3)?, r.get::<_, Option<String>>(4)?))
+            })
             .map_err(|e| e.to_string())?;
         for row in rows {
-            let (month, hash, kind, live) = row.map_err(|e| e.to_string())?;
-            let hit = f.matches(&crate::filter::Candidate { hash: &hash, kind: &kind, live, month: &month, camera: None });
+            let (month, hash, kind, live, camera) = row.map_err(|e| e.to_string())?;
+            let hit = f.matches(&crate::filter::Candidate { hash: &hash, kind: &kind, live, month: &month, camera: camera.as_deref() });
             *counts.entry(month).or_insert(0) += hit as i64;
         }
         Ok(counts.into_iter().rev().collect())
@@ -168,7 +208,7 @@ impl Db {
             .items(month)?
             .into_iter()
             .filter(|i| {
-                f.matches(&crate::filter::Candidate { hash: &i.hash, kind: &i.kind, live: i.live.is_some(), month, camera: None })
+                f.matches(&crate::filter::Candidate { hash: &i.hash, kind: &i.kind, live: i.live.is_some(), month, camera: i.camera.as_deref() })
             })
             .collect())
     }
@@ -176,10 +216,10 @@ impl Db {
     /// The photos and videos with these hashes, each with the month the grid groups it under,
     /// by date taken (F003/S04). A hash that is in several places gives each of them.
     pub fn items_by_hash(&self, hashes: &[String]) -> Result<Vec<(String, Item)>, String> {
-        let join = if self.has_live { "LEFT JOIN live_photos lp ON lp.video = items.path" } else { "" };
+        let join = self.joins();
         let sql = format!(
             "SELECT coalesce(month, folder), {} FROM items {join} WHERE kind IN ('photo', 'video') AND hash = ?1",
-            item_columns(self.has_live)
+            item_columns(self.has_live, self.has_cameras)
         );
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
         let mut out = Vec::new();
@@ -197,12 +237,12 @@ impl Db {
 
     /// De foto's en video's van één maand, op opnametijd.
     pub fn items(&self, month: &str) -> Result<Vec<Item>, String> {
-        let join = if self.has_live { "LEFT JOIN live_photos lp ON lp.video = items.path" } else { "" };
+        let join = self.joins();
         let sql = format!(
             "SELECT {} FROM items {join}
              WHERE kind IN ('photo', 'video') AND coalesce(month, folder) = ?1
              ORDER BY taken, items.path",
-            item_columns(self.has_live)
+            item_columns(self.has_live, self.has_cameras)
         );
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
         let rows = stmt.query_map([month], |r| item_from(r, 0)).map_err(|e| e.to_string())?;

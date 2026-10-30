@@ -30,6 +30,8 @@ export type Item = {
   preview: boolean;
   /** For the video of a Live Photo: the path of its photo (F017). */
   live?: string | null;
+  /** Make and model from the manifest (F002/S01). */
+  camera?: string | null;
 };
 
 export type Status = {
