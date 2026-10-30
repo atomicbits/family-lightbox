@@ -708,19 +708,7 @@ export default function App() {
             </span>
           )}
         </div>
-        <div className="flex items-center justify-center">
-          {selHashes.length > 0 && (
-            <MarksBar
-              label={selHashes.length > 1 ? photosText(selHashes.length) : ""}
-              hashes={selHashes}
-              marks={marks.state}
-              me={me}
-              blocked={blockedMarks}
-              onRate={(stars) => applyMarks(selKeys, { stars })}
-              onHeart={(heart) => applyMarks(selKeys, { heart })}
-            />
-          )}
-        </div>
+        <div />
         <div className="flex items-center justify-end gap-2">
           <label className="flex items-center gap-1.5 text-neutral-400" title="grootte van de miniaturen">
             <span className="text-xs">▫</span>
@@ -800,6 +788,18 @@ export default function App() {
               me={device?.device?.owner ?? null}
               dimHidden
               inList={!!listId}
+              activeBar={selHashes.length ? (size) => (
+                <MarksBar
+                  count={selHashes.length}
+                  hashes={selHashes}
+                  marks={marks.state}
+                  me={me}
+                  blocked={blockedMarks}
+                  variant={{ tile: size }}
+                  onRate={(stars) => applyMarks(selKeys, { stars })}
+                  onHeart={(heart) => applyMarks(selKeys, { heart })}
+                />
+              ) : undefined}
               unfolded={unfolded}
               onToggleStack={(id) => setUnfolded((u) => toggled(u, [id], !u.has(id)))}
             />
@@ -819,12 +819,12 @@ export default function App() {
               me={me}
               bar={
                 <MarksBar
-                  label=""
+                  count={1}
                   hashes={[current.hash]}
                   marks={marks.state}
                   me={me}
                   blocked={blockedMarks}
-                  dark
+                  variant="lightbox"
                   onRate={(stars) => applyMarks([selKey(selected)], { stars })}
                   onHeart={(heart) => applyMarks([selKey(selected)], { heart })}
                 />

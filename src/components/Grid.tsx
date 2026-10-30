@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
@@ -42,6 +42,8 @@ type Props = {
   unfolded?: Set<string>;
   onToggleStack?: (id: string) => void;
   inList?: boolean;
+  /** The stars and heart for the selection, drawn on the selected tile (F013, on Peter's request). */
+  activeBar?: (tile: number) => ReactNode;
   /** A tile starts being dragged (to a list in the sidebar). */
   onDragTile?: (sel: Sel) => void;
   /** Right-click on a tile, at this point in the window. */
@@ -52,7 +54,7 @@ const GAP = 8;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, unfolded, onToggleStack, inList, onDragTile, onMenu }: Props) {
+export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, unfolded, onToggleStack, inList, activeBar, onDragTile, onMenu }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -178,6 +180,7 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
                     hearts={marks?.hearts[item.hash]}
                     me={me ?? null}
                     hidden={!!dimHidden && !!marks?.hidden[item.hash]}
+                    bar={active ? activeBar?.(tile) : undefined}
                     stack={(() => {
                       const id = ids[item.hash];
                       if (!id) return null;
@@ -220,8 +223,9 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
 
 type TileStack = { color: StackColor; strong: boolean; thin: boolean; symbol: boolean; open: boolean; onToggle: () => void };
 
-function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, stack, title, onClick, onDoubleClick, onDragStart, onContextMenu }: {
+function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, stack, bar, title, onClick, onDoubleClick, onDragStart, onContextMenu }: {
   item: Item; size: number; active: boolean; member: Member | null; picked: boolean; hidden: boolean; stack: TileStack | null;
+  bar?: ReactNode;
   rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null; title: string;
   onClick: (e: MouseEvent) => void; onDoubleClick: () => void;
   onDragStart: (e: DragEvent) => void; onContextMenu: (e: MouseEvent) => void;
@@ -276,7 +280,7 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
           NAS
         </span>
       )}
-      <TileMarks size={size} rating={rating} hearts={hearts} me={me} shiftHeart={!!stack?.symbol} />
+      {bar ?? <TileMarks size={size} rating={rating} hearts={hearts} me={me} shiftHeart={!!stack?.symbol} />}
       {stack?.symbol && (
         <button
           className="absolute top-1 right-1 rounded-md bg-white/90 dark:bg-neutral-900/90 p-0.5 shadow"

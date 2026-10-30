@@ -53,3 +53,12 @@ photos they apply to; a click sets them for all. Keys and the lightbox do the sa
 ### [2026-10-30] Checked
 
 - Peter in the app: "F013 werkt".
+
+### [2026-10-30] On the selected photo instead of the header
+
+- Peter: the stars and heart in the header were too far from the selection. They now sit on the
+  selected tile itself: a dark strip along its bottom with the five stars (lighting up to the one
+  under the mouse) and the heart, scaled with the tile; with several photos picked, a blue label
+  "12 foto's" at the top left of that tile says how many it applies to. The tile's own stars and
+  heart give way to the strip; clicks on it don't select, open or drag the tile. The header no
+  longer shows them; the lightbox keeps them in its bar.
