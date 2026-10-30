@@ -167,3 +167,4 @@ no folder yet.
 | 15 | [Stacks](F015-stacks/plan.md): near-identical photos in a stack, folded to the ones that matter, unfolded with a click; shared | In progress (S01 done, S02–S04 built) | 13, 14 |
 | 16 | [Messages and a log](F016-messages/plan.md): warnings and errors in a list behind a ⚠ in the footer and in a log file; footer lines fade | In progress (S01 done, S02 built) | 7, 12, 13 |
 | 17 | [Live Photos](F017-live-photos/plan.md): recognize the short videos of Live Photos and give them a symbol of their own | Done | 8 |
+| 18 | [Import](F018-import/plan.md): from a drop folder, a synced folder or a card, into the right month and source on the NAS, verified, with previews (the import and push part of 10) | In design | 6, 8, 12 |
