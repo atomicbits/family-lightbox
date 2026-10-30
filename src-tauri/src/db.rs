@@ -140,6 +140,39 @@ impl Db {
         Ok(out)
     }
 
+    /// Each month with how many of its photos and videos match the filter (F002/S02), newest
+    /// first; months with none are kept with 0, so the month list can dim them.
+    pub fn filtered_months(&self, f: &crate::filter::Filter) -> Result<Vec<(String, i64)>, String> {
+        let join = if self.has_live { "LEFT JOIN live_photos lp ON lp.video = items.path" } else { "" };
+        let live = if self.has_live { "lp.photo IS NOT NULL" } else { "0" };
+        let sql = format!(
+            "SELECT coalesce(month, folder), coalesce(hash, ''), kind, {live} FROM items {join}
+             WHERE kind IN ('photo', 'video')"
+        );
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let mut counts: std::collections::BTreeMap<String, i64> = std::collections::BTreeMap::new();
+        let rows = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, bool>(3)?)))
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (month, hash, kind, live) = row.map_err(|e| e.to_string())?;
+            let hit = f.matches(&crate::filter::Candidate { hash: &hash, kind: &kind, live, month: &month, camera: None });
+            *counts.entry(month).or_insert(0) += hit as i64;
+        }
+        Ok(counts.into_iter().rev().collect())
+    }
+
+    /// A month's photos and videos that match the filter.
+    pub fn filtered_items(&self, month: &str, f: &crate::filter::Filter) -> Result<Vec<Item>, String> {
+        Ok(self
+            .items(month)?
+            .into_iter()
+            .filter(|i| {
+                f.matches(&crate::filter::Candidate { hash: &i.hash, kind: &i.kind, live: i.live.is_some(), month, camera: None })
+            })
+            .collect())
+    }
+
     /// The photos and videos with these hashes, each with the month the grid groups it under,
     /// by date taken (F003/S04). A hash that is in several places gives each of them.
     pub fn items_by_hash(&self, hashes: &[String]) -> Result<Vec<(String, Item)>, String> {
@@ -272,5 +305,21 @@ mod tests {
         // the CR3 and the MP4 in 2026/07 (not the sidecar), the scan under its folder
         assert_eq!((n["2026/07"], n["2012/scans Peter"], n.len()), (2, 1, 2));
         assert!(db.count_per_month(&Default::default()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn filtered_months_and_items() {
+        let (_d, p) = fixture();
+        let c = Connection::open(&p).unwrap();
+        c.execute("UPDATE items SET hash = 'sha256:' || substr(path, -8)", []).unwrap();
+        let db = Db::open(&p).unwrap();
+        let videos = crate::filter::Filter { kinds: vec!["video".into()], ..Default::default() };
+        let m = db.filtered_months(&videos).unwrap();
+        // newest first, every month kept; only 2026/07 has a video
+        assert_eq!(m, vec![("2026/07".to_string(), 1), ("2012/scans Peter".into(), 0), ("2007/02".into(), 0)]);
+        let items = db.filtered_items("2026/07", &videos).unwrap();
+        assert_eq!(items.iter().map(|i| i.kind.as_str()).collect::<Vec<_>>(), vec!["video"]);
+        let none = crate::filter::Filter::default();
+        assert_eq!(db.filtered_items("2026/07", &none).unwrap().len(), 3);
     }
 }
