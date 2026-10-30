@@ -151,7 +151,7 @@ no folder yet.
 | # | Feature | Status | Depends on |
 |---|---|---|---|
 | 1 | [Browse the library](F001-browse-library/plan.md) | Done | CLI `index`, `previews` |
-| 2 | Filter by source (camera, Peter's or Lynn's iPhone) | Planned | 1 |
+| 2 | [Filters](F002-filters/plan.md): stars, hearts, kind and camera, in the toolbar, kept after a restart (was "Filter by source") | In progress | 13, 17, LibraryLocal F011 |
 | 3 | [Lists](F003-lists/plan.md): create and fill lists together, native (data contract section 5) | In progress (S01–S03 and S05 done, S04 built; to check with Lynn's Mac) | 6, 8 |
 | 4 | [CI and signed releases](F004-ci-and-releases/plan.md), macOS first (reusing Atomic Bits' signing from `wikai`) | In progress (S01–S03 done; S04 built, v0.2.0 released) | 1 |
 | 5 | Start imports from the app via the CLI's `--json` output | Dropped: imports move into the app natively (D13), see 10 | — |
