@@ -58,3 +58,15 @@ its last shown tile, to fold or unfold it.
   where the stack goes on in the row before or after; rounded at the stack's start and end. Two
   stacks side by side keep 2 px apart with their rounded ends, so the same color still shows two.
   In a list, the tiles keep their thin border. One vitest test; 110 tests.
+
+### [2026-10-30] One outline around the whole stack, outside the selection
+
+- Peter: the blue selection ring overlapped the stack's line, and the band opening at a row's end
+  or start looked unnatural; a stack over several rows should be one outline around all its
+  tiles, without lines between tiles of the stack above and below each other.
+- Now each tile of a stack draws its piece of the outline (`cell` in `stacks.ts`): its background
+  reaches halfway into the gap towards each neighbor of the same stack (left, right, above,
+  below), and a border runs only on the sides without one; corners are rounded only where both
+  sides have a border. Together they make one shape around the stack, also over rows, like a text
+  selection. The gap between tiles went from 8 to 12 px and the outline sits 5 px outside the
+  tiles, just outside the 3 px selection ring; two stacks side by side keep 2 px apart.

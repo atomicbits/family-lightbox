@@ -4,7 +4,7 @@ import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
 import { addedText, type Member } from "../lib/lists";
 import { heartView, markSize, marksLines, starsText, type MarksState } from "../lib/marks";
-import { bands, lastOfStack, stackColor, type StackColor } from "../lib/stacks";
+import { cell, lastOfStack, stackColor, type StackColor } from "../lib/stacks";
 import StackIcon from "./StackIcon";
 import VideoIcon from "./VideoIcon";
 import LiveIcon from "./LiveIcon";
@@ -53,9 +53,10 @@ type Props = {
   onMenu?: (sel: Sel, x: number, y: number) => void;
 };
 
-const GAP = 8;
-/** How far a stack's band reaches beyond its tiles; two stacks side by side keep GAP − 2·BAND_PAD apart. */
-const BAND_PAD = 3;
+const GAP = 12;
+/** How far a stack's outline reaches beyond its tiles: just outside the 3 px selection ring; two
+ * stacks side by side keep GAP − 2·BAND_PAD apart. */
+const BAND_PAD = 5;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
@@ -169,23 +170,27 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
           const n = Math.min(cols, section.count - start);
           return (
             <div key={v.key} className="absolute left-0 flex" style={{ top: v.start, height: tile, gap: GAP }}>
-              {/* one band per stack in this row, around its tiles together (F015) */}
-              {!inList && items && bands(items, start, n, ids).map((b) => {
-                const c = stackColor(b.id, marks?.stack_colors[b.id]);
-                const w = selectedStacks.has(b.id) ? 3 : 2;
-                const left = b.openLeft ? -GAP : b.from * (tile + GAP) - BAND_PAD;
-                const right = b.openRight ? (b.to + 1) * (tile + GAP) : (b.to + 1) * tile + b.to * GAP + BAND_PAD;
-                const side = `${w}px solid ${c.border}`;
+              {/* the stacks' outline: per tile, its background reaches into the gap towards
+                  neighbors of the same stack, with a border only on the other sides (F015) */}
+              {!inList && items && Array.from({ length: n }, (_, i) => {
+                const k = cell(items, start + i, cols, ids);
+                if (!k) return null;
+                const c = stackColor(k.id, marks?.stack_colors[k.id]);
+                const side = `${selectedStacks.has(k.id) ? 3 : 2}px solid ${c.border}`;
+                const x = i * (tile + GAP);
+                const l = k.left ? GAP / 2 : BAND_PAD, r = k.right ? GAP / 2 : BAND_PAD;
+                const t = k.up ? GAP / 2 : BAND_PAD, bt = k.down ? GAP / 2 : BAND_PAD;
+                const round = (a: boolean, b: boolean) => (a || b ? 0 : 10);
                 return (
                   <div
-                    key={`band-${b.id}-${b.from}`}
+                    key={`stack-${start + i}`}
                     className="absolute pointer-events-none"
                     style={{
-                      left, width: right - left, top: -BAND_PAD, height: tile + 2 * BAND_PAD,
+                      left: x - l, width: tile + l + r, top: -t, height: tile + t + bt,
                       background: c.bg,
-                      borderTop: side, borderBottom: side,
-                      borderLeft: b.openLeft ? "none" : side, borderRight: b.openRight ? "none" : side,
-                      borderRadius: `${b.openLeft ? 0 : 9}px ${b.openRight ? 0 : 9}px ${b.openRight ? 0 : 9}px ${b.openLeft ? 0 : 9}px`,
+                      borderLeft: k.left ? "none" : side, borderRight: k.right ? "none" : side,
+                      borderTop: k.up ? "none" : side, borderBottom: k.down ? "none" : side,
+                      borderRadius: `${round(k.left, k.up)}px ${round(k.right, k.up)}px ${round(k.right, k.down)}px ${round(k.left, k.down)}px`,
                     }}
                   />
                 );

@@ -147,21 +147,23 @@ export function stackActions(hashes: string[], ids: Record<string, string>): Sta
   };
 }
 
-/** A stack's band in one row of the grid (F015, on Peter's request): from column `from` to `to`,
- * open on a side where the stack goes on in the row before or after. */
-export type Band = { id: string; from: number; to: number; openLeft: boolean; openRight: boolean };
+/** A tile of a stack and which of its neighbors in the grid belong to the same stack, so the
+ * stack is drawn as one outline around all its tiles, over several rows (F015, on Peter's request):
+ * the background reaches into the gap towards such a neighbor, and a border runs only on the other
+ * sides. */
+export type Cell = { id: string; left: boolean; right: boolean; up: boolean; down: boolean };
 
-/** The bands of a row: the tiles `start` to `start + n - 1` of a month's tiles. */
-export function bands(tiles: { hash: string }[], start: number, n: number, ids: Record<string, string>): Band[] {
-  const out: Band[] = [];
-  const idAt = (i: number) => (i >= 0 && i < tiles.length ? ids[tiles[i].hash] : undefined);
-  for (let c = 0; c < n; c++) {
-    const id = idAt(start + c);
-    if (!id) continue;
-    const last = out[out.length - 1];
-    if (last && last.id === id && last.to === c - 1) last.to = c;
-    else out.push({ id, from: c, to: c, openLeft: c === 0 && idAt(start - 1) === id, openRight: false });
-  }
-  for (const b of out) b.openRight = b.to === n - 1 && idAt(start + n) === b.id;
-  return out;
+/** Tile `i` of a month's tiles, laid out `cols` to a row. */
+export function cell(tiles: { hash: string }[], i: number, cols: number, ids: Record<string, string>): Cell | null {
+  const id = ids[tiles[i]?.hash ?? ""];
+  if (!id) return null;
+  const same = (j: number) => j >= 0 && j < tiles.length && ids[tiles[j].hash] === id;
+  const col = i % cols;
+  return {
+    id,
+    left: col > 0 && same(i - 1),
+    right: col < cols - 1 && same(i + 1),
+    up: same(i - cols),
+    down: same(i + cols),
+  };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrange, bands, buildStacks, folded, lastOfStack, stackActions, stackColor, stackDelta, type Member, type View } from "./stacks";
+import { arrange, buildStacks, cell, folded, lastOfStack, stackActions, stackColor, stackDelta, type Member, type View } from "./stacks";
 
 const m = (hash: string, taken: string, month = "2026/07"): Member => ({
   path: `${month}/${hash}`, folder: "f", kind: "photo", taken, taken_from: null, source: null, size: 1, hash, local: false, preview: true, month,
@@ -95,17 +95,15 @@ describe("stacks with a filter", () => {
   });
 });
 
-describe("a stack's band in a row", () => {
-  const tiles = ["a1", "a2", "a3", "b1", "b2", "x", "a9"].map((hash) => ({ hash }));
-  const ids2 = { a1: "s", a2: "s", a3: "s", b1: "t", b2: "t", a9: "s" };
-  it("joins a stack's tiles, keeps two stacks apart, and opens where it goes on", () => {
-    // a row of 4 from tile 1: a2 a3 | b1 b2 — s goes on from the row before, t goes on after
-    expect(bands(tiles, 1, 4, ids2)).toEqual([
-      { id: "s", from: 0, to: 1, openLeft: true, openRight: false },
-      { id: "t", from: 2, to: 3, openLeft: false, openRight: false },
-    ]);
-    expect(bands(tiles, 0, 2, ids2)).toEqual([{ id: "s", from: 0, to: 1, openLeft: false, openRight: true }]);
-    // the same stack id again after another photo is a new band
-    expect(bands(tiles, 4, 3, ids2).map((b) => [b.id, b.from, b.to])).toEqual([["t", 0, 0], ["s", 2, 2]]);
+describe("a stack's outline over rows", () => {
+  // 4 to a row: x a1 a2 a3 / a4 a5 y z — the stack s wraps to the next row
+  const tiles = ["x", "a1", "a2", "a3", "a4", "a5", "y", "z"].map((hash) => ({ hash }));
+  const ids2 = { a1: "s", a2: "s", a3: "s", a4: "s", a5: "s" };
+  it("joins neighbors of the same stack in every direction, never across a row's end", () => {
+    expect(cell(tiles, 1, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: true });
+    expect(cell(tiles, 3, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: false, down: false });
+    expect(cell(tiles, 4, 4, ids2)).toEqual({ id: "s", left: false, right: true, up: false, down: false });
+    expect(cell(tiles, 5, 4, ids2)).toEqual({ id: "s", left: true, right: false, up: true, down: false });
+    expect(cell(tiles, 0, 4, ids2)).toBeNull();
   });
 });
