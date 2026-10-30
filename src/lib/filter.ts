@@ -59,7 +59,7 @@ export function toCore(f: FilterState, m: MarksState, revealed: Set<string>): Co
 }
 
 /** The same test as the core's, for a list's photos, which the frontend has already. */
-export function matches(item: Pick<Item, "hash" | "kind" | "live">, c: CoreFilter, marksIn?: Set<string>): boolean {
+export function matches(item: Pick<Item, "hash" | "kind" | "live" | "camera">, c: CoreFilter, marksIn?: Set<string>): boolean {
   if (c.marks) {
     const inSet = (marksIn ?? new Set(c.marks.hashes)).has(item.hash);
     if (inSet === c.marks.exclude) return false;
@@ -68,7 +68,24 @@ export function matches(item: Pick<Item, "hash" | "kind" | "live">, c: CoreFilte
     const kind: Kind = item.kind === "video" && item.live ? "live" : (item.kind as Kind);
     if (!c.kinds.includes(kind)) return false;
   }
+  if (c.cameras.length && !c.cameras.includes(item.camera ?? "")) return false;
   return true;
+}
+
+/** A camera's name in the menu; "" is unknown (S04). */
+export const cameraLabel = (c: string): string => c || "onbekend";
+
+/** The camera button: "Camera", the camera for one, "3 camera's" for more. */
+export function cameraButton(cameras: string[]): string {
+  if (cameras.length === 0) return "Camera";
+  if (cameras.length === 1) return cameras[0] || "camera onbekend";
+  return `${cameras.length} camera's`;
+}
+
+/** Ticks or unticks one camera; null is "Alle camera's", which clears the choice. */
+export function toggleCamera(cameras: string[], c: string | null): string[] {
+  if (c === null) return [];
+  return cameras.includes(c) ? cameras.filter((x) => x !== c) : [...cameras, c];
 }
 
 const OP: Record<StarsOp, string> = { gte: "≥", eq: "=", lte: "≤", none: "" };

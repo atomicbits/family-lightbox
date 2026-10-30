@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { filterText, isSet, type FilterState, type Kind, type StarsOp } from "../lib/filter";
+import { useEffect, useRef, useState } from "react";
+import { cameraButton, cameraLabel, filterText, isSet, toggleCamera, type FilterState, type Kind, type StarsOp } from "../lib/filter";
 
 type Props = {
   filter: FilterState;
@@ -8,6 +8,8 @@ type Props = {
   people: string[];
   /** "1 234 van 124 837" while a filter is set. */
   count: string | null;
+  /** The library's cameras with their counts, most first, "" for unknown (S04). */
+  cameras: [string, number][];
 };
 
 const OPS: { op: StarsOp; label: string }[] = [{ op: "gte", label: "≥" }, { op: "eq", label: "=" }, { op: "lte", label: "≤" }];
@@ -16,8 +18,47 @@ const KINDS: { kind: Kind; label: string }[] = [{ kind: "photo", label: "foto" }
 const chip = (on: boolean) =>
   "px-1.5 py-0.5 rounded text-xs " + (on ? "bg-blue-600 text-white" : "text-neutral-500 hover:bg-neutral-200/70 dark:hover:bg-neutral-800");
 
-/** The filter in the toolbar, centered above the grid (F002/S03): stars, hearts and kind. */
-export default function FilterBar({ filter, onChange, people, count }: Props) {
+/** The camera button and its list (S04): light in the bar, as it is used less often. */
+function CameraMenu({ chosen, cameras, onChange }: { chosen: string[]; cameras: [string, number][]; onChange: (c: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const down = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } };
+    window.addEventListener("mousedown", down);
+    window.addEventListener("keydown", key, true);
+    return () => { window.removeEventListener("mousedown", down); window.removeEventListener("keydown", key, true); };
+  }, [open]);
+  const set = chosen.length > 0;
+  return (
+    <span className="relative" ref={box}>
+      <button className={chip(set) + " max-w-40 truncate"} onClick={() => setOpen((o) => !o)} title={set ? chosen.map(cameraLabel).join(", ") : "filter op camera"}>
+        {cameraButton(chosen)} ▾
+      </button>
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-30 min-w-56 max-h-96 overflow-y-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg py-1 text-xs">
+          <button className="flex w-full items-center gap-2 px-3 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={() => onChange(toggleCamera(chosen, null))}>
+            <input type="checkbox" readOnly checked={!set} className="pointer-events-none" />
+            <span className="flex-1 text-left">Alle camera's</span>
+          </button>
+          <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
+          {cameras.length === 0 && <div className="px-3 py-1 text-neutral-400">nog geen camera's in de index</div>}
+          {cameras.map(([c, n]) => (
+            <button key={c} className="flex w-full items-center gap-2 px-3 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={() => onChange(toggleCamera(chosen, c))}>
+              <input type="checkbox" readOnly checked={chosen.includes(c)} className="pointer-events-none" />
+              <span className={"flex-1 text-left " + (c ? "" : "italic text-neutral-500")}>{cameraLabel(c)}</span>
+              <span className="tabular-nums text-neutral-400">{n.toLocaleString("nl-BE")}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
+
+/** The filter in the toolbar, centered above the grid (F002/S03): stars, hearts, kind and camera. */
+export default function FilterBar({ filter, onChange, people, count, cameras }: Props) {
   const [hover, setHover] = useState(0);
   const set = isSet(filter);
   const stars = filter.stars;
@@ -40,7 +81,7 @@ export default function FilterBar({ filter, onChange, people, count }: Props) {
   return (
     <div
       className={"flex items-center gap-2 rounded-md px-2 py-0.5 whitespace-nowrap " + (set ? "bg-blue-50 dark:bg-blue-950/60 ring-1 ring-blue-300 dark:ring-blue-800" : "")}
-      title={set ? `Filter: ${filterText(filter)}` : "filter op sterren, hartjes en soort"}
+      title={set ? `Filter: ${filterText(filter)}` : "filter op sterren, hartjes, soort en camera"}
     >
       <span className="text-xs text-neutral-400">Filter</span>
       {/* stars */}
@@ -92,6 +133,8 @@ export default function FilterBar({ filter, onChange, people, count }: Props) {
           </button>
         ))}
       </span>
+      <span className="text-neutral-300 dark:text-neutral-700">|</span>
+      <CameraMenu chosen={filter.cameras} cameras={cameras} onChange={(c) => onChange({ ...filter, cameras: c })} />
       {set && (
         <>
           {count && <span className="text-xs text-blue-700 dark:text-blue-300 tabular-nums">{count}</span>}

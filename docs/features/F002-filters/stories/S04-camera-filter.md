@@ -1,7 +1,7 @@
 # Story S04: The camera in the filter bar
 
 **Feature:** `F002-filters`
-**Status:** Planned
+**Status:** Built (2026-10-30), to check in the app
 **Depends on:** S01, S03
 
 ## Goal
@@ -24,8 +24,23 @@ more shows only their photos.
 
 ## Files affected
 
-- `src/components/FilterBar.tsx`, `src/lib/filter.ts`.
+- `src/components/FilterBar.tsx`, `src/lib/filter.ts`, `src/App.tsx` (loading the cameras).
 
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-10-30] Built
+
+- `filter.ts`: `cameraButton`, `cameraLabel` (`""` is "onbekend"), `toggleCamera` (`null` is
+  "Alle camera's"); `matches` now also checks the camera, for a list's photos.
+- `FilterBar.tsx`: `CameraMenu`, a "Camera ▾" chip after the kinds; the list opens below it, at
+  most 24 rem high and scrolling, with a tick box per camera and its count; it closes on a click
+  outside or Esc and stays open while ticking. A drop-down turned out to be enough: 47 cameras so
+  far, which scroll fine.
+- `App.tsx`: the cameras come from the `cameras` command (S01), again after every index build;
+  a failure goes to the log.
+- Tests: `camera (S04)` in `filter.test.ts`. `pnpm test` 115 passed, tsc and lint clean.
+- Some camera names are long ("EASTMAN KODAK COMPANY KODAK LS633 ZOOM DIGITAL CAMERA"): the
+  button truncates, the list is as wide as the longest. Shortening the make belongs to the
+  manifest's `camera_name` (LibraryLocal F011), if Peter wants it.

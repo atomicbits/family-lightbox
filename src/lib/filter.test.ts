@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_FILTER, filterText, isSet, marksSet, matches, readFilter, toCore, type FilterState } from "./filter";
+import { NO_FILTER, cameraButton, cameraLabel, filterText, isSet, marksSet, matches, readFilter, toCore, toggleCamera, type FilterState } from "./filter";
 import { NO_MARKS } from "./marks";
 
 const r = (stars: number) => ({ stars, by: "x", at: "" });
@@ -35,5 +35,29 @@ describe("the filter", () => {
     expect(filterText(f({ stars: { op: "gte", n: 4 }, hearts: { anyone: false, people: ["lynn"] }, kinds: ["photo", "live"] }))).toBe("★ ≥ 4 · ♥ lynn · foto, Live Photo");
     expect(readFilter(null)).toEqual(NO_FILTER);
     expect(readFilter({ stars: { op: "x", n: 9 }, kinds: ["photo", "bad"] })).toEqual({ ...NO_FILTER, kinds: ["photo"] });
+  });
+});
+
+describe("camera (S04)", () => {
+  it("names the button after the choice", () => {
+    expect(cameraButton([])).toBe("Camera");
+    expect(cameraButton(["Canon EOS R"])).toBe("Canon EOS R");
+    expect(cameraButton([""])).toBe("camera onbekend");
+    expect(cameraButton(["Canon EOS R", "GoPro HERO7 Black", ""])).toBe("3 camera's");
+    expect(cameraLabel("")).toBe("onbekend");
+  });
+  it("ticks several, and Alle camera's clears the choice", () => {
+    let c = toggleCamera([], "Canon EOS R");
+    c = toggleCamera(c, "");
+    expect(c).toEqual(["Canon EOS R", ""]);
+    expect(toggleCamera(c, "Canon EOS R")).toEqual([""]);
+    expect(toggleCamera(c, null)).toEqual([]);
+  });
+  it("lets a list's photos through by camera, unknown as \"\"", () => {
+    const f = { marks: null, kinds: [], cameras: ["Canon EOS R", ""], hidden: [], revealed: [] };
+    expect(matches({ hash: "a", kind: "photo", live: null, camera: "Canon EOS R" }, f)).toBe(true);
+    expect(matches({ hash: "a", kind: "photo", live: null, camera: null }, f)).toBe(true);
+    expect(matches({ hash: "a", kind: "photo", live: null, camera: "Apple iPhone 12" }, f)).toBe(false);
+    expect(matches({ hash: "a", kind: "photo", live: null, camera: "Apple iPhone 12" }, { ...f, cameras: [] })).toBe(true);
   });
 });

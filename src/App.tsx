@@ -76,6 +76,7 @@ export default function App() {
   const previews = usePreviews();
   const lists = useLists();
   const messages = useMessages();
+  const [cameras, setCameras] = useState<[string, number][]>([]);
   const [showMessages, setShowMessages] = useState(false);
   const openMessages = useCallback(() => { setShowMessages(true); messages.seen(); }, [messages.seen]);
   // an index problem shows for a moment in the footer; the details are in the messages (F016/S02)
@@ -138,6 +139,14 @@ export default function App() {
   const [waitingForIndex, setWaitingForIndex] = useState(false);
   // Bumped on every reload after a rebuild, so answers to older requests are dropped.
   const generation = useRef(0);
+
+  // The cameras for the filter bar (F002/S04), again after every index build.
+  useEffect(() => {
+    if (!months.length) return;
+    invoke<[string, number][]>("cameras")
+      .then(setCameras)
+      .catch((e) => invoke("log_message", { level: "warn", source: "filter", text: `camera's niet gelezen: ${e}` }).catch(() => {}));
+  }, [months]);
 
   // At start: show the index there is, and rebuild it in the background (F008/S02). Without an
   // index the grid waits for the first build.
@@ -808,6 +817,7 @@ export default function App() {
           <FilterBar
             filter={filter}
             onChange={setFilter}
+            cameras={cameras}
             people={[...new Set([...(me ? [me] : []), ...Object.values(marks.state.hearts).flatMap((h) => Object.keys(h))])].sort()}
             count={filterOn ? `${sections.reduce((n, s) => n + s.count, 0).toLocaleString("nl-BE")} van ${months.reduce((n, m) => n + m.photos + m.videos, 0).toLocaleString("nl-BE")}` : null}
           />
