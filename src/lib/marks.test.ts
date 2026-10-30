@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changeText, heartAfterClick, heartState, heartView, markSize, marksBlocked, marksLines, sharedStars, starsAfterClick, starsText, NO_MARKS } from "./marks";
+import { applyLocal, newStackId, changeText, heartAfterClick, heartState, heartView, markSize, marksBlocked, marksLines, sharedStars, starsAfterClick, starsText, NO_MARKS } from "./marks";
 
 describe("marks on a tile", () => {
   it("scales with the tile within readable bounds", () => {
@@ -56,5 +56,33 @@ describe("setting marks for a selection", () => {
     expect(changeText(1, { stars: 0 })).toBe("1 foto: sterren weg");
     expect(changeText(3, { heart: true })).toBe("hartje op 3 foto's");
     expect(changeText(1, { heart: false })).toBe("hartje weg bij 1 foto");
+  });
+});
+
+describe("changes shown at once", () => {
+  const at = "2026-10-30T10:00:00Z";
+  it("applies stars, hearts and hiding as the share will have them", () => {
+    let s = applyLocal(NO_MARKS, { op: "rate", photos: ["a", "b"], stars: 4 }, "peter", at);
+    expect(s.ratings.a).toEqual({ stars: 4, by: "peter", at });
+    s = applyLocal(s, { op: "rate", photos: ["a"], stars: 0 }, "peter", at);
+    expect(Object.keys(s.ratings)).toEqual(["b"]);
+    s = applyLocal(s, { op: "heart", photos: ["a"], on: true }, "peter", at);
+    s = applyLocal(s, { op: "heart", photos: ["a"], on: false }, "peter", at);
+    expect(s.hearts).toEqual({});
+    s = applyLocal(s, { op: "hide", photos: ["c"], hidden: true }, "lynn", at);
+    expect(s.hidden.c.by).toBe("lynn");
+    expect(NO_MARKS.ratings).toEqual({});
+  });
+
+  it("keeps stacks of two or more, and colors them", () => {
+    let s = applyLocal(NO_MARKS, { op: "stack", photos: ["a", "b", "c"], stack: "s" }, "peter", at);
+    s = applyLocal(s, { op: "unstack", photos: ["a", "b"] }, "peter", at);
+    expect(s.stacks).toEqual({});
+    s = applyLocal(s, { op: "color", stack: "s", color: "groen" }, "peter", at);
+    expect(s.stack_colors).toEqual({ s: "groen" });
+  });
+
+  it("makes a stack id like the Rust side", () => {
+    expect(newStackId("mbp-peter", new Date(2026, 9, 30, 21, 15, 2, 7))).toBe("mbp-peter-20261030T211502007");
   });
 });

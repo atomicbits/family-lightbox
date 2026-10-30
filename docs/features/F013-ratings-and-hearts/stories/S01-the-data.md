@@ -71,3 +71,17 @@ shows them yet (S02).
   on the share, so it never read them again from there.
 - The fingerprint (`lists_stamp`) now names its source, and the app reads the lists and marks
   again as soon as the NAS is connected at start.
+
+### [2026-10-30] Changes shown at once
+
+- Peter: changing a stack's color came with a delay, the round trip to the NAS. All mark changes
+  (stars, hearts, hiding, stacks, colors) now go through `useMarks().change`: `applyLocal` shows
+  the change at once as the share will have it, and the write runs in the background. A failed
+  write is tried once more after 1.5 s; when that fails too, the marks are read again from the
+  share (so the change disappears) and the footer says it wasn't saved. An answer from the share
+  only replaces the state when no other write is under way.
+- A new stack's id is made in the app (`newStackId`, as `marks::new_stack_id`), so the new stack
+  shows before the NAS answers.
+- Undo compares with the state here while writes are under way, so an undo right after a change
+  doesn't see the old state.
+- `pnpm test`: the local changes for every kind, a stack of one dropped, the stack id; 99 tests.

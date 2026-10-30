@@ -25,7 +25,7 @@ import { PALETTE, arrange, buildStacks, stackActions, stackColor, stackDelta, ty
 import UndoIcon from "./components/UndoIcon";
 import ShortcutsOverlay from "./components/ShortcutsOverlay";
 import { isShortcutsKey } from "./lib/shortcuts";
-import { changeText, marksBlocked, useMarks } from "./lib/marks";
+import { changeText, marksBlocked, newStackId, useMarks } from "./lib/marks";
 import MarksBar from "./components/MarksBar";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
 import { listen } from "@tauri-apps/api/event";
@@ -71,7 +71,9 @@ export default function App() {
   const update = useUpdate();
   const previews = usePreviews();
   const lists = useLists();
-  const marks = useMarks(lists.version);
+  const sayError = useCallback((m: string) => lists.say(m), [lists.say]);
+  // stars, hearts, hiding and stacks show at once; the NAS is written in the background
+  const marks = useMarks(lists.version, device?.device?.owner ?? null, sayError);
   const undo = useUndo();
   // The message at the bottom (F013/S04): what just happened, with Ongedaan maken when it can be.
   const [toast, setToast] = useState<{ text: string; undoable: boolean; id: number } | null>(null);
@@ -355,18 +357,18 @@ export default function App() {
       const s = marks.state;
       if ("stars" in change) {
         const before = Object.fromEntries(hashes.map((h) => [h, s.ratings[h]?.stars ?? 0]));
-        await marks.rate(hashes, change.stars);
+        marks.change({ op: "rate", photos: hashes, stars: change.stars });
         undo.push({ kind: "stars", text, after: change.stars, before });
       } else {
         const before = Object.fromEntries(hashes.map((h) => [h, s.hearts[h]?.[me] !== undefined]));
-        await marks.heart(hashes, change.heart);
+        marks.change({ op: "heart", photos: hashes, on: change.heart });
         undo.push({ kind: "heart", text, after: change.heart, before });
       }
       showToast(text, true);
     } catch (e) {
       lists.say(String(e));
     }
-  }, [blockedMarks, me, itemsAt, marks.state, marks.rate, marks.heart, lists.say, undo.push, showToast]);
+  }, [blockedMarks, me, itemsAt, marks.state, marks.change, lists.say, undo.push, showToast]);
 
   // Hiding and showing again, from the right-click menu (F014/S03), with the message and undo.
   const applyHide = useCallback(async (keys: string[], hidden: boolean) => {
@@ -375,14 +377,14 @@ export default function App() {
       const hashes = [...new Set((await itemsAt(keys)).map((i) => i.hash))].filter((h) => (h in marks.state.hidden) !== hidden);
       if (hashes.length === 0) return;
       const before = Object.fromEntries(hashes.map((h) => [h, h in marks.state.hidden]));
-      await marks.hide(hashes, hidden);
+      marks.change({ op: "hide", photos: hashes, hidden });
       const text = hideText(hashes.length, hidden);
       undo.push({ kind: "hide", text, after: hidden, before });
       showToast(text, true);
     } catch (e) {
       lists.say(String(e));
     }
-  }, [blockedMarks, itemsAt, marks.state.hidden, marks.hide, lists.say, undo.push, showToast]);
+  }, [blockedMarks, itemsAt, marks.state.hidden, marks.change, lists.say, undo.push, showToast]);
 
   // The menu's Verbergen / Niet meer verbergen, each for its own photos among those clicked.
   const hideActions = (keys: string[]) => {
@@ -407,28 +409,31 @@ export default function App() {
     if (hashes.length === 0) return;
     try {
       const before = Object.fromEntries(hashes.map((h) => [h, marks.state.stacks[h] ?? null]));
-      const s = kind === "out" || kind === "dissolve" ? await marks.unstack(hashes) : await marks.stack(hashes, stack);
-      const after = kind === "out" || kind === "dissolve" ? null : s.stacks[hashes[0]] ?? null;
+      const out = kind === "out" || kind === "dissolve";
+      const id = kind === "make" ? newStackId(device?.device?.name ?? "app") : stack;
+      if (out) marks.change({ op: "unstack", photos: hashes });
+      else if (id) marks.change({ op: "stack", photos: hashes, stack: id });
+      const after = out ? null : id;
       const text = stackText(kind, hashes.length);
       undo.push({ kind: "stack", text, after, before });
       showToast(text, true);
     } catch (e) {
       lists.say(String(e));
     }
-  }, [blockedMarks, marks.state.stacks, marks.stack, marks.unstack, lists.say, undo.push, showToast]);
+  }, [blockedMarks, marks.state.stacks, marks.change, device, lists.say, undo.push, showToast]);
 
   // A stack's color (F015/S05), shared, with the message and undo.
   const changeColor = useCallback(async (stack: string, color: string, before: string) => {
     if (blockedMarks) return lists.say(blockedMarks);
     try {
-      await marks.color(stack, color);
+      marks.change({ op: "color", stack, color });
       const text = `reeks ${color} gemaakt`;
       undo.push({ kind: "color", text, stack, after: color, before });
       showToast(text, true);
     } catch (e) {
       lists.say(String(e));
     }
-  }, [blockedMarks, marks.color, lists.say, undo.push, showToast]);
+  }, [blockedMarks, marks.change, lists.say, undo.push, showToast]);
 
   /** The colors to offer when the clicked photos are of one stack. */
   const stackSwatches = (keys: string[]) => {
@@ -494,7 +499,7 @@ export default function App() {
       if (step.kind === "color") {
         const s = await marks.reload();
         const now = stackColor(step.stack, s.stack_colors[step.stack]).name;
-        if (now === step.after) await marks.color(step.stack, step.before);
+        if (now === step.after) marks.change({ op: "color", stack: step.stack, color: step.before });
         else skipped = "de kleur werd intussen gewijzigd, niet teruggezet";
       } else if (step.kind === "list") {
         const inList = await lists.photosOf(step.done.id);
@@ -512,10 +517,10 @@ export default function App() {
           : step.kind === "stack" ? undoStack(step, s)
           : undoHeart(step, s, me ?? "");
         for (const [value, hashes] of p.writes as Map<unknown, string[]>) {
-          if (step.kind === "stars") await marks.rate(hashes, value as number);
-          else if (step.kind === "hide") await marks.hide(hashes, value as boolean);
-          else if (step.kind === "stack") await (value === null ? marks.unstack(hashes) : marks.stack(hashes, value as string));
-          else await marks.heart(hashes, value as boolean);
+          if (step.kind === "stars") marks.change({ op: "rate", photos: hashes, stars: value as number });
+          else if (step.kind === "hide") marks.change({ op: "hide", photos: hashes, hidden: value as boolean });
+          else if (step.kind === "stack") marks.change(value === null ? { op: "unstack", photos: hashes } : { op: "stack", photos: hashes, stack: value as string });
+          else marks.change({ op: "heart", photos: hashes, on: value as boolean });
         }
         skipped = skippedText(p.skipped, p.by);
       }
@@ -523,7 +528,7 @@ export default function App() {
     } catch (e) {
       lists.say(String(e));
     }
-  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.rate, marks.heart, marks.hide, marks.stack, marks.unstack, marks.color, me, showToast]);
+  }, [undo.pop, lists.photosOf, lists.addTo, lists.removeFrom, lists.say, marks.reload, marks.change, me, showToast]);
 
   // ⌘? (Ctrl+? elsewhere) shows the shortcuts.
   const [showKeys, setShowKeys] = useState(false);

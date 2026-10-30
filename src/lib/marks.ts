@@ -1,6 +1,6 @@
 // Stars and hearts in the UI (F013/S01): the merged state from the Rust core by hash, read again
 // when the lists' watch sees a change on the share, and writing a rating or a heart.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 export type Rating = { stars: number; by: string; at: string };
@@ -87,44 +87,125 @@ export function changeText(n: number, change: { stars: number } | { heart: boole
 
 export const NO_MARKS: MarksState = { source: "none", ratings: {}, hearts: {}, hidden: {}, stacks: {}, stack_colors: {}, ignored: 0, problem: null };
 
+/** A change to stars, hearts, hiding, stacks or a stack's color. */
+export type MarkChange =
+  | { op: "rate"; photos: string[]; stars: number }
+  | { op: "heart"; photos: string[]; on: boolean }
+  | { op: "hide"; photos: string[]; hidden: boolean }
+  | { op: "stack"; photos: string[]; stack: string }
+  | { op: "unstack"; photos: string[] }
+  | { op: "color"; stack: string; color: string };
+
+/** The marks with a change applied here and now, as the share will have it once written: shown at
+ * once, before the NAS answers. A stack left with one photo is no stack, as in the merge. */
+export function applyLocal(s: MarksState, c: MarkChange, me: string, at: string): MarksState {
+  const next: MarksState = { ...s };
+  switch (c.op) {
+    case "rate": {
+      const ratings = { ...s.ratings };
+      for (const h of c.photos) { if (c.stars > 0) ratings[h] = { stars: c.stars, by: me, at }; else delete ratings[h]; }
+      next.ratings = ratings;
+      break;
+    }
+    case "heart": {
+      const hearts = { ...s.hearts };
+      for (const h of c.photos) {
+        const who = { ...(hearts[h] ?? {}) };
+        if (c.on) who[me] = at; else delete who[me];
+        if (Object.keys(who).length) hearts[h] = who; else delete hearts[h];
+      }
+      next.hearts = hearts;
+      break;
+    }
+    case "hide": {
+      const hidden = { ...s.hidden };
+      for (const h of c.photos) { if (c.hidden) hidden[h] = { by: me, at }; else delete hidden[h]; }
+      next.hidden = hidden;
+      break;
+    }
+    case "stack":
+    case "unstack": {
+      const stacks = { ...s.stacks };
+      for (const h of c.photos) { if (c.op === "stack") stacks[h] = c.stack; else delete stacks[h]; }
+      const size = new Map<string, number>();
+      for (const id of Object.values(stacks)) size.set(id, (size.get(id) ?? 0) + 1);
+      for (const [h, id] of Object.entries(stacks)) if ((size.get(id) ?? 0) < 2) delete stacks[h];
+      next.stacks = stacks;
+      break;
+    }
+    case "color":
+      next.stack_colors = { ...s.stack_colors, [c.stack]: c.color };
+      break;
+  }
+  return next;
+}
+
+/** The command and arguments that write a change on the share. */
+function command(c: MarkChange): [string, Record<string, unknown>] {
+  switch (c.op) {
+    case "rate": return ["marks_rate", { photos: c.photos, stars: c.stars }];
+    case "heart": return ["marks_heart", { photos: c.photos, on: c.on }];
+    case "hide": return ["marks_hide", { photos: c.photos, hidden: c.hidden }];
+    case "stack": return ["marks_stack", { photos: c.photos, stack: c.stack }];
+    case "unstack": return ["marks_unstack", { photos: c.photos }];
+    case "color": return ["marks_color", { stack: c.stack, color: c.color }];
+  }
+}
+
+/** A new stack's id: this device and the moment, as `marks::new_stack_id` makes it. */
+export function newStackId(device: string, now = new Date()): string {
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${device}-${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}T${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}${p(now.getMilliseconds(), 3)}`;
+}
+
+/** How long before the one retry of a write that failed. */
+export const RETRY_MS = 1500;
+
 export type Marks = {
   state: MarksState;
-  /** Read again now, for undo, which must compare with what is on the share. */
+  /** Read again now, for undo, which must compare with what is on the share; while writes are
+   * under way, the state here, which already has them. */
   reload: () => Promise<MarksState>;
-  rate: (photos: string[], stars: number) => Promise<MarksState>;
-  heart: (photos: string[], on: boolean) => Promise<MarksState>;
-  hide: (photos: string[], hidden: boolean) => Promise<MarksState>;
-  /** Into this stack, or a new one when `stack` is null. */
-  stack: (photos: string[], stack: string | null) => Promise<MarksState>;
-  unstack: (photos: string[]) => Promise<MarksState>;
-  color: (stack: string, color: string) => Promise<MarksState>;
+  /** Shows the change at once and writes it on the share in the background; when that fails
+   * twice, the marks are read again from the share and `onError` says so. */
+  change: (c: MarkChange) => void;
 };
 
-/** `version` changes when the watch of `useLists` read the share again. */
-export function useMarks(version: number): Marks {
+/** `version` changes when the watch of `useLists` read the share again; `me` is this Mac's owner. */
+export function useMarks(version: number, me: string | null, onError: (message: string) => void): Marks {
   const [state, setState] = useState<MarksState>(NO_MARKS);
-
-  useEffect(() => {
-    invoke<MarksState>("marks_state").then(setState).catch(() => {});
-  }, [version]);
-
-  const apply = useCallback(async (cmd: string, args: Record<string, unknown>) => {
-    const s = await invoke<MarksState>(cmd, args);
-    setState(s);
-    return s;
-  }, []);
-  const rate = useCallback((photos: string[], stars: number) => apply("marks_rate", { photos, stars }), [apply]);
-  const heart = useCallback((photos: string[], on: boolean) => apply("marks_heart", { photos, on }), [apply]);
-  const hide = useCallback((photos: string[], hidden: boolean) => apply("marks_hide", { photos, hidden }), [apply]);
-  const stack = useCallback((photos: string[], stack: string | null) => apply("marks_stack", { photos, stack }), [apply]);
-  const unstack = useCallback((photos: string[]) => apply("marks_unstack", { photos }), [apply]);
-  const color = useCallback((stack: string, color: string) => apply("marks_color", { stack, color }), [apply]);
+  // writes still under way: an answer from the share only replaces the state when it is the last
+  const pending = useRef(0);
+  const current = useRef(state);
+  current.current = state;
 
   const reload = useCallback(async () => {
+    if (pending.current > 0) return current.current;
     const s = await invoke<MarksState>("marks_state");
     setState(s);
     return s;
   }, []);
 
-  return { state, reload, rate, heart, hide, stack, unstack, color };
+  useEffect(() => {
+    if (pending.current === 0) invoke<MarksState>("marks_state").then((s) => { if (pending.current === 0) setState(s); }).catch(() => {});
+  }, [version]);
+
+  const change = useCallback((c: MarkChange) => {
+    setState((s) => applyLocal(s, c, me ?? "", new Date().toISOString()));
+    pending.current++;
+    const [cmd, args] = command(c);
+    const write = () => invoke<MarksState>(cmd, args);
+    write()
+      .catch(() => new Promise<MarksState>((ok, fail) => setTimeout(() => write().then(ok, fail), RETRY_MS)))
+      .then(
+        (s) => { pending.current--; if (pending.current === 0) setState(s); },
+        (e) => {
+          pending.current--;
+          if (pending.current === 0) reload().catch(() => {});
+          onError(`niet bewaard op de NAS, teruggezet: ${String(e)}`);
+        },
+      );
+  }, [me, reload, onError]);
+
+  return { state, reload, change };
 }
