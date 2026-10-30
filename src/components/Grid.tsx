@@ -7,6 +7,8 @@ import { heartView, markSize, marksLines, starsText, type MarksState } from "../
 import { lastOfStack, stackColor, type StackColor } from "../lib/stacks";
 import StackIcon from "./StackIcon";
 import VideoIcon from "./VideoIcon";
+import LiveIcon from "./LiveIcon";
+import { liveTitle } from "../lib/live";
 import { columnsFor, rowWidth } from "../lib/grid";
 import { fileName, monthLabel, yearOf } from "../lib/months";
 import { buildLayout, rowOf, sectionsInRange, type Section, type Sel } from "../lib/timeline";
@@ -276,8 +278,8 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
       {(item.kind === "video" || !item.local) && (
         <span className="absolute top-1 left-1 flex items-center gap-1 leading-none">
           {item.kind === "video" && (
-            <span title="video">
-              <VideoIcon size={Math.max(12, markSize(size))} />
+            <span title={liveTitle(item) ?? "video"}>
+              {item.live ? <LiveIcon size={Math.max(12, markSize(size))} /> : <VideoIcon size={Math.max(12, markSize(size))} />}
             </span>
           )}
           {!item.local && (
