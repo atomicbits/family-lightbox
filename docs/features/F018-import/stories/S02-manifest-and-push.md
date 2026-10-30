@@ -1,7 +1,7 @@
 # Story S02: Writing a month's manifest and copying originals to the NAS, verified
 
 **Feature:** `F018-import`
-**Status:** Built (2026-10-30); the first real write to the NAS waits for Peter
+**Status:** Done (2026-10-30)
 **Depends on:** S01
 
 ## Goal
@@ -79,3 +79,16 @@ originals into `Library`, read them back, and write the month's manifest, so the
 - Still to check with a real write: the rights of a file the app creates over SMB (section 2:
   the group must be able to read). Proposed first write: a push of `2026/04`, which copies
   nothing (all there) and only writes the manifest again; then in S05 a real import.
+
+### [2026-10-30] The first write to the NAS
+
+With Peter's go: `examples/push-folder` pushed `2026/04` from the local library to
+`/Volumes/Library` (the NAS's manifest saved aside first). Copied 0, there 351, verified 351,
+nothing missing, no conflicts; the manifest on the NAS has the same 351 rows, now with
+`generated_by` `mbp-peter`, and the local one equals it; no `.tmp` left. On the NAS the manifest
+written over SMB is `-rwxr--r-- peter:users`: the group can read it, as section 2 asks. The 14 s
+are the stats over SMB (about 7 s per pass over 351 files); with the hashes reused, building the
+manifest takes 0.04 s.
+
+Hashing was 287 MB/s against 1.4 GB/s for Python's (OpenSSL's) SHA-256: `sha2` 0.10 only uses
+the CPU's SHA instructions on aarch64 with its `asm` feature. With it: 1 489 MB/s, the same hash.
