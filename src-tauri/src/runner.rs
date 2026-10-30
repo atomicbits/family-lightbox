@@ -43,6 +43,9 @@ pub struct SyncState {
     pub manifests_changed: Vec<String>,
     pub previews_copied: u64,
     pub previews_bytes: u64,
+    /// Files skipped after failing twice, and some of them with their error (F007/S06).
+    pub failed_count: u64,
+    pub failed: Vec<String>,
     pub skipped: Vec<String>,
     /// A failure, or the space message.
     pub message: Option<String>,
@@ -240,6 +243,8 @@ impl SyncRunner {
             self.update(|s| {
                 s.manifests_copied = out.copied;
                 s.manifests_changed = out.changed.clone();
+                s.failed_count += out.failed_count;
+                s.failed.extend(out.failed.iter().cloned());
                 s.skipped = out.skipped.clone();
             });
             if out.cancelled {
@@ -255,7 +260,11 @@ impl SyncRunner {
                 match sync::plan(job, &mut |p| report(Phase::Lists, p), &self.cancel) {
                     Ok(plan) => {
                         let r = sync::execute(job, &plan, &mut |p| report(Phase::Lists, p), &self.cancel);
-                        self.update(|s| s.lists_copied = r.copied_missing + r.copied_newer + r.copied_changed);
+                        self.update(|s| {
+                            s.lists_copied = r.copied_missing + r.copied_newer + r.copied_changed;
+                            s.failed_count += r.failed_count;
+                            s.failed.extend(r.failed.iter().cloned());
+                        });
                         if r.cancelled {
                             return self.finish(sink, Phase::Cancelled, None);
                         }
@@ -319,6 +328,8 @@ impl SyncRunner {
                         self.update(|s| {
                             s.previews_copied = o.copied;
                             s.previews_bytes = o.bytes;
+                            s.failed_count += o.failed_count;
+                            s.failed.extend(o.failed.iter().cloned());
                         });
                         if o.cancelled {
                             self.finish(sink, Phase::Cancelled, None)

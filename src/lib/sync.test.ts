@@ -3,7 +3,7 @@ import { confirmText, count, estimate, gb, syncLine, type SyncState } from "./sy
 
 const base: SyncState = {
   phase: "idle", running: false, folder: "", files_done: 0, files_total: 0, bytes_done: 0, bytes_total: 0,
-  summary: null, manifests_copied: 0, lists_copied: 0, manifests_changed: [], previews_copied: 0, previews_bytes: 0, skipped: [], message: null,
+  summary: null, manifests_copied: 0, lists_copied: 0, manifests_changed: [], previews_copied: 0, previews_bytes: 0, failed_count: 0, failed: [], skipped: [], message: null,
 };
 
 describe("sync line", () => {
@@ -41,5 +41,12 @@ describe("confirmation dialog", () => {
     expect(estimate(10_000_000)).toBe("minder dan een minuut");
     expect(confirmText({ copy_files: 77396, copy_bytes: 29_100_000_000, kept: 0, skipped: [], free: null, problem: null, needs_confirmation: true }))
       .toBe("29,1 GB previews ophalen (77 396 bestanden)? Dat duurt ongeveer 81 minuten.");
+  });
+});
+
+describe("files skipped in a sync", () => {
+  it("are counted in the done line, which fades like any other", () => {
+    expect(syncLine({ ...base, phase: "done", previews_copied: 120, failed_count: 1, failed: ["x: timed out"] })?.text).toBe("bijgewerkt: 120 previews · 1 overgeslagen");
+    expect(syncLine({ ...base, phase: "done", failed_count: 2 })?.text).toBe("2 overgeslagen");
   });
 });

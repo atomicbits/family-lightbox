@@ -31,6 +31,9 @@ export type SyncState = {
   manifests_changed: string[];
   previews_copied: number;
   previews_bytes: number;
+  /** Files skipped after failing twice (F007/S06), and some of them with their error. */
+  failed_count: number;
+  failed: string[];
   skipped: string[];
   message: string | null;
 };
@@ -91,13 +94,14 @@ export function syncLine(s: SyncState | null): SyncLine | null {
     case "cancelled":
       return { ...base, text: "geannuleerd" };
     case "done": {
-      if (s.manifests_copied === 0 && s.lists_copied === 0 && s.previews_copied === 0) return null;
+      if (s.manifests_copied === 0 && s.lists_copied === 0 && s.previews_copied === 0 && s.failed_count === 0) return null;
+      const skipped = s.failed_count > 0 ? ` · ${count(s.failed_count)} overgeslagen` : "";
       const parts = [
         s.manifests_copied > 0 && `${count(s.manifests_copied)} ${s.manifests_copied === 1 ? "manifest" : "manifesten"}`,
         s.lists_copied > 0 && "lijsten",
         s.previews_copied > 0 && `${count(s.previews_copied)} previews`,
       ].filter(Boolean);
-      return { ...base, text: `bijgewerkt: ${parts.join(", ")}` };
+      return { ...base, text: parts.length ? `bijgewerkt: ${parts.join(", ")}${skipped}` : `${count(s.failed_count)} overgeslagen` };
     }
     default:
       return null;

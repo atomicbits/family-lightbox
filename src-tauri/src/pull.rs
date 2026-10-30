@@ -58,6 +58,9 @@ pub struct ManifestsOutcome {
     pub invalid: Vec<String>,
     /// Year subfolders whose manifest was copied in this run, for the index (feature 8).
     pub changed: Vec<String>,
+    /// Manifests skipped after failing twice (F007/S06).
+    pub failed_count: u64,
+    pub failed: Vec<String>,
     pub cancelled: bool,
     pub error: Option<String>,
 }
@@ -92,6 +95,8 @@ pub fn run_manifests(job: &Job, progress: &mut dyn FnMut(&Progress), cancel: &At
     out.skipped = result.skipped;
     out.cancelled = result.cancelled;
     out.error = result.error;
+    out.failed_count = result.failed_count;
+    out.failed = result.failed;
     // What actually arrived: a planned copy whose local file now matches the remote one.
     for e in plan.entries.iter().filter(|e| e.decision.copies()) {
         let local = job.local.join(&e.rel);
@@ -203,6 +208,9 @@ pub struct PreviewsOutcome {
     pub bytes: u64,
     pub kept: u64,
     pub skipped: Vec<String>,
+    /// Files skipped after failing twice (F007/S06).
+    pub failed_count: u64,
+    pub failed: Vec<String>,
     pub cancelled: bool,
     pub error: Option<String>,
 }
@@ -235,6 +243,8 @@ pub fn run_previews(
         bytes: r.bytes,
         kept: r.kept,
         skipped: r.skipped,
+        failed_count: r.failed_count,
+        failed: r.failed,
         cancelled: r.cancelled,
         error: r.error,
     })

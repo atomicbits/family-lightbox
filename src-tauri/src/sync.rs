@@ -97,9 +97,20 @@ pub struct Outcome {
     pub bytes: u64,
     pub kept: u64,
     pub skipped: Vec<String>,
+    /// Files that failed twice and were skipped, the sync going on (F007/S06): how many, and the
+    /// first `FAILED_KEPT` as "path: error".
+    pub failed_count: u64,
+    pub failed: Vec<String>,
     pub cancelled: bool,
     pub error: Option<String>,
 }
+
+/// A copy that fails is tried once more after this pause (F007/S06).
+pub const RETRY_PAUSE: std::time::Duration = std::time::Duration::from_secs(1);
+/// After this many files failing in a row the NAS is taken to be gone and the sync stops.
+pub const FAILED_IN_A_ROW: u32 = 10;
+/// How many failed files are kept with their error.
+pub const FAILED_KEPT: usize = 50;
 
 fn secs(t: SystemTime) -> i64 {
     match t.duration_since(UNIX_EPOCH) {
@@ -250,10 +261,13 @@ fn consider(job: &Job, rel: &str, meta: &fs::Metadata, p: &mut Plan, progress: &
 /// Copies what the plan says to copy, one file at a time, atomically.
 pub fn execute(job: &Job, plan: &Plan, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool) -> Outcome {
     let mut folders = FolderTimes::default();
-    let out = execute_inner(job, plan, progress, cancel, &mut folders);
+    let out = execute_inner(job, plan, progress, cancel, &mut folders, RETRY_PAUSE, &mut copy_one);
     folders.restore(job);
     out
 }
+
+/// Copies one entry: the bytes copied, or why not.
+type CopyFn<'a> = dyn FnMut(&Job, &Entry, u64, &mut dyn FnMut(u64), &AtomicBool) -> Result<u64, Stop> + 'a;
 
 /// Writing a file changes its folder's modification time, and the CLI uses folder times to see
 /// which months changed (`library_months`). Like `rsync -a` in `media pull`, folders end with the
@@ -289,9 +303,18 @@ impl FolderTimes {
     }
 }
 
-fn execute_inner(job: &Job, plan: &Plan, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool, folders: &mut FolderTimes) -> Outcome {
+fn execute_inner(
+    job: &Job,
+    plan: &Plan,
+    progress: &mut dyn FnMut(&Progress),
+    cancel: &AtomicBool,
+    folders: &mut FolderTimes,
+    pause: std::time::Duration,
+    copy: &mut CopyFn,
+) -> Outcome {
     let mut out = Outcome { kept: plan.kept, skipped: plan.skipped.clone(), ..Outcome::default() };
     let (mut files_done, mut bytes_done) = (0u64, 0u64);
+    let mut in_a_row = 0u32;
     for e in plan.entries.iter().filter(|e| e.decision.copies()) {
         if cancel.load(Ordering::Relaxed) {
             out.cancelled = true;
@@ -309,8 +332,17 @@ fn execute_inner(job: &Job, plan: &Plan, progress: &mut dyn FnMut(&Progress), ca
             })
         };
         folders.note(job, &e.rel);
-        match copy_one(job, e, bytes_done, &mut report, cancel) {
+        // one more try after a pause: the NAS may not have delivered in time (F007/S06)
+        let result = match copy(job, e, bytes_done, &mut report, cancel) {
+            Err(Stop::Failed(_)) => {
+                std::thread::sleep(pause);
+                copy(job, e, bytes_done, &mut report, cancel)
+            }
+            other => other,
+        };
+        match result {
             Ok(n) => {
+                in_a_row = 0;
                 bytes_done += n;
                 files_done += 1;
                 out.bytes += n;
@@ -326,8 +358,16 @@ fn execute_inner(job: &Job, plan: &Plan, progress: &mut dyn FnMut(&Progress), ca
                 return out;
             }
             Err(Stop::Failed(msg)) => {
-                out.error = Some(msg);
-                return out;
+                in_a_row += 1;
+                if in_a_row >= FAILED_IN_A_ROW {
+                    out.error = Some(msg);
+                    return out;
+                }
+                // skipped; the next sync tries it again
+                out.failed_count += 1;
+                if out.failed.len() < FAILED_KEPT {
+                    out.failed.push(msg);
+                }
             }
         }
     }
@@ -598,5 +638,57 @@ mod tests {
         let result = plan(&job(r.path(), l.path()), &mut |_| { let _ = fs::remove_dir_all(&gone); }, &cancel);
         assert!(matches!(result, Err(Stop::Failed(_))), "{result:?}");
         assert!(matches!(plan(&job(&r.path().join("weg"), l.path()), &mut |_| {}, &cancel), Err(Stop::Failed(_))));
+    }
+
+    /// A plan copying these files from a remote folder made for it.
+    fn three(r: &Path, l: &Path, names: &[&str]) -> (Job, Plan) {
+        for n in names {
+            fs::create_dir_all(r.join("2026/07")).unwrap();
+            fs::write(r.join(format!("2026/07/{n}")), n.as_bytes()).unwrap();
+        }
+        let job = Job { remote: r.into(), local: l.into(), filter: jpg, only: None, max_depth: None };
+        let p = plan(&job, &mut |_| {}, &AtomicBool::new(false)).unwrap();
+        (job, p)
+    }
+
+    #[test]
+    fn a_file_failing_once_is_copied_on_the_retry() {
+        let (r, l) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let (job, p) = three(r.path(), l.path(), &["a.jpg", "b.jpg"]);
+        let mut tries = 0;
+        let mut flaky = |j: &Job, e: &Entry, b: u64, rep: &mut dyn FnMut(u64), c: &AtomicBool| {
+            if e.rel.ends_with("a.jpg") { tries += 1; if tries == 1 { return Err(Stop::Failed("timed out".into())); } }
+            copy_one(j, e, b, rep, c)
+        };
+        let out = execute_inner(&job, &p, &mut |_| {}, &AtomicBool::new(false), &mut FolderTimes::default(), std::time::Duration::ZERO, &mut flaky);
+        assert_eq!((out.copied_missing, out.failed_count, out.error), (2, 0, None));
+    }
+
+    #[test]
+    fn a_file_failing_twice_is_skipped_and_the_rest_copied() {
+        let (r, l) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let (job, p) = three(r.path(), l.path(), &["a.jpg", "b.jpg", "c.jpg"]);
+        let mut broken = |j: &Job, e: &Entry, b: u64, rep: &mut dyn FnMut(u64), c: &AtomicBool| {
+            if e.rel.ends_with("b.jpg") { return Err(Stop::Failed(format!("{}: Operation timed out (os error 60)", e.rel))); }
+            copy_one(j, e, b, rep, c)
+        };
+        let out = execute_inner(&job, &p, &mut |_| {}, &AtomicBool::new(false), &mut FolderTimes::default(), std::time::Duration::ZERO, &mut broken);
+        assert_eq!((out.copied_missing, out.failed_count, out.error.is_none()), (2, 1, true));
+        assert!(out.failed[0].contains("b.jpg"));
+        assert!(!l.path().join("2026/07/b.jpg").exists());
+    }
+
+    #[test]
+    fn ten_failing_in_a_row_stop_the_sync() {
+        let (r, l) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let names: Vec<String> = (0..12).map(|i| format!("f{i:02}.jpg")).collect();
+        let refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+        let (job, p) = three(r.path(), l.path(), &refs);
+        let mut gone = |_: &Job, e: &Entry, _: u64, _: &mut dyn FnMut(u64), _: &AtomicBool| -> Result<u64, Stop> {
+            Err(Stop::Failed(format!("{}: Host is down", e.rel)))
+        };
+        let out = execute_inner(&job, &p, &mut |_| {}, &AtomicBool::new(false), &mut FolderTimes::default(), std::time::Duration::ZERO, &mut gone);
+        assert_eq!(out.failed_count, 9);
+        assert!(out.error.unwrap().contains("Host is down"));
     }
 }
