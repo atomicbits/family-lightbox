@@ -61,15 +61,12 @@ git push origin main v0.2.0        # through the leak check, like every push
 gh run watch -R atomicbits/family-lightbox   # the release run
 ```
 
-The run is five jobs (F004/S06), each handing its result to the next as an artifact, so a
-release that stops can be continued from the job that failed:
+The run is three jobs (F004/S06):
 
 | Job | What it does | Checks |
 |---|---|---|
-| `build` | the tag against the three versions, the leak check over the whole history, `tauri build` of the `.app` only, signed with the Developer ID (not notarized) | `codesign --verify --deep --strict` |
-| `notarize` | the zipped app to Apple with `notarytool`, as `FamilyLightbox-<hash>.app.zip`; a re-run finds that name in Apple's history and waits for the earlier submission instead of submitting again; the id is in the job summary | Apple's *Accepted* |
-| `staple` | the ticket stapled to the app | `stapler validate`, `spctl` as a notarized Developer ID app; the job fails if the ticket can't be stapled |
-| `package` | from the stapled app: the update payload (`.app.tar.gz`, signed with the update key by `tauri signer sign`) and the `.dmg` (`hdiutil`, with a link to Applications), which is signed, notarized and stapled itself | the app inside the payload notarized and stapled; the `.dmg` accepted by `spctl --type open` |
+| `build` | the tag against the three versions, the leak check over the whole history, then `tauri-action`: build, sign with the Developer ID, notarize the app, staple it, and make the `.dmg` and the update payload (`.app.tar.gz` and its `.sig`) | `codesign --verify --deep --strict`; Gatekeeper accepting the app, and the app inside the payload, as notarized. A ticket that Tauri couldn't staple to the app is only a warning: the stapled `.dmg` covers the app inside it, and the updater installs online |
+| `dmg` | the `.dmg` notarized and stapled, as `FamilyLightbox_<version>_aarch64-<hash>.dmg`; a re-run finds that name in Apple's history and waits for the earlier submission instead of submitting again; the id is in the job summary | `stapler validate`; `spctl --type open` accepting it as a notarized disk image |
 | `publish` | (tag only) the GitHub Release, `latest.json` from the `.sig` (`scripts/build-latest-json.py`), the `.dmg`, the `.tar.gz` and the `.sig`, and `latest.json` last | |
 
 Every call to Apple (submit, wait, staple, validate, `spctl`) is tried up to five times with a
@@ -108,7 +105,8 @@ And open it by double-click: no Gatekeeper warning.
 
 - **A release stopped halfway** (Apple's network, a runner): open the run, see which job failed,
   and *Re-run failed jobs* (`gh run rerun <id> --failed`). The jobs before it keep their results;
-  a re-run of `notarize` reuses the submission of the same file. Never move or recreate the tag
+  a re-run of `dmg` reuses the submission of the same `.dmg`; only a failure in `build` builds
+  and notarizes the app again. Never move or recreate the tag
   for this.
 
 - **Notarization rejected**: the run prints a submission id. `xcrun notarytool log <id> --apple-id

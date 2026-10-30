@@ -87,3 +87,19 @@ After the failed release of 0.4.3; that release is retried as it stands while th
   submission by its hashed name; `scripts/test_apple.py` with a fake `xcrun` (14 checks).
   `actionlint` clean, apart from an `ls | grep` in the unchanged publish job.
 - `docs/releasing.md`: the five jobs and what to do when a release stops.
+
+### [2026-10-30] Back to Tauri for the .dmg (Peter)
+
+Peter prefers to keep Tauri, which is reliable, and its `.dmg`. The five-job version was cancelled
+in its dry run and replaced by three jobs, on the workflow from before this story:
+
+- `build`: `tauri-action` as before (build, sign, notarize, staple, `.dmg`, payload). The checks
+  require the app and the app inside the payload to be notarized (`apple.py assess`, retried);
+  a ticket Tauri couldn't staple to the app is a warning, not a failure: the stapled `.dmg`
+  covers the app inside it, and the updater installs online. That is what stopped 0.4.3.
+- `dmg`: notarizing and stapling the `.dmg`, moved out of `build` into a job of its own with
+  `apple.py` (the submission reused on a re-run, every call retried).
+- `publish`: unchanged, from the artifact `release-<version>`.
+
+So the acceptance criteria change: there is no separate notarize, staple and package job; a
+re-run after `build` starts at `dmg`. `scripts/apple.py` and its tests stay as written.
