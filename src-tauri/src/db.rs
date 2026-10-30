@@ -30,11 +30,37 @@ pub struct Item {
     pub hash: String,
     pub local: bool,
     pub preview: bool,
+    /// For the video of a Live Photo: the path of its photo (F017/S01).
+    pub live: Option<String>,
+}
+
+/// The columns of an `Item`, from `items` joined with `live_photos` as `lp` when the index has it.
+fn item_columns(has_live: bool) -> String {
+    let live = if has_live { "lp.photo" } else { "NULL" };
+    format!("items.path, folder, kind, taken, taken_from, source, size, hash, local, preview, {live}")
+}
+
+fn item_from(r: &rusqlite::Row, at: usize) -> rusqlite::Result<Item> {
+    Ok(Item {
+        path: r.get(at)?,
+        folder: r.get(at + 1)?,
+        kind: r.get(at + 2)?,
+        taken: r.get(at + 3)?,
+        taken_from: r.get(at + 4)?,
+        source: r.get(at + 5)?,
+        size: r.get(at + 6)?,
+        hash: r.get(at + 7)?,
+        local: r.get::<_, i64>(at + 8)? != 0,
+        preview: r.get::<_, i64>(at + 9)? != 0,
+        live: r.get(at + 10)?,
+    })
 }
 
 #[derive(Debug)]
 pub struct Db {
     conn: Connection,
+    /// An index built before F017 has no `live_photos` table.
+    has_live: bool,
 }
 
 impl Db {
@@ -52,7 +78,11 @@ impl Db {
         .map_err(|e| format!("index openen mislukt: {e}"))?;
         // the app may be replacing the index at this moment (the rename is atomic)
         conn.busy_timeout(Duration::from_secs(3)).map_err(|e| e.to_string())?;
-        Ok(Db { conn })
+        let has_live = conn
+            .query_row("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'live_photos'", [], |r| r.get::<_, i64>(0))
+            .map_err(|e| e.to_string())?
+            > 0;
+        Ok(Db { conn, has_live })
     }
 
     /// Alle maanden (nieuwste eerst) met tellingen; alleen foto's en video's tellen mee.
@@ -113,33 +143,16 @@ impl Db {
     /// The photos and videos with these hashes, each with the month the grid groups it under,
     /// by date taken (F003/S04). A hash that is in several places gives each of them.
     pub fn items_by_hash(&self, hashes: &[String]) -> Result<Vec<(String, Item)>, String> {
-        let mut stmt = self
-            .conn
-            .prepare(
-                "SELECT coalesce(month, folder), path, folder, kind, taken, taken_from, source, size, hash, local, preview
-                 FROM items WHERE kind IN ('photo', 'video') AND hash = ?1",
-            )
-            .map_err(|e| e.to_string())?;
+        let join = if self.has_live { "LEFT JOIN live_photos lp ON lp.video = items.path" } else { "" };
+        let sql = format!(
+            "SELECT coalesce(month, folder), {} FROM items {join} WHERE kind IN ('photo', 'video') AND hash = ?1",
+            item_columns(self.has_live)
+        );
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
         let mut out = Vec::new();
         for h in hashes {
             let rows = stmt
-                .query_map([h], |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        Item {
-                            path: r.get(1)?,
-                            folder: r.get(2)?,
-                            kind: r.get(3)?,
-                            taken: r.get(4)?,
-                            taken_from: r.get(5)?,
-                            source: r.get(6)?,
-                            size: r.get(7)?,
-                            hash: r.get(8)?,
-                            local: r.get::<_, i64>(9)? != 0,
-                            preview: r.get::<_, i64>(10)? != 0,
-                        },
-                    ))
-                })
+                .query_map([h], |r| Ok((r.get::<_, String>(0)?, item_from(r, 1)?)))
                 .map_err(|e| e.to_string())?;
             for row in rows {
                 out.push(row.map_err(|e| e.to_string())?);
@@ -151,30 +164,15 @@ impl Db {
 
     /// De foto's en video's van één maand, op opnametijd.
     pub fn items(&self, month: &str) -> Result<Vec<Item>, String> {
-        let mut stmt = self
-            .conn
-            .prepare(
-                "SELECT path, folder, kind, taken, taken_from, source, size, hash, local, preview
-                 FROM items WHERE kind IN ('photo', 'video') AND coalesce(month, folder) = ?1
-                 ORDER BY taken, path",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([month], |r| {
-                Ok(Item {
-                    path: r.get(0)?,
-                    folder: r.get(1)?,
-                    kind: r.get(2)?,
-                    taken: r.get(3)?,
-                    taken_from: r.get(4)?,
-                    source: r.get(5)?,
-                    size: r.get(6)?,
-                    hash: r.get(7)?,
-                    local: r.get::<_, i64>(8)? != 0,
-                    preview: r.get::<_, i64>(9)? != 0,
-                })
-            })
-            .map_err(|e| e.to_string())?;
+        let join = if self.has_live { "LEFT JOIN live_photos lp ON lp.video = items.path" } else { "" };
+        let sql = format!(
+            "SELECT {} FROM items {join}
+             WHERE kind IN ('photo', 'video') AND coalesce(month, folder) = ?1
+             ORDER BY taken, items.path",
+            item_columns(self.has_live)
+        );
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([month], |r| item_from(r, 0)).map_err(|e| e.to_string())?;
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
     }
 }

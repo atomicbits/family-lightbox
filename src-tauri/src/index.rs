@@ -25,7 +25,60 @@ const SCHEMA: &str = "
     CREATE INDEX IF NOT EXISTS items_month ON items(month);
     CREATE INDEX IF NOT EXISTS items_hash ON items(hash);
     CREATE INDEX IF NOT EXISTS items_taken ON items(taken);
+    CREATE TABLE IF NOT EXISTS live_photos (video TEXT PRIMARY KEY, photo TEXT);
 ";
+
+/// The number of an iPhone file name, `IMG_1234` or `IMG_E1234` at the end of its stem, also after
+/// the import's date prefix (F017/S01).
+pub fn img_number(path: &str) -> Option<u32> {
+    let name = path.rsplit('/').next()?;
+    let stem = name.rsplit_once('.').map_or(name, |(s, _)| s).to_ascii_uppercase();
+    let at = stem.rfind("IMG_")?;
+    let rest = &stem[at + 4..];
+    let digits = rest.strip_prefix('E').unwrap_or(rest);
+    (digits.len() == 4 && digits.bytes().all(|b| b.is_ascii_digit())).then(|| digits.parse().ok())?
+}
+
+/// The local time of a `taken` (the phone's own clock), to compare two files of one phone.
+fn taken_time(taken: &str) -> Option<chrono::NaiveDateTime> {
+    chrono::NaiveDateTime::parse_from_str(taken.get(..19)?, "%Y-%m-%dT%H:%M:%S").ok()
+}
+
+/// How far apart a Live Photo's video and its photo may be taken.
+pub const LIVE_SECONDS: i64 = 3;
+
+/// The Live Photos (F017/S01): each `.MOV` video with the photo of the same month and number taken
+/// within `LIVE_SECONDS`, the nearest when there are several. Rows are (path, month, kind, taken).
+pub fn live_pairs(rows: &[(String, String, String, Option<String>)]) -> Vec<(String, String)> {
+    use std::collections::HashMap;
+    let mut photos: HashMap<(&str, u32), Vec<(&str, chrono::NaiveDateTime)>> = HashMap::new();
+    for (path, month, kind, taken) in rows {
+        if kind != "photo" {
+            continue;
+        }
+        if let (Some(n), Some(t)) = (img_number(path), taken.as_deref().and_then(taken_time)) {
+            photos.entry((month.as_str(), n)).or_default().push((path.as_str(), t));
+        }
+    }
+    let mut out = Vec::new();
+    for (path, month, kind, taken) in rows {
+        if kind != "video" || !path.to_ascii_uppercase().ends_with(".MOV") {
+            continue;
+        }
+        let (Some(n), Some(t)) = (img_number(path), taken.as_deref().and_then(taken_time)) else { continue };
+        let nearest = photos
+            .get(&(month.as_str(), n))
+            .into_iter()
+            .flatten()
+            .map(|(p, pt)| (*p, (*pt - t).num_seconds().abs()))
+            .filter(|(_, d)| *d <= LIVE_SECONDS)
+            .min_by_key(|(_, d)| *d);
+        if let Some((photo, _)) = nearest {
+            out.push((path.clone(), photo.to_string()));
+        }
+    }
+    out
+}
 
 #[derive(Deserialize)]
 struct Manifest {
@@ -172,6 +225,20 @@ fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Resu
                 ])
                 .map_err(err)?;
             out.items += man.files.len();
+        }
+    }
+    // the Live Photos, from the rows just written (F017/S01)
+    {
+        let rows: Vec<(String, String, String, Option<String>)> = {
+            let mut stmt = tx
+                .prepare("SELECT path, coalesce(month, folder), kind, taken FROM items WHERE kind IN ('photo', 'video')")
+                .map_err(err)?;
+            let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).map_err(err)?;
+            rows.collect::<Result<_, _>>().map_err(err)?
+        };
+        let mut insert = tx.prepare("INSERT OR REPLACE INTO live_photos VALUES (?1, ?2)").map_err(err)?;
+        for (video, photo) in live_pairs(&rows) {
+            insert.execute(params![video, photo]).map_err(err)?;
         }
     }
     tx.commit().map_err(err)?;
@@ -577,5 +644,55 @@ mod tests {
         assert_eq!(mark_previews(&f.target, &[scan]).unwrap(), 0);
         assert!(db.items("2012/scans Peter").unwrap().iter().all(|i| i.preview));
         assert_eq!(db.missing_previews().unwrap(), 0);
+    }
+
+    #[test]
+    fn img_numbers_in_their_forms() {
+        assert_eq!(img_number("2026/07/iPhone-videos/IMG_1234.MOV"), Some(1234));
+        assert_eq!(img_number("2026/07/iPhone-photos/IMG_E1234.HEIC"), Some(1234));
+        assert_eq!(img_number("2022/02/iPhone-videos/2022-02-20_16-47-13_IMG_5925.MOV"), Some(5925));
+        assert_eq!(img_number("2026/07/EOSR/photos/CO7A9123.CR3"), None);
+        assert_eq!(img_number("2026/07/x/IMG_123.MOV"), None);
+        assert_eq!(img_number("2026/07/x/IMG_1234_1.MOV"), None);
+    }
+
+    #[test]
+    fn live_photos_pair_by_month_number_and_time() {
+        let r = |p: &str, m: &str, k: &str, t: &str| (p.to_string(), m.to_string(), k.to_string(), Some(t.to_string()));
+        let rows = vec![
+            r("2026/07/p/IMG_0001.HEIC", "2026/07", "photo", "2026-07-30T10:00:00+02:00"),
+            r("2026/07/v/IMG_0001.MOV", "2026/07", "video", "2026-07-30T10:00:02+02:00"),   // 2 s: live
+            r("2026/07/p/IMG_0002.HEIC", "2026/07", "photo", "2026-07-30T10:01:00+02:00"),
+            r("2026/07/v/IMG_0002.MOV", "2026/07", "video", "2026-07-30T10:01:04+02:00"),   // 4 s: not
+            r("2026/07/v/IMG_0003.MP4", "2026/07", "video", "2026-07-30T10:02:00+02:00"),   // .MP4: not
+            r("2026/07/p/IMG_0003.HEIC", "2026/07", "photo", "2026-07-30T10:02:00+02:00"),
+            r("2026/08/v/IMG_0001.MOV", "2026/08", "video", "2026-07-30T10:00:01+02:00"),   // other month
+            // the number again after IMG_9999, far apart: the near one wins
+            r("2026/07/p/IMG_0004.HEIC", "2026/07", "photo", "2026-07-01T09:00:00+02:00"),
+            r("2026/07/p/IMG_E0004.HEIC", "2026/07", "photo", "2026-07-30T11:00:01+02:00"),
+            r("2026/07/v/IMG_0004.MOV", "2026/07", "video", "2026-07-30T11:00:00+02:00"),
+        ];
+        let mut got = live_pairs(&rows);
+        got.sort();
+        assert_eq!(got, vec![
+            ("2026/07/v/IMG_0001.MOV".to_string(), "2026/07/p/IMG_0001.HEIC".to_string()),
+            ("2026/07/v/IMG_0004.MOV".into(), "2026/07/p/IMG_E0004.HEIC".into()),
+        ]);
+    }
+
+    #[test]
+    fn a_built_index_gives_each_live_video_its_photo() {
+        let f = fixture();
+        manifest(&f, "2026/08", json!({"contract_version": "1.2", "folder": "2026/08", "month": "2026/08", "files": [
+            {"path": "2026/08/iPhone-photos/IMG_0001.HEIC", "size": 1, "hash": "sha256:p", "kind": "photo", "taken": "2026-08-01T10:00:00+02:00"},
+            {"path": "2026/08/iPhone-videos/IMG_0001.MOV", "size": 1, "hash": "sha256:v", "kind": "video", "taken": "2026-08-01T10:00:01+02:00"},
+            {"path": "2026/08/iPhone-videos/IMG_0002.MOV", "size": 1, "hash": "sha256:w", "kind": "video", "taken": "2026-08-01T11:00:00+02:00"}
+        ]}));
+        build(&f.library, &f.previews, &f.target).unwrap();
+        let items = Db::open(&f.target).unwrap().items("2026/08").unwrap();
+        let live: Vec<_> = items.iter().map(|i| (i.path.as_str(), i.live.as_deref())).collect();
+        assert!(live.contains(&("2026/08/iPhone-videos/IMG_0001.MOV", Some("2026/08/iPhone-photos/IMG_0001.HEIC"))));
+        assert!(live.contains(&("2026/08/iPhone-videos/IMG_0002.MOV", None)));
+        assert!(live.contains(&("2026/08/iPhone-photos/IMG_0001.HEIC", None)));
     }
 }

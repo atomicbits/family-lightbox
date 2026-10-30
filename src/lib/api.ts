@@ -26,6 +26,8 @@ export type Item = {
   hash: string;
   local: boolean;
   preview: boolean;
+  /** For the video of a Live Photo: the path of its photo (F017). */
+  live?: string | null;
 };
 
 export type Status = {

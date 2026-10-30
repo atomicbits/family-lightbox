@@ -4,7 +4,7 @@
 mod config;
 mod connect;
 mod db;
-mod index;
+pub mod index;
 pub mod lists;
 pub mod log;
 pub mod marks;

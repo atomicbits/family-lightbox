@@ -1,6 +1,6 @@
 # Feature 17: Live Photos
 
-**Status:** In progress (plan accepted 2026-10-30)
+**Status:** In progress (plan accepted 2026-10-30; S01 done)
 **Depends on:** Feature 8 (the app's own index)
 **Folder:** `F017-live-photos`
 
@@ -50,5 +50,5 @@ videos, and later filtered, stacked with their photo or hidden.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-recognizing.md) | Recognizing Live Photos when the index is built; the photo each belongs to | Planned | — |
+| [S01](stories/S01-recognizing.md) | Recognizing Live Photos when the index is built; the photo each belongs to | Done | — |
 | [S02](stories/S02-the-symbol.md) | The symbol on the tile and in the lightbox | Planned | S01 |
