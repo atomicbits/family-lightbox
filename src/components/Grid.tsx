@@ -273,14 +273,18 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
           geen preview
         </div>
       )}
-      {item.kind === "video" && (
-        <span className="absolute bottom-1 left-1 leading-none" title="video">
-          <VideoIcon size={Math.max(12, markSize(size))} />
-        </span>
-      )}
-      {!item.local && (
-        <span className="absolute top-1 left-1 rounded bg-black/50 text-white text-[10px] px-1" title="origineel alleen op de NAS">
-          NAS
+      {(item.kind === "video" || !item.local) && (
+        <span className="absolute top-1 left-1 flex items-center gap-1 leading-none">
+          {item.kind === "video" && (
+            <span title="video">
+              <VideoIcon size={Math.max(12, markSize(size))} />
+            </span>
+          )}
+          {!item.local && (
+            <span className="rounded bg-black/50 text-white text-[10px] px-1 py-px" title="origineel alleen op de NAS">
+              NAS
+            </span>
+          )}
         </span>
       )}
       {bar ?? <TileMarks size={size} rating={rating} hearts={hearts} me={me} shiftHeart={!!stack?.symbol} />}
