@@ -34,7 +34,13 @@ impl Default for Shares {
 pub struct Settings {
     /// Empty until the user names a NAS or one is found (F006/S06): the app knows no family's NAS.
     pub nas_host: String,
+    /// The share whose root holds `familylightbox.json` (F019/S01); empty: the lists' share.
+    pub home_share: String,
+    /// Used while the NAS has no `familylightbox.json` (F019, decision 6).
     pub shares: Shares,
+    /// The layout read from the NAS, from the copy kept on this Mac; not saved with the settings.
+    #[serde(skip)]
+    pub layout: Option<crate::layout::NasLayout>,
     /// Where this Mac keeps its local copies (F006/S07); empty until chosen or adopted.
     pub local: Local,
     /// Where new photos come from on this Mac (F018/S03).
@@ -74,6 +80,18 @@ pub struct SourceSettings {
     pub ignore: bool,
     /// After an import verified on the NAS, delete from `_imported/` (off by default).
     pub delete_imported: bool,
+}
+
+impl Settings {
+    /// Where the four are: the NAS's file, else the share names of these settings.
+    pub fn effective_layout(&self) -> crate::layout::NasLayout {
+        self.layout.clone().unwrap_or_else(|| crate::layout::NasLayout::from_shares(&self.shares))
+    }
+
+    /// The share whose root holds the layout file.
+    pub fn home(&self) -> &str {
+        if self.home_share.is_empty() { &self.shares.lists } else { &self.home_share }
+    }
 }
 
 /// The local working copy of `Library`, the copy of `Previews` and the read copy of `Lists`.
@@ -147,11 +165,14 @@ pub fn load_settings(dir: &Path) -> (Settings, Option<String>) {
     let path = dir.join(SETTINGS_FILE);
     let text = match fs::read_to_string(&path) {
         Ok(t) => t,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (Settings::default(), None),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (Settings { layout: crate::layout::read_copy(dir), ..Settings::default() }, None),
         Err(e) => return (Settings::default(), Some(format!("{}: {e}", path.display()))),
     };
-    match serde_json::from_str(&text) {
-        Ok(s) => (s, None),
+    match serde_json::from_str::<Settings>(&text) {
+        Ok(mut s) => {
+            s.layout = crate::layout::read_copy(dir);
+            (s, None)
+        }
         Err(e) => (Settings::default(), Some(format!("{}: {e}", path.display()))),
     }
 }

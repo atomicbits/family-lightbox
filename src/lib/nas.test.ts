@@ -6,6 +6,8 @@ const m: Mount = { mount_point: "/Volumes/X", fs_type: "smbfs", server: "raven",
 const all: NasMounts = { library: [m], previews: [m], lists: [m], exports: [m] };
 const ok: Access = { mounted: true, readable: true, writable: null, problem: null };
 const good: NasCheck = {
+  layout_source: "settings",
+  layout_problem: null,
   library: ok,
   previews: ok,
   exports: ok,

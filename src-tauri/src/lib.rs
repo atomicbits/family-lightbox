@@ -10,6 +10,7 @@ pub mod filter;
 pub mod hash;
 pub mod import_job;
 pub mod import_plan;
+pub mod layout;
 pub mod lists;
 pub mod log;
 pub mod manifest;
@@ -170,18 +171,26 @@ async fn connect_nas(allow_ui: bool, paths: State<'_, Paths>) -> Result<ConnectR
         if settings.nas_host.trim().is_empty() {
             return Err("nog geen NAS ingesteld: geef de naam van je NAS in de instellingen".to_string());
         }
+        #[cfg(target_os = "macos")]
+        let connect_these = |host: &str, list: &[(connect::ShareKey, String)]| connect::connect_all(&connect::NetFsMounter { allow_ui }, host, list);
+        #[cfg(not(target_os = "macos"))]
+        // connecting is macOS only for now (NetFS); elsewhere the shares are mounted by hand
+        let connect_these = |_: &str, _: &[(connect::ShareKey, String)]| -> Vec<connect::Attempt> {
+            let _ = allow_ui;
+            Vec::new()
+        };
+        let host = settings.nas_host.clone();
+        let home = settings.home().to_string();
+        // first the home share, whose file says where the rest is (F019/S01)
+        let mut attempts = Vec::new();
+        if mounts::NasMounts::chosen(&mounts::mounts_of(&mounts::system_mounts(), &host, &home)).is_none() {
+            attempts.extend(connect_these(&host, &[(connect::ShareKey::Lists, home.clone())]));
+        }
+        let _ = layout::refresh(&config, &mounts::system_mounts(), &host, &home);
+        let (settings, _) = config::load_settings(&config);
         let before = mounts::find_shares(&mounts::system_mounts(), &settings);
         let todo = connect::to_connect(&before, &settings);
-        #[cfg(target_os = "macos")]
-        let attempts = connect::connect_all(&connect::NetFsMounter { allow_ui }, &settings.nas_host, &todo);
-        #[cfg(not(target_os = "macos"))]
-        let _ = allow_ui;
-        #[cfg(not(target_os = "macos"))]
-        let attempts = if todo.is_empty() {
-            Vec::new()
-        } else {
-            return Err("verbinden met de NAS kan nog alleen op macOS".to_string());
-        };
+        attempts.extend(connect_these(&host, &todo));
         Ok(ConnectResult { attempts, mounts: mounts::find_shares(&mounts::system_mounts(), &settings) })
     })
     .await
@@ -454,6 +463,9 @@ fn relaunch(app: tauri::AppHandle) {
 
 #[derive(serde::Serialize)]
 pub struct NasCheck {
+    /// Where the layout in use came from (F019/S01), or why the NAS's file couldn't be read.
+    pub layout_source: Option<layout::Source>,
+    pub layout_problem: Option<String>,
     pub library: nas::Access,
     pub previews: nas::Access,
     pub lists: nas::Access,
@@ -470,6 +482,9 @@ async fn nas_check(paths: State<'_, Paths>) -> Result<NasCheck, String> {
 }
 
 pub fn check_nas(config: &Path) -> NasCheck {
+    let (settings, _) = config::load_settings(config);
+    // the layout first: it says which shares and folders the rest are
+    let refreshed = layout::refresh(config, &mounts::system_mounts(), &settings.nas_host, settings.home());
     let (settings, _) = config::load_settings(config);
     let found = mounts::find_shares(&mounts::system_mounts(), &settings);
     let device = config::load_device(config).ok().flatten();
@@ -490,7 +505,13 @@ pub fn check_nas(config: &Path) -> NasCheck {
             nas::register(Path::new(&dir), &nas::entry_for(d), &|| {})
         }
     };
+    let (layout_source, layout_problem) = match refreshed {
+        Ok(s) => (Some(s), None),
+        Err(e) => (None, Some(e)),
+    };
     NasCheck {
+        layout_source,
+        layout_problem,
         library: check(&found.library, false),
         previews: check(&found.previews, false),
         exports: check(&found.exports, false),

@@ -24,6 +24,24 @@ The words **MUST**, **MUST NOT**, **SHOULD** and **MAY** are meant as in RFC 211
 
 ## 2. Shares on the NAS
 
+**Locations (1.4, FamilyLightbox F019).** The library, the previews, the lists and the exports are four *locations*. Where each one is, is described in `familylightbox.json` in the root of the *home share* (a setting per Mac; empty means the lists' share):
+
+```json
+{
+  "contract_version": "1.4",
+  "name": "Onze foto's",
+  "library":  { "share": "Photos", "path": "Library" },
+  "previews": { "share": "Photos", "path": "Previews" },
+  "lists":    { "share": "Photos", "path": "Lists" },
+  "exports":  { "share": "Photos", "path": "Exports" }
+}
+```
+
+- `share` is an SMB share on the NAS; `path` a folder inside it, with `/`, without `..`, `""` for the share's root. Several locations may share a share; a new library has all four in one.
+- Everything this contract says about `Library`, `Previews`, `Lists` and `Exports` holds for the location's root: paths in manifests, previews and lists are relative to it, wherever it is.
+- Every client reads the file; it is changed by a person or by FamilyLightbox when it sets up a new library, never per Mac. Unknown fields are allowed.
+- Without the file the four shares below apply, each at its root: the layout of this library until it moves to one share.
+
 | Share | Path on the NAS | Content | Who writes |
 |---|---|---|---|
 | `Library` | `/volume1/Library` | Originals and month manifests | laptops via `media push` |
@@ -364,6 +382,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 | Version | Date | What |
 |---|---|---|
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
+| 1.4 | 2026-10-31 | Section 2: the locations in `familylightbox.json` on the NAS (FamilyLightbox F019); without it, the four shares as before. |
 | 1.3 (addition) | 2026-10-30 | Section 3.5: `camera` without the make's company form or a trailing `DIGITAL CAMERA` (LibraryLocal F011/S03). Manifests with the long names stay valid and are rewritten. |
 | 1.3 | 2026-10-30 | Section 3.5: the field `camera`, make and model from the original's metadata, written by `media-manifest-nas.py` and the CLI (LibraryLocal F011); manifests of 1.2 stay valid and are rewritten with it. |
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `stack` and `unstack`, a photo's stack decided by its last event (FamilyLightbox F015/S01). |

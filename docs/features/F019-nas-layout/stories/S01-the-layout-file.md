@@ -1,7 +1,7 @@
 # Story S01: The layout file, the four roots, and everything using them
 
 **Feature:** `F019-nas-layout`
-**Status:** In progress
+**Status:** Built (2026-10-31); checked with a real file in S03
 **Depends on:** —
 
 ## Goal
@@ -49,3 +49,24 @@ roots instead of four share names.
 ## Progress log
 
 ### [2026-10-31] Written
+
+### [2026-10-31] Built
+
+- `layout.rs`: `Location`, `NasLayout` (`from_shares`, `in_one_share`, `locations`), `parse` (a
+  share and a path inside it, no `..`, no absolute path, no `\`), `read_copy`, `refresh` (from the
+  home share's mount; kept as `familylightbox-layout.json`; the copy removed when the file is gone
+  from the NAS, kept when it is broken), `Source` (`nas`, `copy`, `settings`).
+- `config.rs`: `Settings.home_share`; `Settings.layout`, read from the copy by `load_settings`
+  and never saved; `effective_layout` (the file, else the share names) and `home`.
+- `mounts.rs`: `find_shares` takes the layout: each location's mounts by its share, the mount
+  point plus the location's path. All ten callers are unchanged and get the roots.
+- `connect.rs`: `to_connect` gives each share once, the lists' first. `lib.rs`: `connect_nas`
+  connects the home share first, reads the file, then connects what it names; `check_nas` reads
+  the file first and reports `layout_source` and `layout_problem`. The sync's messages name the
+  location's share.
+- Data contract section 2: the locations and the file, version 1.4.
+- Tests: `cargo test` 182 (reading the file, refusals, broken; the copy kept, used without the
+  NAS, removed when the file goes; the roots of one share and of another share's subfolder; one
+  share connected once for four locations), `pnpm test` 132; clippy and tsc clean.
+- On Peter's Mac: no file on the NAS yet, so the share names of the settings apply; the dev app
+  checks the NAS as before.

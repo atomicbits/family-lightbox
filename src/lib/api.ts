@@ -121,7 +121,9 @@ export type Registration = {
   kind: "registered" | "already_registered" | "refused" | "failed" | "not_tried";
   message?: string;
 };
-export type NasCheck = Record<keyof Shares, Access> & { registration: Registration };
+/** Where the NAS's layout in use came from (F019/S01). */
+export type LayoutSource = "nas" | "copy" | "settings";
+export type NasCheck = Record<keyof Shares, Access> & { registration: Registration; layout_source: LayoutSource | null; layout_problem: string | null };
 
 /** "leesbaar", "leesbaar en schrijfbaar", the problem, or null when not mounted. */
 export function accessLabel(a: Access): string | null {

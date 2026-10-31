@@ -24,19 +24,22 @@ pub fn share_url(host: &str, share: &str) -> String {
     format!("smb://{host}/{}", utf8_percent_encode(share, SEGMENT))
 }
 
-/// Shares without any mount, in connect order: `Lists` first, because writing lists needs it.
+/// The shares of the locations without any mount, each once, in connect order: the lists' first,
+/// because writing lists needs it. Four locations in one share are one mount (F019/S01).
 pub fn to_connect(found: &NasMounts, settings: &Settings) -> Vec<(ShareKey, String)> {
-    let s = &settings.shares;
-    [
-        (ShareKey::Lists, &found.lists, &s.lists),
-        (ShareKey::Library, &found.library, &s.library),
-        (ShareKey::Previews, &found.previews, &s.previews),
-        (ShareKey::Exports, &found.exports, &s.exports),
-    ]
-    .into_iter()
-    .filter(|(_, mounts, _)| mounts.is_empty())
-    .map(|(k, _, name)| (k, name.clone()))
-    .collect()
+    let l = settings.effective_layout();
+    let mut out: Vec<(ShareKey, String)> = Vec::new();
+    for (key, mounts, loc) in [
+        (ShareKey::Lists, &found.lists, &l.lists),
+        (ShareKey::Library, &found.library, &l.library),
+        (ShareKey::Previews, &found.previews, &l.previews),
+        (ShareKey::Exports, &found.exports, &l.exports),
+    ] {
+        if mounts.is_empty() && !out.iter().any(|(_, s)| *s == loc.share) {
+            out.push((key, loc.share.clone()));
+        }
+    }
+    out
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -304,5 +307,13 @@ mod tests {
         let got: Vec<_> = r.iter().map(|a| a.outcome.clone()).collect();
         assert_eq!(got, vec![Outcome::Failed(5), Outcome::AlreadyMounted, Outcome::AuthFailed, Outcome::Mounted]);
         assert_eq!(f.urls.borrow().len(), 4);
+    }
+
+    #[test]
+    fn one_share_for_four_locations_is_connected_once() {
+        let settings = Settings { nas_host: "nas1".into(), layout: Some(crate::layout::NasLayout::in_one_share("Fotos", "x")), ..Settings::default() };
+        let todo = to_connect(&NasMounts::default(), &settings);
+        assert_eq!(todo.len(), 1);
+        assert_eq!(todo[0], (ShareKey::Lists, "Fotos".to_string()));
     }
 }

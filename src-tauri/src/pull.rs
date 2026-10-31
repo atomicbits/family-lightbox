@@ -24,7 +24,7 @@ pub fn is_manifest(rel: &str) -> bool {
 /// The manifests job: the chosen `Library` mount to the working copy, two levels deep.
 pub fn manifests_job(settings: &Settings, found: &NasMounts, working_copy: &Path) -> Result<Job, String> {
     let mount = NasMounts::chosen(&found.library)
-        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.shares.library))?;
+        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.effective_layout().library.share))?;
     Ok(Job {
         remote: mount.mount_point.clone().into(),
         local: working_copy.to_path_buf(),
@@ -38,7 +38,7 @@ pub fn manifests_job(settings: &Settings, found: &NasMounts, working_copy: &Path
 /// files and the summaries only.
 pub fn lists_job(settings: &Settings, found: &NasMounts, local: &Path) -> Result<Job, String> {
     let mount = NasMounts::chosen(&found.lists)
-        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.shares.lists))?;
+        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.effective_layout().lists.share))?;
     Ok(Job {
         remote: mount.mount_point.clone().into(),
         local: local.to_path_buf(),
@@ -129,7 +129,7 @@ pub fn is_preview(rel: &str) -> bool {
 /// The previews job: the chosen `Previews` mount to the local previews folder.
 pub fn previews_job(settings: &Settings, found: &NasMounts, local: &Path) -> Result<Job, String> {
     let mount = NasMounts::chosen(&found.previews)
-        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.shares.previews))?;
+        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.effective_layout().previews.share))?;
     Ok(Job { remote: mount.mount_point.clone().into(), local: local.to_path_buf(), filter: is_preview, only: None, max_depth: None })
 }
 

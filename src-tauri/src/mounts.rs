@@ -112,7 +112,7 @@ impl NasMounts {
     }
 }
 
-fn mounts_of(raw: &[RawMount], host: &str, share: &str) -> Vec<Mount> {
+pub fn mounts_of(raw: &[RawMount], host: &str, share: &str) -> Vec<Mount> {
     let mut found: Vec<Mount> = raw
         .iter()
         .filter(|r| r.fs_type == "smbfs" || r.fs_type == "afpfs")
@@ -134,15 +134,26 @@ fn mounts_of(raw: &[RawMount], host: &str, share: &str) -> Vec<Mount> {
     found
 }
 
-/// The four shares from the settings, each with the mounts found for it.
+/// The four locations of the layout (F019/S01), each with the mounts of its share; a mount's
+/// point is the location's root: the share's mount plus the location's path.
 pub fn find_shares(raw: &[RawMount], settings: &Settings) -> NasMounts {
-    let (h, s) = (&settings.nas_host, &settings.shares);
+    let h = &settings.nas_host;
+    let layout = settings.effective_layout();
+    let at = |l: &crate::layout::Location| {
+        let mut list = mounts_of(raw, h, &l.share);
+        if !l.path.is_empty() {
+            for m in &mut list {
+                m.mount_point = std::path::Path::new(&m.mount_point).join(&l.path).display().to_string();
+            }
+        }
+        list
+    };
     NasMounts {
         host: h.clone(),
-        library: mounts_of(raw, h, &s.library),
-        previews: mounts_of(raw, h, &s.previews),
-        lists: mounts_of(raw, h, &s.lists),
-        exports: mounts_of(raw, h, &s.exports),
+        library: at(&layout.library),
+        previews: at(&layout.previews),
+        lists: at(&layout.lists),
+        exports: at(&layout.exports),
     }
 }
 
@@ -217,5 +228,21 @@ mod tests {
     fn the_real_mount_list_contains_the_root() {
         let all = system_mounts();
         assert!(all.iter().any(|m| m.on == std::path::Path::new("/")), "{all:?}");
+    }
+
+    #[test]
+    fn the_roots_of_a_layout_in_one_share() {
+        let list = vec![raw("//anna@nas1/Fotos", "/Volumes/Fotos", "smbfs"), raw("//anna@nas1/photo", "/Volumes/photo", "smbfs")];
+        let mut layout = crate::layout::NasLayout::in_one_share("Fotos", "x");
+        layout.exports = crate::layout::Location { share: "photo".into(), path: "FamilyLightbox/Exports".into() };
+        let settings = Settings { nas_host: "nas1".into(), layout: Some(layout), ..Settings::default() };
+        let found = find_shares(&list, &settings);
+        let root = |l: &[Mount]| NasMounts::chosen(l).map(|m| m.mount_point.clone());
+        assert_eq!(root(&found.library).as_deref(), Some("/Volumes/Fotos/Library"));
+        assert_eq!(root(&found.lists).as_deref(), Some("/Volumes/Fotos/Lists"));
+        assert_eq!(root(&found.exports).as_deref(), Some("/Volumes/photo/FamilyLightbox/Exports"));
+        // without a layout file the Mac's share names apply, each at its root
+        let old = find_shares(&[raw("//anna@nas1/Lists", "/Volumes/Lists", "smbfs")], &Settings { nas_host: "nas1".into(), ..Settings::default() });
+        assert_eq!(root(&old.lists).as_deref(), Some("/Volumes/Lists"));
     }
 }
