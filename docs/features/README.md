@@ -168,3 +168,4 @@ no folder yet.
 | 16 | [Messages and a log](F016-messages/plan.md): warnings and errors in a list behind a ⚠ in the footer and in a log file; footer lines fade | In progress (S01 done, S02 built) | 7, 12, 13 |
 | 17 | [Live Photos](F017-live-photos/plan.md): recognize the short videos of Live Photos and give them a symbol of their own | Done | 8 |
 | 18 | [Import](F018-import/plan.md): from a drop folder, a synced folder or a card, into the right month and source on the NAS, verified, with previews (the import and push part of 10) | In progress | 6, 8, 12 |
+| 19 | [The NAS layout in one file](F019-nas-layout/plan.md): where the library, previews, lists and exports are, in `familylightbox.json` on the NAS for all Macs; one share by default | In design | 6, 7, 18 |
