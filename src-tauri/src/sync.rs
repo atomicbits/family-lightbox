@@ -211,6 +211,8 @@ fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut
             p.skipped.push(rel.to_string());
             return Ok(());
         }
+        // gone since its parent was listed (renamed or tidied on the NAS meanwhile): nothing to take
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(()),
         Err(e) => return Err(Stop::Failed(format!("{}: {e}", dir.display()))),
     };
     clear_stale(&job.local.join(rel));
@@ -224,6 +226,7 @@ fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut
                 p.skipped.push(rel.to_string());
                 return Ok(());
             }
+            Err(err) if err.kind() == ErrorKind::NotFound => return Ok(()),
             Err(err) => return Err(Stop::Failed(format!("{}: {err}", dir.display()))),
         }
     }
@@ -240,6 +243,7 @@ fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut
                 p.skipped.push(child);
                 continue;
             }
+            Err(err) if err.kind() == ErrorKind::NotFound => continue,
             Err(err) => return Err(Stop::Failed(format!("{}: {err}", e.path().display()))),
         };
         if ft.is_symlink() {
@@ -256,6 +260,8 @@ fn walk(job: &Job, dir: &Path, rel: &str, p: &mut Plan, progress: &mut dyn FnMut
                     p.skipped.push(child);
                     continue;
                 }
+                // a file removed or renamed on the NAS since its folder was listed
+                Err(err) if err.kind() == ErrorKind::NotFound => continue,
                 Err(err) => return Err(Stop::Failed(format!("{}: {err}", e.path().display()))),
             };
             consider(job, &child, &meta, p, progress, cancel)?;
@@ -577,6 +583,16 @@ mod tests {
         assert_eq!(p.skipped, vec!["2007"]);
         assert_eq!(o.copied_missing, 1);
         assert!(l.path().join("2008/01/b.jpg").exists() && !l.path().join("2007").exists());
+    }
+
+    #[test]
+    fn a_folder_gone_since_its_parent_was_listed_is_passed_over() {
+        // renamed or tidied on the NAS while the sync walks it
+        let (r, l) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let j = job(r.path(), l.path());
+        let mut p = Plan::default();
+        walk(&j, &r.path().join("2004/04.Trip/mov"), "2004/04.Trip/mov", &mut p, &mut |_| {}, &AtomicBool::new(false)).unwrap();
+        assert!(p.entries.is_empty() && p.skipped.is_empty());
     }
 
     #[cfg(unix)]

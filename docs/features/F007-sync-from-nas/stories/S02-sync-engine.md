@@ -148,3 +148,12 @@ is an entry whose type can't be read. Every place the walk touches the remote tr
 top-level folder, opening a folder, reading its entries, the type and the metadata of an entry)
 now skips on "Permission denied". This case can't be built on a local disk; the message's path
 (the folder itself) only matched the iteration after the earlier fixes.
+
+### [2026-10-31] A folder or file gone during the walk
+
+A sync on Peter's Mac stopped with "No such file or directory" on a folder of `Previews` that
+went away while the sync walked it (renamed or tidied on the NAS meanwhile). Below the top level,
+a folder that can't be read because it is gone, and a file whose metadata is gone, are now passed
+over; the next sync sees the NAS as it is then. A top-level folder that was just listed and is
+gone still stops the sync: that is how the NAS going away looks. Test: walking a folder that
+isn't there.
