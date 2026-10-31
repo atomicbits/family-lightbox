@@ -122,7 +122,7 @@ keeps file names unique (two iPhones both make `IMG_0955.JPG`).
 | [S01](stories/S01-date-camera-and-hash.md) | Reading the capture date and the camera natively, and hashing (a port of the NAS script's reader, tested against exiftool) | Done | — |
 | [S02](stories/S02-manifest-and-push.md) | Writing a month's manifest and copying originals to the NAS over SMB, verified (the app's `push`); the data contract's transport and layout rules | Done | S01 |
 | [S03](stories/S03-sources.md) | Sources: the drop folder's subfolders, synced folders, cards; their settings; the name proposed from the library | Built | — |
-| [S04](stories/S04-the-plan.md) | The plan and the import screen: what is new per source, months, dates, duplicates by hash, conflicts | Planned | S01, S03 |
+| [S04](stories/S04-the-plan.md) | The plan and the import screen: what is new per source, months, dates, duplicates by hash, conflicts | Built | S01, S03 |
 | [S05](stories/S05-drop-folder.md) | Importing from a drop folder: staging, previews, NAS, verify, `_imported/` (or delete), what stays local, the index; resumable | Planned | S02, S04 |
 | [S06](stories/S06-synced-folders.md) | Synced folders: copy only, remember what was taken, the iPhone sources' historical layout | Planned | S05 |
 | [S07](stories/S07-cards.md) | Cards and devices: `DCIM/` volumes, never erased, eject afterwards | Planned | S05 |

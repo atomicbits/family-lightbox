@@ -7,6 +7,7 @@ import Grid from "./components/Grid";
 import Lightbox from "./components/Lightbox";
 import DeviceSetup from "./components/DeviceSetup";
 import FirstStart from "./components/FirstStart";
+import ImportView from "./components/ImportView";
 import { firstStartSteps } from "./lib/firststart";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
@@ -71,6 +72,7 @@ export default function App() {
   const [jump, setJump] = useState<{ section: number; nonce: number } | null>(null);
   const [device, setDevice] = useState<DeviceState | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const nas = useNas();
   const sync = useSync();
   const index = useIndex();
@@ -681,7 +683,7 @@ export default function App() {
 
   // toetsenbord op het raster: pijltjes (met shift: een reeks), spatie/enter opent, Esc wist de
   // keuze; in een lijst haalt ⌫ de gekozen foto's eruit
-  const dialog = showSettings || confirming || welcome;
+  const dialog = showSettings || showImport || confirming || welcome;
   useEffect(() => {
     if (open || dialog) return;
     const onKey = (e: KeyboardEvent) => {
@@ -991,6 +993,15 @@ export default function App() {
           </button>
         )}
         {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
+        {hasDevice && (
+          <button
+            className="px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
+            title="nieuwe foto's binnenhalen"
+            onClick={() => setShowImport(true)}
+          >
+            ⇣ Importeren
+          </button>
+        )}
         <button
           className="px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
           title="Instellingen"
@@ -1058,6 +1069,7 @@ export default function App() {
       {welcome && device && (
         <DeviceSetup nas={nas} device={device.device} onDone={(d) => setDevice({ ...device, device: d })} />
       )}
+      {showImport && <ImportView onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
       {showSettings && (
         <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}

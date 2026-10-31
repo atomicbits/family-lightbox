@@ -8,6 +8,7 @@ pub mod db;
 pub mod index;
 pub mod filter;
 pub mod hash;
+pub mod import_plan;
 pub mod lists;
 pub mod log;
 pub mod manifest;
@@ -220,6 +221,42 @@ async fn import_sources(paths: State<'_, Paths>) -> Result<Vec<sources::Found>, 
         let layouts = db.as_ref().and_then(|d| d.source_paths().ok()).map(|p| sources::layouts(&p)).unwrap_or_default();
         let of_camera = |c: &str| db.as_ref().and_then(|d| d.sources_of_camera(c).ok()).unwrap_or_default();
         Ok(sources::discover(&import, Path::new("/Volumes"), &layouts, &of_camera))
+    })
+    .await
+}
+
+/// What an import of the source at `path` would do (F018/S04): read and hash its files, compare
+/// with the library. Nothing is copied. Progress as `import-plan-progress` events.
+#[tauri::command]
+async fn import_plan(path: String, app: tauri::AppHandle, paths: State<'_, Paths>) -> Result<import_plan::SourcePlan, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || {
+        let import = config::load_settings(&paths.config).0.import;
+        let db = Db::open(&paths.index())?;
+        let layouts = sources::layouts(&db.source_paths()?);
+        let of_camera = |c: &str| db.sources_of_camera(c).unwrap_or_default();
+        let found = sources::discover(&import, Path::new("/Volumes"), &layouts, &of_camera);
+        let f = found.iter().find(|f| f.path == path).ok_or_else(|| format!("{path}: geen bron (meer)"))?;
+        if let Some(p) = &f.problem {
+            return Err(p.clone());
+        }
+        let root = match f.kind {
+            "card" => PathBuf::from(&f.path).join("DCIM"),
+            "synced" => return Err("een gesynchroniseerde map komt in een volgende stap (F018/S06)".into()),
+            _ => PathBuf::from(&f.path),
+        };
+        let folder = Path::new(&f.path).file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let patterns = import.sources.get(&folder).map(|s| s.exclude.clone()).unwrap_or_default();
+        let known = db.path_hashes()?;
+        let cache = import_plan::HashCache::open(&paths.config.join("familylightbox-import.sqlite"))?;
+        let mut last = std::time::Instant::now() - std::time::Duration::from_secs(1);
+        let plan = import_plan::plan(&root, &f.name, f.layout, &patterns, &known, &cache, &mut |pr| {
+            if last.elapsed() >= std::time::Duration::from_millis(200) || pr.files_done == pr.files_total {
+                last = std::time::Instant::now();
+                let _ = app.emit("import-plan-progress", (&path, pr));
+            }
+        });
+        Ok(plan)
     })
     .await
 }
@@ -1027,7 +1064,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, import_sources, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, import_sources, import_plan, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

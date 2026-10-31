@@ -82,6 +82,13 @@ impl Db {
         j
     }
 
+    /// Every path in the library with its hash (F018/S04): what an import compares against.
+    pub fn path_hashes(&self) -> Result<std::collections::HashMap<String, String>, String> {
+        let mut stmt = self.conn.prepare("SELECT path, hash FROM items WHERE hash IS NOT NULL AND hash != ''").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
     /// Per source, the paths of its originals in ordinary month folders (F018/S03), for
     /// `sources::layouts`.
     pub fn source_paths(&self) -> Result<Vec<(String, String)>, String> {
