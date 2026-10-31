@@ -200,3 +200,10 @@ The first start's steps with their progress and the index right after the manife
 exists, and panels that scroll in a low window. The update from 0.4.0 to 0.4.1 worked on Lynn's
 Mac through the footer's *Bijwerken*: the updater is tested for real now. Checked as before:
 the `.dmg` notarized, its ticket valid, `latest.json` 0.4.2.
+
+### [2026-10-31] v0.5.0 released
+
+With F018/S01–S05 (import from a drop folder), F019/S01, S03 and the app's part of S04 (the
+layout file, app versions per device), the tolerant sync and the `fsync` before renames on
+`Lists`. All three jobs green at once; checked after download as before: the `.dmg` notarized,
+its ticket valid, `latest.json` 0.5.0. Lynn updates to it before the library moves to one share.
