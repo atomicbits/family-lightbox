@@ -8,6 +8,7 @@ pub mod db;
 pub mod index;
 pub mod filter;
 pub mod hash;
+pub mod import_job;
 pub mod import_plan;
 pub mod lists;
 pub mod log;
@@ -225,40 +226,172 @@ async fn import_sources(paths: State<'_, Paths>) -> Result<Vec<sources::Found>, 
     .await
 }
 
+/// The source at `path` found again (S03) and planned (S04), with its settings.
+fn plan_source(paths: &Paths, path: &str, progress: &mut dyn FnMut(&import_plan::Progress)) -> Result<(import_plan::SourcePlan, config::SourceSettings), String> {
+    let import = config::load_settings(&paths.config).0.import;
+    let db = Db::open(&paths.index())?;
+    let layouts = sources::layouts(&db.source_paths()?);
+    let of_camera = |c: &str| db.sources_of_camera(c).unwrap_or_default();
+    let found = sources::discover(&import, Path::new("/Volumes"), &layouts, &of_camera);
+    let f = found.iter().find(|f| f.path == path).ok_or_else(|| format!("{path}: geen bron (meer)"))?;
+    if let Some(p) = &f.problem {
+        return Err(p.clone());
+    }
+    let root = match f.kind {
+        "card" => PathBuf::from(&f.path).join("DCIM"),
+        "synced" => return Err("een gesynchroniseerde map komt in een volgende stap (F018/S06)".into()),
+        _ => PathBuf::from(&f.path),
+    };
+    let folder = Path::new(&f.path).file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let set = import.sources.get(&folder).cloned().unwrap_or_default();
+    let known = db.path_hashes()?;
+    let cache = import_plan::HashCache::open(&paths.config.join("familylightbox-import.sqlite"))?;
+    Ok((import_plan::plan(&root, &f.name, f.layout, &set.exclude, &known, &cache, progress), set))
+}
+
+/// Progress events at most five times a second, and the last one always.
+fn throttled<'a, T: serde::Serialize>(app: &'a tauri::AppHandle, event: &'a str, key: &'a str) -> impl FnMut(&T, bool) + 'a {
+    let mut last = std::time::Instant::now() - std::time::Duration::from_secs(1);
+    move |payload: &T, last_one: bool| {
+        if last_one || last.elapsed() >= std::time::Duration::from_millis(200) {
+            last = std::time::Instant::now();
+            let _ = app.emit(event, (key, payload));
+        }
+    }
+}
+
 /// What an import of the source at `path` would do (F018/S04): read and hash its files, compare
 /// with the library. Nothing is copied. Progress as `import-plan-progress` events.
 #[tauri::command]
 async fn import_plan(path: String, app: tauri::AppHandle, paths: State<'_, Paths>) -> Result<import_plan::SourcePlan, String> {
     let paths = paths.inner().clone();
     on_blocking(move || {
-        let import = config::load_settings(&paths.config).0.import;
-        let db = Db::open(&paths.index())?;
-        let layouts = sources::layouts(&db.source_paths()?);
-        let of_camera = |c: &str| db.sources_of_camera(c).unwrap_or_default();
-        let found = sources::discover(&import, Path::new("/Volumes"), &layouts, &of_camera);
-        let f = found.iter().find(|f| f.path == path).ok_or_else(|| format!("{path}: geen bron (meer)"))?;
-        if let Some(p) = &f.problem {
-            return Err(p.clone());
-        }
-        let root = match f.kind {
-            "card" => PathBuf::from(&f.path).join("DCIM"),
-            "synced" => return Err("een gesynchroniseerde map komt in een volgende stap (F018/S06)".into()),
-            _ => PathBuf::from(&f.path),
-        };
-        let folder = Path::new(&f.path).file_name().unwrap_or_default().to_string_lossy().into_owned();
-        let patterns = import.sources.get(&folder).map(|s| s.exclude.clone()).unwrap_or_default();
-        let known = db.path_hashes()?;
-        let cache = import_plan::HashCache::open(&paths.config.join("familylightbox-import.sqlite"))?;
-        let mut last = std::time::Instant::now() - std::time::Duration::from_secs(1);
-        let plan = import_plan::plan(&root, &f.name, f.layout, &patterns, &known, &cache, &mut |pr| {
-            if last.elapsed() >= std::time::Duration::from_millis(200) || pr.files_done == pr.files_total {
-                last = std::time::Instant::now();
-                let _ = app.emit("import-plan-progress", (&path, pr));
-            }
-        });
-        Ok(plan)
+        let mut emit = throttled(&app, "import-plan-progress", &path);
+        plan_source(&paths, &path, &mut |pr| emit(pr, pr.files_done == pr.files_total)).map(|(p, _)| p)
     })
     .await
+}
+
+/// One import at a time (F018/S05); the sync and the previews wait for it.
+#[derive(Default)]
+pub struct ImportRunner {
+    running: std::sync::atomic::AtomicBool,
+}
+
+impl ImportRunner {
+    pub fn running(&self) -> bool {
+        self.running.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+/// How an import ended, for the import view and the footer.
+#[derive(Clone, serde::Serialize)]
+pub struct ImportDone {
+    pub id: String,
+    pub name: String,
+    pub step: import_job::Step,
+    pub copied: usize,
+    pub duplicates: usize,
+    pub failed: usize,
+    pub problems: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// Runs a job on this thread with progress events, then rebuilds the index (the previews follow).
+fn run_import(app: &tauri::AppHandle, paths: &Paths, job: &mut import_job::Job) -> ImportDone {
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let share = mounts::NasMounts::chosen(&found.library).map(|m| PathBuf::from(&m.mount_point));
+    let device = config::load_device(&paths.config).ok().flatten().map(|d| d.name).unwrap_or_else(|| "app".into());
+    let env = import_job::Env { library: &paths.library, share: share.as_deref(), device: &device, keep_from: import_job::keep_from(job.keep_months) };
+    let duplicates = job.count(import_job::FileState::Duplicate);
+    let id = job.id.clone();
+    let mut emit = throttled(app, "import-progress", &id);
+    let error = import_job::run(job, &env, &mut |p| emit(p, p.done == p.total), None).err();
+    let done = job.count(import_job::FileState::Done);
+    let out = ImportDone {
+        id: job.id.clone(),
+        name: job.name.clone(),
+        step: job.step,
+        copied: done.saturating_sub(duplicates),
+        duplicates,
+        failed: job.count(import_job::FileState::Failed),
+        problems: job.problems.clone(),
+        error,
+    };
+    if let Some(e) = &out.error {
+        report(app, log::Level::Warn, "import", e);
+    }
+    for p in out.problems.iter().take(20) {
+        report(app, log::Level::Warn, "import", p);
+    }
+    out
+}
+
+/// Starts importing the source at `path` (F018/S05): plan again, stage, NAS, local, `_imported/`.
+#[tauri::command]
+fn import_start(path: String, app: tauri::AppHandle, paths: State<Paths>, runner: State<ImportRunner>, sync: State<runner::SyncRunner>) -> Result<(), String> {
+    if sync.status().running {
+        return Err("er loopt een synchronisatie: importeren kan daarna".into());
+    }
+    if runner.running.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return Err("er loopt al een import".into());
+    }
+    #[cfg(target_os = "macos")]
+    app.state::<previews_job::MakeRunner>().stop(false);
+    let paths = paths.inner().clone();
+    std::thread::spawn(move || {
+        let done = (|| -> Result<ImportDone, String> {
+            let mut emit = throttled(&app, "import-plan-progress", &path);
+            let (plan, set) = plan_source(&paths, &path, &mut |pr| emit(pr, pr.files_done == pr.files_total))?;
+            let keep = config::load_settings(&paths.config).0.import.keep_months.unwrap_or(18);
+            let drop_root = Path::new(&path).parent().unwrap_or(Path::new("/"));
+            let id = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+            let mut job = import_job::Job::from_plan(&plan, drop_root, &id, set.delete_imported, keep);
+            Ok(run_import(&app, &paths, &mut job))
+        })();
+        finish_import(&app, done);
+    });
+    Ok(())
+}
+
+fn finish_import(app: &tauri::AppHandle, done: Result<ImportDone, String>) {
+    app.state::<ImportRunner>().running.store(false, std::sync::atomic::Ordering::SeqCst);
+    match done {
+        Ok(d) => {
+            let _ = app.emit("import-done", &d);
+            EventSink(app.clone()).rebuild_index();
+        }
+        Err(e) => {
+            report(app, log::Level::Warn, "import", &e);
+            let _ = app.emit("import-failed", &e);
+        }
+    }
+}
+
+/// Imports that didn't finish (F018/S05), to continue.
+#[tauri::command]
+fn import_pending(paths: State<Paths>) -> Vec<import_job::Job> {
+    import_job::pending(&paths.library).into_iter().map(|mut j| { j.files.clear(); j }).collect()
+}
+
+#[tauri::command]
+fn import_resume(id: String, app: tauri::AppHandle, paths: State<Paths>, runner: State<ImportRunner>, sync: State<runner::SyncRunner>) -> Result<(), String> {
+    if sync.status().running {
+        return Err("er loopt een synchronisatie: importeren kan daarna".into());
+    }
+    let mut job = import_job::pending(&paths.library).into_iter().find(|j| j.id == id).ok_or("deze import is al afgewerkt")?;
+    if runner.running.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return Err("er loopt al een import".into());
+    }
+    #[cfg(target_os = "macos")]
+    app.state::<previews_job::MakeRunner>().stop(false);
+    let paths = paths.inner().clone();
+    std::thread::spawn(move || {
+        let done = run_import(&app, &paths, &mut job);
+        finish_import(&app, Ok(done));
+    });
+    Ok(())
 }
 
 /// The local folders (F006/S07): where they are now, whether they were chosen or adopted, the
@@ -485,6 +618,7 @@ fn start_making(app: &tauri::AppHandle) {
         let busy = app.state::<runner::SyncRunner>().status().running
             || app.state::<index::IndexRunner>().status().running
             || app.state::<update::UpdateState>().installing()
+            || app.state::<ImportRunner>().running()
             || !app.state::<Paths>().index().exists();
         if !busy {
             let job = make_job(&app.state::<Paths>());
@@ -628,6 +762,9 @@ fn sync_start(
     }
     if at_launch == Some(true) && !runner.first_launch() {
         return Ok(());
+    }
+    if app.state::<ImportRunner>().running() {
+        return Err("er loopt een import: synchroniseren kan daarna".into());
     }
     // no previews are made during a sync; they start again after it (F012/S03)
     #[cfg(target_os = "macos")]
@@ -1052,6 +1189,7 @@ pub fn run() {
         })
         .manage(paths)
         .manage(runner::SyncRunner::default())
+        .manage(ImportRunner::default())
         .manage(index::IndexRunner::default())
         .manage(update::UpdateState::default())
         .manage(Summaries::default())
@@ -1064,7 +1202,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, import_sources, import_plan, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

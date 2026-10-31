@@ -8,6 +8,7 @@ import Lightbox from "./components/Lightbox";
 import DeviceSetup from "./components/DeviceSetup";
 import FirstStart from "./components/FirstStart";
 import ImportView from "./components/ImportView";
+import { doneText, importLine, useImporter } from "./lib/importjob";
 import { firstStartSteps } from "./lib/firststart";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
@@ -73,6 +74,7 @@ export default function App() {
   const [device, setDevice] = useState<DeviceState | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const importer = useImporter(useCallback(() => {}, []));
   const nas = useNas();
   const sync = useSync();
   const index = useIndex();
@@ -980,6 +982,12 @@ export default function App() {
             </button>
           )}
           <UpdateLine update={update} syncing={!!sync.state?.running} />
+          {importer.running && (
+            <button className="text-blue-600" onClick={() => setShowImport(true)}>{importLine(importer.running.name, importer.progress, importer.planProgress)}</button>
+          )}
+          {!importer.running && importer.last && (
+            <button className={importer.last.error || importer.last.failed ? "text-amber-600" : "text-neutral-500"} onClick={() => setShowImport(true)}>{doneText(importer.last)}</button>
+          )}
           {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
           <PreviewsLine previews={previews} />
         </div>
@@ -1069,7 +1077,7 @@ export default function App() {
       {welcome && device && (
         <DeviceSetup nas={nas} device={device.device} onDone={(d) => setDevice({ ...device, device: d })} />
       )}
-      {showImport && <ImportView onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
+      {showImport && <ImportView importer={importer} onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
       {showSettings && (
         <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}

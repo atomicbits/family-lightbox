@@ -51,6 +51,8 @@ pub struct Import {
     pub synced: Vec<Synced>,
     /// Per subfolder of a drop folder, by its folder name.
     pub sources: std::collections::BTreeMap<String, SourceSettings>,
+    /// How many months back this Mac keeps the originals it imports (F018/S05); none: 18.
+    pub keep_months: Option<u32>,
 }
 
 /// A synced folder and the sources its photos and its videos go to.

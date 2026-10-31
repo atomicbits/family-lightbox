@@ -4,14 +4,17 @@ import { listen } from "@tauri-apps/api/event";
 import { config, type Found } from "../lib/api";
 import { actionText, datesText, monthsText, planSummary, progressText, type PlanProgress, type SourcePlan } from "../lib/importplan";
 import { baseName, layoutText } from "../lib/sources";
+import { doneText, importLine, pendingText, type Importer } from "../lib/importjob";
 
-type Props = { onClose: () => void; onOpenSettings: () => void };
+type Props = { importer: Importer; onClose: () => void; onOpenSettings: () => void };
 
 const button = "px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs disabled:opacity-40";
 
-/** The import (F018/S04): the sources found, and per source the plan of what an import would do.
- * Nothing is copied here; importing comes with S05. */
-export default function ImportView({ onClose, onOpenSettings }: Props) {
+/** The import (F018/S04, S05): the sources found, per source the plan of what an import would do,
+ * and *Importeren*, which copies to the NAS and only then tidies the source. */
+export default function ImportView({ importer, onClose, onOpenSettings }: Props) {
+  const [startError, setStartError] = useState<string | null>(null);
+  const start = (path: string, name: string) => { setStartError(null); importer.start(path, name).catch((e) => setStartError(String(e))); };
   const [found, setFound] = useState<Found[] | null>(null);
   const [plans, setPlans] = useState<Record<string, SourcePlan>>({});
   const [busy, setBusy] = useState<Record<string, PlanProgress | true>>({});
@@ -49,6 +52,20 @@ export default function ImportView({ onClose, onOpenSettings }: Props) {
           Eerst een plan: welke bestanden nieuw zijn, waar ze komen, en wat de bibliotheek al heeft (op inhoud, onder welke naam ook). Er verandert nog niets.
         </p>
         {errors[""] && <div className="text-red-600 text-xs">{errors[""]}</div>}
+        {importer.running && <div className="text-xs text-blue-600">{importLine(importer.running.name, importer.progress, importer.planProgress)}</div>}
+        {importer.last && !importer.running && (
+          <div className={"text-xs " + (importer.last.error || importer.last.failed ? "text-amber-600" : "text-green-700 dark:text-green-500")}>
+            {doneText(importer.last)}
+            {importer.last.problems.slice(0, 5).map((p) => <div key={p} className="text-amber-600">{p}</div>)}
+          </div>
+        )}
+        {startError && <div className="text-xs text-red-600">{startError}</div>}
+        {importer.pending.filter((j) => j.source !== importer.running?.path).map((j) => (
+          <div key={j.id} className="flex items-center gap-2 text-xs rounded border border-amber-300 dark:border-amber-800 p-2">
+            <span className="flex-1">Een import werd onderbroken: {pendingText(j)}. De originelen staan nog in de bron tot alles op de NAS staat.</span>
+            <button className={button} disabled={!!importer.running} onClick={() => importer.resume(j).catch((e) => setStartError(String(e)))}>Doorgaan</button>
+          </div>
+        ))}
         {found !== null && shown.length === 0 && (
           <div className="text-neutral-500">Nog geen bronnen: voeg in de instellingen een aflevermap toe, of steek een kaart in.</div>
         )}
@@ -71,7 +88,14 @@ export default function ImportView({ onClose, onOpenSettings }: Props) {
                 <button className={button} disabled={!!progress || !!f.problem || f.kind === "synced"} onClick={() => makePlan(f.path)}>
                   {plan ? "Opnieuw plannen" : "Plan maken"}
                 </button>
-                <button className={button} disabled title="importeren komt in een volgende versie (F018/S05)">Importeren</button>
+                <button
+                  className={button}
+                  disabled={!plan || plan.copy_files + plan.duplicates === 0 || !!importer.running || !!progress}
+                  title={plan ? "kopieert naar de NAS, en verplaatst daarna de originelen naar _imported" : "eerst een plan"}
+                  onClick={() => start(f.path, f.name)}
+                >
+                  Importeren
+                </button>
                 {progress && <span className="text-xs text-neutral-500">{progress === true ? "bestanden zoeken…" : progressText(progress)}</span>}
                 {f.kind === "synced" && <span className="text-xs text-neutral-500">gesynchroniseerde mappen komen in een volgende stap</span>}
               </div>
