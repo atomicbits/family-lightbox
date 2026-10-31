@@ -149,6 +149,12 @@ fn create_device(name: String, owner: String, paths: State<Paths>) -> Result<Dev
     config::create_device(&paths.config, &name, &owner)
 }
 
+/// The layout in use (F019/S03): the NAS's file, its copy, or the Mac's share names.
+#[tauri::command]
+fn nas_layout(paths: State<Paths>) -> layout::NasLayout {
+    config::load_settings(&paths.config).0.effective_layout()
+}
+
 #[tauri::command]
 fn nas_mounts(paths: State<Paths>) -> mounts::NasMounts {
     let (settings, _) = config::load_settings(&paths.config);
@@ -1223,7 +1229,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

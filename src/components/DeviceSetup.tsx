@@ -68,7 +68,7 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
     setError(null);
     try {
       // the whole settings, so a chosen local folder stays
-      await config.saveSettings({ ...(settings ?? { local: { library: "", previews: "", lists: "" }, import: NO_IMPORT }), nas_host: host.trim(), shares });
+      await config.saveSettings({ ...(settings ?? { home_share: "", local: { library: "", previews: "", lists: "" }, import: NO_IMPORT }), nas_host: host.trim(), shares });
       await nas.connect(true);
       const m = await nasApi.mounts();
       if (m.lists.some((x) => x.chosen)) await toWho();

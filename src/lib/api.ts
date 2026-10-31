@@ -75,7 +75,10 @@ export type Found = {
   ignore: boolean;
   problem: string | null;
 };
-export type Settings = { nas_host: string; shares: Shares; local: Local; import: Import };
+export type Settings = { nas_host: string; home_share: string; shares: Shares; local: Local; import: Import };
+/** Where the four are (F019): a share and a folder inside it. */
+export type Location = { share: string; path: string };
+export type NasLayout = { contract_version: string; name: string; library: Location; previews: Location; lists: Location; exports: Location };
 export type LocalFolders = Local & { chosen: boolean; proposal: string };
 export type SettingsState = { settings: Settings; error: string | null; path: string };
 export type Device = { name: string; owner: string };
@@ -104,6 +107,7 @@ export const nas = {
   mounts: () => invoke<NasMounts>("nas_mounts"),
   connect: (allowUi: boolean) => invoke<ConnectResult>("connect_nas", { allowUi }),
   check: () => invoke<NasCheck>("nas_check"),
+  layout: () => invoke<NasLayout>("nas_layout"),
   whoami: () => invoke<Whoami>("nas_whoami"),
 };
 

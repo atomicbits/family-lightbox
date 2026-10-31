@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { accessLabel, anyMissing, config, mountLabel, registrationLabel, type DeviceState, type LocalFolders, type Settings as S, type SettingsState, type Shares } from "../lib/api";
-import type { Nas } from "../lib/nas";
+import { accessLabel, anyMissing, config, mountLabel, nas as nasApi, registrationLabel, type DeviceState, type LocalFolders, type NasLayout, type Settings as S, type SettingsState, type Shares } from "../lib/api";
+import { layoutSourceText, locationText, type Nas } from "../lib/nas";
 import type { Sync } from "../lib/sync";
 import { outcomeText, type Index } from "../lib/indexer";
 import { hostProblem, shareProblem } from "../lib/device";
@@ -32,6 +32,8 @@ export default function Settings({ device, nas, sync, index, update, previews, o
   const [draft, setDraft] = useState<S | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [saves, setSaves] = useState(0);
+  const [layout, setLayout] = useState<NasLayout | null>(null);
+  useEffect(() => { nasApi.layout().then(setLayout).catch(() => {}); }, [nas.check]);
   const { mounts, attempts, check, busy: connecting } = nas;
 
   const load = () => config.settings().then((s) => { setState(s); setDraft(s.settings); });
@@ -45,7 +47,7 @@ export default function Settings({ device, nas, sync, index, update, previews, o
 
   if (!state || !draft) return null;
 
-  const problems = [hostProblem(draft.nas_host), ...SHARE_LABELS.map(([k]) => shareProblem(draft.shares[k]))].filter(
+  const problems = [hostProblem(draft.nas_host), draft.home_share ? shareProblem(draft.home_share) : null].filter(
     (p): p is string => p !== null,
   );
   const changed = JSON.stringify(draft) !== JSON.stringify(state.settings);
@@ -155,18 +157,15 @@ export default function Settings({ device, nas, sync, index, update, previews, o
             <span>Naam van de NAS</span>
             <input className={input} value={draft.nas_host} onChange={(e) => setDraft({ ...draft, nas_host: e.target.value })} />
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            {SHARE_LABELS.map(([k, label]) => (
-              <label key={k} className="block space-y-1">
-                <span>{label}</span>
-                <input
-                  className={input}
-                  value={draft.shares[k]}
-                  onChange={(e) => setDraft({ ...draft, shares: { ...draft.shares, [k]: e.target.value } })}
-                />
-              </label>
-            ))}
+          <label className="block space-y-1">
+            <span>Thuismap: de gedeelde map met <span className="font-mono">familylightbox.json</span></span>
+            <input className={input} value={draft.home_share} placeholder={draft.shares.lists} onChange={(e) => setDraft({ ...draft, home_share: e.target.value.trim() })} />
+          </label>
+          <div className="text-xs text-neutral-500">
+            Indeling: {layoutSourceText(check?.layout_source ?? null)}
+            {layout?.name ? ` · ${layout.name}` : ""}
           </div>
+          {check?.layout_problem && <div className="text-xs text-amber-600 whitespace-pre-wrap">{check.layout_problem}</div>}
           {problems.map((p) => <div key={p} className="text-amber-600">{p}</div>)}
           {nas.error && <div className="text-red-600 whitespace-pre-wrap">{nas.error}</div>}
           {mounts && (
@@ -197,7 +196,8 @@ export default function Settings({ device, nas, sync, index, update, previews, o
                 const access = check ? accessLabel(check[k]) : null;
                 return (
                   <div key={k} className="flex gap-2">
-                    <span className="w-24 shrink-0">{label}</span>
+                    <span className="w-24 shrink-0" title={layout ? locationText(layout[k]) : undefined}>{label}</span>
+                    {layout && <span className="text-xs text-neutral-500 leading-5 w-32 shrink-0 truncate font-mono">{locationText(layout[k])}</span>}
                     <span className={where ? "font-mono text-xs leading-5" : "text-neutral-400"}>
                       {where ?? "niet verbonden"}
                       {mounts[k].length > 1 && ` (+${mounts[k].length - 1})`}

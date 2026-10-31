@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Access, Attempt, Mount, NasCheck, NasMounts } from "./api";
-import { nasSummary } from "./nas";
+import { layoutSourceText, locationText, nasSummary } from "./nas";
 
 const m: Mount = { mount_point: "/Volumes/X", fs_type: "smbfs", server: "raven", user: "lynn", chosen: true };
 const all: NasMounts = { library: [m], previews: [m], lists: [m], exports: [m] };
@@ -46,5 +46,15 @@ describe("without a NAS set up (F006/S06)", () => {
   it("says so and offers no connecting", () => {
     const none = { host: "", library: [], previews: [], lists: [], exports: [] };
     expect(nasSummary(none, null, [], false)).toMatchObject({ label: "niet ingesteld", action: null });
+  });
+});
+
+describe("the layout in the settings (F019/S03)", () => {
+  it("says where it came from and where each location is", () => {
+    expect(layoutSourceText("nas")).toBe("uit familylightbox.json op de NAS");
+    expect(layoutSourceText("settings")).toContain("geen familylightbox.json");
+    expect(layoutSourceText(null)).toBe("nog niet gelezen");
+    expect(locationText({ share: "Photos", path: "Library" })).toBe("Photos / Library");
+    expect(locationText({ share: "Lists", path: "" })).toBe("Lists");
   });
 });

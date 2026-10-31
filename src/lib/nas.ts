@@ -1,7 +1,7 @@
 // One place for the NAS connection state (F006/S05): the header indicator and the settings panel
 // both read it from useNas(), so neither calls the commands on its own.
 import { useCallback, useRef, useState } from "react";
-import { anyMissing, nas, type Attempt, type NasCheck, type NasMounts, type Shares } from "./api";
+import { anyMissing, nas, type Attempt, type LayoutSource, type Location, type NasCheck, type NasMounts, type Shares } from "./api";
 
 export type NasSummary = {
   state: "busy" | "connected" | "partial" | "disconnected" | "unreachable";
@@ -116,4 +116,19 @@ export function useNas(): Nas {
   }, [run]);
 
   return { mounts, check, attempts, busy, error, refresh, connect, start };
+}
+
+/** Where the layout in use came from, for the settings (F019/S03). */
+export function layoutSourceText(source: LayoutSource | null): string {
+  switch (source) {
+    case "nas": return "uit familylightbox.json op de NAS";
+    case "copy": return "uit de kopie van familylightbox.json (de NAS is niet verbonden)";
+    case "settings": return "de gedeelde mappen van deze Mac: er staat geen familylightbox.json op de NAS";
+    default: return "nog niet gelezen";
+  }
+}
+
+/** "Photos / Library", or the share alone for its root. */
+export function locationText(l: Location): string {
+  return l.path ? `${l.share} / ${l.path}` : l.share;
 }

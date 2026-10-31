@@ -1,7 +1,7 @@
 # Story S03: This library's file, the settings, the share names retired
 
 **Feature:** `F019-nas-layout`
-**Status:** Planned
+**Status:** In progress
 **Depends on:** S01
 
 ## Goal
@@ -26,3 +26,12 @@ four share names to edit.
 ## Progress log
 
 ### [2026-10-31] Written
+
+### [2026-10-31] The settings
+
+- The settings' NAS section: the home share (empty: the lists' share, shown as placeholder)
+  instead of the four share names; where the layout comes from (`layoutSourceText`: the NAS's
+  file, its copy, or this Mac's share names) and the library's name; a broken file's problem;
+  per location its share and path (`locationText`) next to the root it resolves to.
+- `nas_layout` gives the layout in use. `pnpm test` 133, `cargo test` 183.
+- Still to do: the file in `Lists`, which writes to the NAS: waiting for Peter's go.
