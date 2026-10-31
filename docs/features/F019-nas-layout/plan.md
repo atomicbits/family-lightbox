@@ -1,6 +1,6 @@
 # Feature 19: The NAS layout in one file
 
-**Status:** In design (plan written 2026-10-31, to review by Peter)
+**Status:** In progress (plan accepted 2026-10-31)
 **Depends on:** Feature 6 (connecting the NAS), feature 7 (the sync), feature 18 (import)
 **Folder:** `F019-nas-layout`
 
@@ -80,14 +80,12 @@ Afterwards this library moves from its four shares to one (Peter, 2026-10-31).
 
 ## Stories
 
-To be written after Peter's review of this plan. The order proposed:
-
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | The layout file in the contract (1.4), read from the home share; the four roots resolved against the mounts; everything uses the roots | Planned | — |
-| S02 | The welcome: the home share, the file looked for, a new library set up in one share | Planned | S01 |
-| S03 | This library's file in `Lists`; the settings show the layout; the per-Mac share names retired | Planned | S01 |
-| S04 | Moving an existing library to one share: the file rewritten, the Macs follow; with LibraryLocal's story for the NAS's scripts, Drive and snapshots | Planned | S03 |
+| [S01](stories/S01-the-layout-file.md) | The layout file in the contract (1.4), read from the home share; the four roots resolved against the mounts; everything uses the roots | In progress | — |
+| [S02](stories/S02-the-welcome.md) | The welcome: the home share, the file looked for, a new library set up in one share | Planned | S01 |
+| [S03](stories/S03-this-librarys-file.md) | This library's file in `Lists`; the settings show the layout; the per-Mac share names retired | Planned | S01 |
+| [S04](stories/S04-moving-to-one-share.md) | Moving an existing library to one share: the file rewritten, the Macs follow; with LibraryLocal's story for the NAS's scripts, Drive and snapshots | Planned | S03 |
 
 ## Decisions
 
@@ -99,7 +97,7 @@ Taken with Peter on 2026-10-31:
    as subfolders; other shares and paths stay possible per location.
 3. **This library moves to one share** once the feature works.
 
-Open, to settle in the stories:
+Accepted by Peter on 2026-10-31 as proposed:
 
 4. **The home share of this library until the move.** Proposal: `Lists`, which both of you can
    read and write and where `devices.json` is already.
