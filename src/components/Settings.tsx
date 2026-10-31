@@ -6,6 +6,7 @@ import { outcomeText, type Index } from "../lib/indexer";
 import { hostProblem, shareProblem } from "../lib/device";
 import UpdateLine from "./UpdateLine";
 import ImportSettings from "./ImportSettings";
+import MoveCheck from "./MoveCheck";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
 
@@ -166,6 +167,7 @@ export default function Settings({ device, nas, sync, index, update, previews, o
             {layout?.name ? ` · ${layout.name}` : ""}
           </div>
           {check?.layout_problem && <div className="text-xs text-amber-600 whitespace-pre-wrap">{check.layout_problem}</div>}
+          <MoveCheck />
           {problems.map((p) => <div key={p} className="text-amber-600">{p}</div>)}
           {nas.error && <div className="text-red-600 whitespace-pre-wrap">{nas.error}</div>}
           {mounts && (

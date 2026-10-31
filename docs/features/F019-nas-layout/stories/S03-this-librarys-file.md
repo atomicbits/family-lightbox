@@ -1,7 +1,7 @@
 # Story S03: This library's file, the settings, the share names retired
 
 **Feature:** `F019-nas-layout`
-**Status:** In progress
+**Status:** Done on Peter's Mac (2026-10-31); Lynn's Mac with 0.5
 **Depends on:** S01
 
 ## Goal
@@ -35,3 +35,12 @@ four share names to edit.
   per location its share and path (`locationText`) next to the root it resolves to.
 - `nas_layout` gives the layout in use. `pnpm test` 133, `cargo test` 183.
 - Still to do: the file in `Lists`, which writes to the NAS: waiting for Peter's go.
+
+### [2026-10-31] The file on the NAS
+
+With Peter's go, `familylightbox.json` written in the root of `Lists` (through a temporary name,
+`fsync`, rename): `contract_version` 1.4, `name` "Gezinsfoto's", the four shares each at their
+root. On the NAS it inherited the share's ACL (`-rwxrwxrwx+`), so both users read it.
+`examples/layout-check` reads it as the app does: source `Nas`, the name, the roots of the shares
+that are mounted. An app before 0.5 doesn't read the file and goes on using the same four shares,
+so nothing changes for it until the move (S04).

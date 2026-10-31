@@ -149,6 +149,13 @@ fn create_device(name: String, owner: String, paths: State<Paths>) -> Result<Dev
     config::create_device(&paths.config, &name, &owner)
 }
 
+/// What a move would find with the file in `share`, without using it (F019/S04).
+#[tauri::command]
+async fn layout_dry_check(share: String, paths: State<'_, Paths>) -> Result<layout::DryCheck, String> {
+    let config = paths.config.clone();
+    on_blocking(move || Ok(layout::dry_check(&mounts::system_mounts(), &config::load_settings(&config).0.nas_host, &share))).await
+}
+
 /// The layout in use (F019/S03): the NAS's file, its copy, or the Mac's share names.
 #[tauri::command]
 fn nas_layout(paths: State<Paths>) -> layout::NasLayout {
@@ -490,7 +497,12 @@ async fn nas_check(paths: State<'_, Paths>) -> Result<NasCheck, String> {
 pub fn check_nas(config: &Path) -> NasCheck {
     let (settings, _) = config::load_settings(config);
     // the layout first: it says which shares and folders the rest are
-    let refreshed = layout::refresh(config, &mounts::system_mounts(), &settings.nas_host, settings.home());
+    let mut refreshed = layout::refresh(config, &mounts::system_mounts(), &settings.nas_host, settings.home());
+    // a moved library: the file says where it lives now, and that share has it (F019/S04)
+    if let Some(next) = layout::next_home(config, &mounts::system_mounts(), &settings.nas_host, settings.home())
+        && config::set_home_share(config, &next).is_ok() {
+            refreshed = layout::refresh(config, &mounts::system_mounts(), &settings.nas_host, &next);
+        }
     let (settings, _) = config::load_settings(config);
     let found = mounts::find_shares(&mounts::system_mounts(), &settings);
     let device = config::load_device(config).ok().flatten();
@@ -1229,7 +1241,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, nas_layout, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

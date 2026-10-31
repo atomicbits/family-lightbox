@@ -84,8 +84,8 @@ Afterwards this library moves from its four shares to one (Peter, 2026-10-31).
 |---|---|---|---|
 | [S01](stories/S01-the-layout-file.md) | The layout file in the contract (1.4), read from the home share; the four roots resolved against the mounts; everything uses the roots | Built | — |
 | [S02](stories/S02-the-welcome.md) | The welcome: the home share, the file looked for, a new library set up in one share | Planned | S01 |
-| [S03](stories/S03-this-librarys-file.md) | This library's file in `Lists`; the settings show the layout; the per-Mac share names retired | Planned | S01 |
-| [S04](stories/S04-moving-to-one-share.md) | Moving an existing library to one share: the file rewritten, the Macs follow; with LibraryLocal's story for the NAS's scripts, Drive and snapshots | Planned | S03 |
+| [S03](stories/S03-this-librarys-file.md) | This library's file in `Lists`; the settings show the layout; the per-Mac share names retired | Done on Peter's Mac | S01 |
+| [S04](stories/S04-moving-to-one-share.md) | Moving an existing library to one share: the file rewritten, the Macs follow; with LibraryLocal's story for the NAS's scripts, Drive and snapshots | Built in the app; the move waits | S03 |
 
 ## Decisions
 

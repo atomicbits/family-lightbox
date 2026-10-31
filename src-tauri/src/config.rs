@@ -214,6 +214,16 @@ pub fn save_settings(dir: &Path, s: &Settings) -> Result<(), String> {
     write_settings(dir, s)
 }
 
+/// Moves this Mac's home share (F019/S04), keeping the rest of the settings.
+pub fn set_home_share(dir: &Path, share: &str) -> Result<(), String> {
+    let (mut s, problem) = load_settings(dir);
+    if let Some(p) = problem {
+        return Err(p);
+    }
+    s.home_share = share.to_string();
+    write_settings(dir, &s)
+}
+
 /// Writes the settings without checking the NAS name, for what the app adopts or the user picks
 /// before a NAS is set up.
 fn write_settings(dir: &Path, s: &Settings) -> Result<(), String> {

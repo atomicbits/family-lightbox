@@ -79,12 +79,19 @@ pub struct Entry {
     pub owner: String,
     pub label: String,
     pub since: String,
+    /// The app's version, so another device can see who still has to update (F019/S04); kept
+    /// current on every start.
+    pub app: String,
 }
 
-/// Adds `me` to the contents of `devices.json`. `Ok(None)`: already registered, nothing to write.
-/// Works on the JSON as it is, so other devices and unknown fields keep their content and order.
+/// Adds `me` to the contents of `devices.json`, or brings its app version up to date. `Ok(None)`:
+/// already registered as it is, nothing to write. Works on the JSON as it is, so other devices and
+/// unknown fields keep their content and order.
 pub fn merge_device(existing: Option<&str>, me: &Entry) -> Result<Option<String>, String> {
-    let entry = json!({"name": me.name, "owner": me.owner, "label": me.label, "since": me.since});
+    let mut entry = json!({"name": me.name, "owner": me.owner, "label": me.label, "since": me.since});
+    if !me.app.is_empty() {
+        entry["app"] = json!(me.app);
+    }
     let mut doc = match existing {
         None => json!({"contract_version": "1.0", "devices": []}),
         Some(text) => serde_json::from_str::<Value>(text)
@@ -95,7 +102,7 @@ pub fn merge_device(existing: Option<&str>, me: &Entry) -> Result<Option<String>
         .and_then(Value::as_array_mut)
         .ok_or("devices.json heeft geen lijst 'devices'")?;
     if let Some(d) = devices
-        .iter()
+        .iter_mut()
         .find(|d| d.get("name").and_then(Value::as_str) == Some(me.name.as_str()))
     {
         let owner = d.get("owner").and_then(Value::as_str).unwrap_or("?");
@@ -105,7 +112,11 @@ pub fn merge_device(existing: Option<&str>, me: &Entry) -> Result<Option<String>
         if d.get("retired").is_some() {
             return Err("dit toestel staat als buiten gebruik in devices.json".into());
         }
-        return Ok(None);
+        if me.app.is_empty() || d.get("app").and_then(Value::as_str) == Some(me.app.as_str()) {
+            return Ok(None);
+        }
+        d["app"] = json!(me.app);
+        return Ok(Some(serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())? + "\n"));
     }
     devices.push(entry);
     Ok(Some(
@@ -187,6 +198,8 @@ pub struct Known {
     pub name: String,
     pub owner: String,
     pub label: String,
+    /// The app version it last started with; empty for an app before 0.5 (F019/S04).
+    pub app: String,
 }
 
 /// The devices in `devices.json` that aren't retired; none when it is missing or broken.
@@ -200,7 +213,7 @@ pub fn known_devices(lists: &Path) -> Vec<Known> {
         .into_iter()
         .flatten()
         .filter(|d| d.get("retired").is_none())
-        .map(|d| Known { name: text(d, "name"), owner: text(d, "owner"), label: text(d, "label") })
+        .map(|d| Known { name: text(d, "name"), owner: text(d, "owner"), label: text(d, "label"), app: text(d, "app") })
         .filter(|k| !k.name.is_empty() && !k.owner.is_empty())
         .collect()
 }
@@ -287,6 +300,7 @@ pub fn entry_for(device: &Device) -> Entry {
         owner: device.owner.clone(),
         label: local_label(&device.owner),
         since: now_local(),
+        app: env!("CARGO_PKG_VERSION").to_string(),
     }
 }
 
@@ -300,6 +314,7 @@ mod tests {
             owner: "lynn".into(),
             label: "Lynns-MacBook-Pro".into(),
             since: "2026-10-26T10:00:00+01:00".into(),
+            app: String::new(),
         }
     }
 
@@ -483,6 +498,7 @@ mod tests {
                     owner: "karel".into(),
                     label: "K".into(),
                     since: "t".into(),
+                    app: String::new(),
                 };
                 fs::write(&path, merge_device(Some(PETER), &karel).unwrap().unwrap()).unwrap();
             }
@@ -526,8 +542,8 @@ mod tests {
         assert_eq!(device_slug("Ö"), "");
         assert_eq!(device_slug(&"a".repeat(40)).len(), 32);
         let known = vec![
-            Known { name: "mbp-anna".into(), owner: "anna".into(), label: "MBP Anna".into() },
-            Known { name: "mbp-anna-2".into(), owner: "jan".into(), label: "x".into() },
+            Known { name: "mbp-anna".into(), owner: "anna".into(), label: "MBP Anna".into(), app: String::new() },
+            Known { name: "mbp-anna-2".into(), owner: "jan".into(), label: "x".into(), app: String::new() },
         ];
         // the same person's name is theirs; someone else's gets a number that is still free
         assert_eq!(propose_device("MBP Anna", "anna", &known), "mbp-anna");
@@ -545,8 +561,22 @@ mod tests {
             r#"{"devices": [{"name": "mbp-anna", "owner": "anna", "label": "MBP Anna"}, {"name": "old", "owner": "jan", "retired": "2026-01-01T00:00:00+01:00"}, {"owner": "x"}]}"#,
         )
         .unwrap();
-        assert_eq!(known_devices(dir.path()), [Known { name: "mbp-anna".into(), owner: "anna".into(), label: "MBP Anna".into() }]);
+        assert_eq!(known_devices(dir.path()), [Known { name: "mbp-anna".into(), owner: "anna".into(), label: "MBP Anna".into(), app: String::new() }]);
         fs::write(dir.path().join(DEVICES_FILE), "{broken").unwrap();
         assert!(known_devices(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn the_app_version_is_kept_current() {
+        let mut me = Entry { name: "mbp-anna".into(), owner: "anna".into(), label: "MBP".into(), since: "2026-10-31T10:00:00+01:00".into(), app: "0.5.0".into() };
+        let first = merge_device(None, &me).unwrap().unwrap();
+        assert!(first.contains("\"app\": \"0.5.0\""));
+        assert_eq!(merge_device(Some(&first), &me).unwrap(), None, "the same version: nothing to write");
+        me.app = "0.5.1".into();
+        let next = merge_device(Some(&first), &me).unwrap().unwrap();
+        assert!(next.contains("0.5.1") && !next.contains("0.5.0"));
+        // an entry of an older app (no version) gets one
+        let old = r#"{"devices": [{"name": "mbp-anna", "owner": "anna", "label": "x", "since": "y"}]}"#;
+        assert!(merge_device(Some(old), &me).unwrap().unwrap().contains("0.5.1"));
     }
 }
