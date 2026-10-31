@@ -514,6 +514,15 @@ pub fn summary(list: &List, path_of: &dyn Fn(&str) -> Option<String>) -> serde_j
     })
 }
 
+/// Writes a whole file and `fsync`s it, before it is renamed into place (data contract 1: a
+/// reader never sees half a file, not even after a crash).
+pub fn write_synced(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut f = fs::File::create(path)?;
+    f.write_all(bytes)?;
+    f.sync_all()
+}
+
 /// Writes `Lists/<year>/<slug>.json` through a temporary name of this device and a rename.
 pub fn write_summary(lists: &Path, device: &str, list: &List, path_of: &dyn Fn(&str) -> Option<String>) -> Result<(), String> {
     let (year, slug) = list.id.split_once('/').ok_or_else(|| format!("ongeldige lijst: {}", list.id))?;
@@ -522,7 +531,7 @@ pub fn write_summary(lists: &Path, device: &str, list: &List, path_of: &dyn Fn(&
     let target = dir.join(format!("{slug}.json"));
     let tmp = dir.join(format!("{slug}.json.tmp-{device}"));
     let body = serde_json::to_string_pretty(&summary(list, path_of)).map_err(|e| e.to_string())? + "\n";
-    fs::write(&tmp, body)
+    write_synced(&tmp, body.as_bytes())
         .and_then(|_| fs::rename(&tmp, &target))
         .map_err(|e| {
             let _ = fs::remove_file(&tmp);

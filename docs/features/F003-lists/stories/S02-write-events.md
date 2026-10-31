@@ -57,3 +57,12 @@ contract 5.2, and the summaries of the lists that changed are written a few seco
   115 Rust tests, clippy clean.
 - Not tried against the real share on purpose: events are never removed, so a test list would
   stay in the history. The first real list is made from the app once S03 is in.
+
+### [2026-10-31] fsync before the rename
+
+Peter asked whether the files on `Lists` are written atomically. The event files are each
+written by one device only, appended in one `write` with `fsync`, and a half line is ignored by
+every reader. The summaries and `devices.json` went through a temporary file and a rename, but
+without `fsync` before the rename, which data contract 1 asks for: after a crash at that moment
+the new name could point at an empty file. Both now write the temporary file with
+`write_synced` (write, `fsync`, then rename).

@@ -160,7 +160,7 @@ pub fn register(lists: &Path, me: &Entry, before_rename: &dyn Fn()) -> Registrat
             Ok(None) => return Registration::Registered,
             Ok(Some(t)) => t,
         };
-        if let Err(e) = fs::write(&tmp, &text) {
+        if let Err(e) = crate::lists::write_synced(&tmp, text.as_bytes()) {
             return Registration::Failed(format!("{}: {e}", tmp.display()));
         }
         before_rename();
