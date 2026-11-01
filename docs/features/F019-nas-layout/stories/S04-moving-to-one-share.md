@@ -14,7 +14,7 @@ file alone.
 
 - The steps, in `docs/moving-to-one-share.md`: a new share with the four folders; the contents
   moved on the NAS (on one volume a move is a rename, nothing is copied); the rights of the
-  folders that were per share now per subfolder, including denied year folders; the file in the
+  folders that were per share now per subfolder, and the rights of folders below them; the file in the
   new share's root; on each Mac the home share set to the new share (the only per-Mac change);
   the old shares kept read-only for a while, then removed.
 - Before the move the app can say what it would find after it: a dry check that reads the new

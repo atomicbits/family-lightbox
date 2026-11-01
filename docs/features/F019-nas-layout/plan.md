@@ -24,8 +24,8 @@ Afterwards this library moves from its four shares to one (Peter, 2026-10-31).
   So the sync, the index, the previews, the lists and the import don't care where those roots are;
   only how the app finds them changes.
 - **`Lists`** holds only small JSON files; **`Previews`** is derived and doesn't go to Drive;
-  **`Library`** and **`Exports`** do. Year folders can be denied to a user by an ACL on the NAS,
-  in `Library` and `Previews` (data contract 2); that works the same on subfolders of one share.
+  **`Library`** and **`Exports`** do. Rights are set on the NAS, also per folder (data contract
+  2); that works the same on subfolders of one share.
 - **What reads the shares outside the app**: the CLI (`state.json` → `nas.library`), the NAS
   scripts (`media-manifest-nas.py` with `--root`, `media-drive-push.py` per share), Lightroom
   through the CLI's working copy. They keep working as long as the shares stay where they are.

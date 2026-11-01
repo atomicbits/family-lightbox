@@ -36,8 +36,8 @@ moves towards (D13).
   - Peter's own `~/Pictures/Previews` is 28 GB.
 - **What is read over the network**: everything comes from the mounts of feature 6, over SMB or
   AFP. That means listing folders and copying files on a mounted share, with no rsync.
-- **Lynn's account** can't read some year folders (ACL on the NAS). Those are skipped, just as
-  `pull` skips them.
+- **Folders an account may not read** (rights set on the NAS) are skipped, just as `pull`
+  skips them.
 
 ## Scope
 

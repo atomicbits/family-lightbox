@@ -89,8 +89,7 @@ features 6, 7 and 8 left for Lynn's Mac can finally be done.
 - An installed version finds a newer release, offers *Bijwerken*, and after a restart runs the
   new version. A release whose update signature doesn't match is refused.
 - On Lynn's Mac, installed from the release: the device setup, connecting to the NAS with her
-  account, the first sync with its confirmation, the years her account may not read skipped without an error,
-  the index built, and the grid browsing. The results go into the stories of features 6–8.
+  account, the first sync with its confirmation, the index built, and the grid browsing. The results go into the stories of features 6–8.
 
 ## Stories
 

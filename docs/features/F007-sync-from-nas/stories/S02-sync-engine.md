@@ -34,7 +34,7 @@ local file other than its own temporary files, and never writes to the NAS.
     `.Spotlight-V100`, `.fseventsd`, `*.tmp`, `*.partial`;
   - symbolic links are not followed;
   - a folder the account may not read (permission denied) is skipped and listed in the result
-    as skipped. That is how the years Lynn may not read behave. Any other read error, such as the
+    as skipped. Any other read error, such as the
     NAS going away, ends the run with that error instead of being treated as "nothing there".
 - **Copying** (atomic):
   - the engine writes to `.<name>.flb.partial` in the target folder, creating the folders on the
@@ -129,8 +129,8 @@ local file other than its own temporary files, and never writes to the NAS.
 
 ### [2026-10-30] Fix: a year folder that can't even be looked at
 
-On the first Mac of a user whose account may not read some year folders (an ACL on the NAS, data
-contract section 2), the sync stopped at once with "Permission denied": over SMB such a folder
+When an account may not read a folder on the NAS (data contract section 2), the sync stopped at
+once with "Permission denied": over SMB such a folder
 can't even be `stat`ed, and only a refused `read_dir` was treated as "skip". Now a refused
 `symlink_metadata` of a top-level folder, and a refused `metadata` of a file deeper down, are
 skipped and listed in `skipped` too. Test: a root that can be listed but not searched.
@@ -141,7 +141,7 @@ doesn't start without an index, so a new Mac logs no error for either.
 
 ### [2026-10-30] Fix, again: reading the entries is what SMB refuses
 
-0.4.2 still stopped on Lynn's Mac at the same year folder. Over SMB such a folder can be opened;
+0.4.2 still stopped at such a folder. Over SMB such a folder can be opened;
 only reading its entries returns "Permission denied", and an error while iterating `read_dir` was
 still a hard failure. Now that is skipped and listed like a folder that can't be opened, and so
 is an entry whose type can't be read. Every place the walk touches the remote tree (looking at a

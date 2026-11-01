@@ -180,8 +180,8 @@ Installed apps on 0.3.0 should be offered the update.
 
 ### [2026-10-30] v0.4.1 released
 
-The fixes for the first start on Lynn's Mac: the sync skips a year folder the user may not even
-look at, the index and previews wait for the first sync, and the local folder is chosen (F006/S07;
+The fixes for the first start on a new Mac: the sync skips a folder the account may not even look
+at, the index and previews wait for the first sync, and the local folder is chosen (F006/S07;
 a Mac that has a device already gets only that question). Published and checked as for 0.4.0:
 the `.dmg` is accepted as notarized, its ticket validates, `latest.json` says 0.4.1.
 
