@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { cameraButton, cameraLabel, filterText, isSet, lastUsedLabel, sortCameras, toggleCamera, type CameraCount, type CameraOrder, type FilterState, type Kind, type StarsOp } from "../lib/filter";
+import { NO_FILTER, cameraButton, cameraLabel, filterText, isSet, lastUsedLabel, sortCameras, sourceButton, sourceLabel, toggleCamera, type CameraCount, type CameraOrder, type FilterState, type Kind, type StarsOp } from "../lib/filter";
 
 type Props = {
   filter: FilterState;
@@ -10,6 +10,8 @@ type Props = {
   count: string | null;
   /** The library's cameras with their counts and when last used, "" for unknown (S04). */
   cameras: CameraCount[];
+  /** The library's sources the same way, "" for the files without one (S05). */
+  sources: CameraCount[];
 };
 
 const OPS: { op: StarsOp; label: string }[] = [{ op: "gte", label: "≥" }, { op: "eq", label: "=" }, { op: "lte", label: "≤" }];
@@ -18,8 +20,14 @@ const KINDS: { kind: Kind; label: string }[] = [{ kind: "photo", label: "foto" }
 const chip = (on: boolean) =>
   "px-1.5 py-0.5 rounded text-xs " + (on ? "bg-blue-600 text-white" : "text-neutral-500 hover:bg-neutral-200/70 dark:hover:bg-neutral-800");
 
-/** The camera button and its list (S04): light in the bar, as it is used less often. */
-function CameraMenu({ chosen, cameras, onChange }: { chosen: string[]; cameras: CameraCount[]; onChange: (c: string[]) => void }) {
+type MenuWords = { button: (chosen: string[]) => string; label: (c: string) => string; all: string; tooltip: string; empty: string };
+
+const CAMERA_WORDS: MenuWords = { button: cameraButton, label: cameraLabel, all: "Alle camera's", tooltip: "filter op camera", empty: "nog geen camera's in de index" };
+const SOURCE_WORDS: MenuWords = { button: sourceButton, label: sourceLabel, all: "Alle bronnen", tooltip: "filter op bron: de weg waarlangs de foto's binnenkwamen", empty: "nog geen bronnen in de index" };
+
+/** The camera's or the source's button and its list (S04, S05): light in the bar, as they are
+ * used less often; the most recently used first. */
+function ChoiceMenu({ chosen, choices, words, onChange }: { chosen: string[]; choices: CameraCount[]; words: MenuWords; onChange: (c: string[]) => void }) {
   const [open, setOpen] = useState(false);
   const [order, setOrder] = useState<CameraOrder>("recent");
   const box = useRef<HTMLSpanElement>(null);
@@ -34,14 +42,14 @@ function CameraMenu({ chosen, cameras, onChange }: { chosen: string[]; cameras: 
   const set = chosen.length > 0;
   return (
     <span className="relative" ref={box}>
-      <button className={chip(set) + " max-w-40 truncate"} onClick={() => setOpen((o) => !o)} title={set ? chosen.map(cameraLabel).join(", ") : "filter op camera"}>
-        {cameraButton(chosen)} ▾
+      <button className={chip(set) + " max-w-40 truncate"} onClick={() => setOpen((o) => !o)} title={set ? chosen.map(words.label).join(", ") : words.tooltip}>
+        {words.button(chosen)} ▾
       </button>
       {open && (
         <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-30 min-w-56 max-h-96 overflow-y-auto rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg py-1 text-xs">
           <button className="flex w-full items-center gap-2 px-3 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={() => onChange(toggleCamera(chosen, null))}>
             <input type="checkbox" readOnly checked={!set} className="pointer-events-none" />
-            <span className="flex-1 text-left">Alle camera's</span>
+            <span className="flex-1 text-left">{words.all}</span>
           </button>
           <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
           <div className="flex items-center gap-1 px-3 pb-1 text-neutral-400">
@@ -49,11 +57,11 @@ function CameraMenu({ chosen, cameras, onChange }: { chosen: string[]; cameras: 
             <button className={chip(order === "recent")} onClick={() => setOrder("recent")} title="laatst gebruikt eerst">recent</button>
             <button className={chip(order === "count")} onClick={() => setOrder("count")} title="meeste foto's en video's eerst">aantal</button>
           </div>
-          {cameras.length === 0 && <div className="px-3 py-1 text-neutral-400">nog geen camera's in de index</div>}
-          {sortCameras(cameras, order).map(([c, n, last]) => (
+          {choices.length === 0 && <div className="px-3 py-1 text-neutral-400">{words.empty}</div>}
+          {sortCameras(choices, order).map(([c, n, last]) => (
             <button key={c} className="flex w-full items-center gap-2 px-3 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={() => onChange(toggleCamera(chosen, c))}>
               <input type="checkbox" readOnly checked={chosen.includes(c)} className="pointer-events-none" />
-              <span className={"flex-1 text-left " + (c ? "" : "italic text-neutral-500")}>{cameraLabel(c)}</span>
+              <span className={"flex-1 text-left " + (c ? "" : "italic text-neutral-500")}>{words.label(c)}</span>
               <span className="tabular-nums text-neutral-400" title="laatst gebruikt">{c ? lastUsedLabel(last) : ""}</span>
               <span className="tabular-nums text-neutral-400 w-14 text-right">{n.toLocaleString("nl-BE")}</span>
             </button>
@@ -64,8 +72,8 @@ function CameraMenu({ chosen, cameras, onChange }: { chosen: string[]; cameras: 
   );
 }
 
-/** The filter in the toolbar, centered above the grid (F002/S03): stars, hearts, kind and camera. */
-export default function FilterBar({ filter, onChange, people, count, cameras }: Props) {
+/** The filter in the toolbar, centered above the grid (F002/S03): stars, hearts, kind, camera and source. */
+export default function FilterBar({ filter, onChange, people, count, cameras, sources }: Props) {
   const [hover, setHover] = useState(0);
   const set = isSet(filter);
   const stars = filter.stars;
@@ -88,7 +96,7 @@ export default function FilterBar({ filter, onChange, people, count, cameras }: 
   return (
     <div
       className={"flex items-center gap-2 rounded-md px-2 py-0.5 whitespace-nowrap " + (set ? "bg-blue-50 dark:bg-blue-950/60 ring-1 ring-blue-300 dark:ring-blue-800" : "")}
-      title={set ? `Filter: ${filterText(filter)}` : "filter op sterren, hartjes, soort en camera"}
+      title={set ? `Filter: ${filterText(filter)}` : "filter op sterren, hartjes, soort, camera en bron"}
     >
       <span className="text-xs text-neutral-400">Filter</span>
       {/* stars */}
@@ -141,11 +149,12 @@ export default function FilterBar({ filter, onChange, people, count, cameras }: 
         ))}
       </span>
       <span className="text-neutral-300 dark:text-neutral-700">|</span>
-      <CameraMenu chosen={filter.cameras} cameras={cameras} onChange={(c) => onChange({ ...filter, cameras: c })} />
+      <ChoiceMenu chosen={filter.cameras} choices={cameras} words={CAMERA_WORDS} onChange={(c) => onChange({ ...filter, cameras: c })} />
+      <ChoiceMenu chosen={filter.sources} choices={sources} words={SOURCE_WORDS} onChange={(c) => onChange({ ...filter, sources: c })} />
       {set && (
         <>
           {count && <span className="text-xs text-blue-700 dark:text-blue-300 tabular-nums">{count}</span>}
-          <button className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" title="filter wissen" onClick={() => onChange({ stars: null, hearts: null, kinds: [], cameras: [] })}>
+          <button className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200" title="filter wissen" onClick={() => onChange(NO_FILTER)}>
             ✕
           </button>
         </>

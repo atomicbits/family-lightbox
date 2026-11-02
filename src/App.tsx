@@ -86,6 +86,7 @@ export default function App() {
   const lists = useLists();
   const messages = useMessages();
   const [cameras, setCameras] = useState<CameraCount[]>([]);
+  const [sources, setSources] = useState<CameraCount[]>([]);
   const [showMessages, setShowMessages] = useState(false);
   const openMessages = useCallback(() => { setShowMessages(true); messages.seen(); }, [messages.seen]);
   // an index problem shows for a moment in the footer; the details are in the messages (F016/S02)
@@ -155,12 +156,15 @@ export default function App() {
   // make the months at start out of date (F008/S04).
   const monthsGen = useRef(0);
 
-  // The cameras for the filter bar (F002/S04), again after every index build.
+  // The cameras and sources for the filter bar (F002/S04, S05), again after every index build.
   useEffect(() => {
     if (!months.length) return;
     invoke<CameraCount[]>("cameras")
       .then(setCameras)
       .catch((e) => invoke("log_message", { level: "warn", source: "filter", text: `camera's niet gelezen: ${e}` }).catch(() => {}));
+    invoke<CameraCount[]>("sources")
+      .then(setSources)
+      .catch((e) => invoke("log_message", { level: "warn", source: "filter", text: `bronnen niet gelezen: ${e}` }).catch(() => {}));
   }, [months]);
 
   // At start: show the index there is, and rebuild it in the background (F008/S02). Without an
@@ -836,6 +840,7 @@ export default function App() {
             filter={filter}
             onChange={setFilter}
             cameras={cameras}
+            sources={sources}
             people={[...new Set([...(me ? [me] : []), ...Object.values(marks.state.hearts).flatMap((h) => Object.keys(h))])].sort()}
             count={filterOn ? `${sections.reduce((n, s) => n + s.count, 0).toLocaleString("nl-BE")} van ${months.reduce((n, m) => n + m.photos + m.videos, 0).toLocaleString("nl-BE")}` : null}
           />

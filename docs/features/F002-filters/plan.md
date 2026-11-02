@@ -64,3 +64,4 @@ set. The date needs no filter: the month list is there for that.
 | [S02](stories/S02-filtering-in-the-core.md) | Filtering in the Rust core: the months with their counts and a month's items for a filter | Done | — |
 | [S03](stories/S03-the-filter-bar.md) | The filter bar in the toolbar: stars, hearts, kind, camera; kept after a restart | In progress: built, to try in the app | S02 |
 | [S04](stories/S04-camera-filter.md) | The camera in the filter bar | Done | S01, S03 |
+| [S05](stories/S05-source-filter.md) | The source in the filter bar | In progress: built, to try in the app | S03, S04 |

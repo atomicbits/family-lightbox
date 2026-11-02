@@ -14,17 +14,21 @@ export type FilterState = {
   kinds: Kind[];
   /** Camera names, "" for unknown (S04). */
   cameras: string[];
+  /** Sources, "" for the files without one (S05). */
+  sources: string[];
 };
 
-export const NO_FILTER: FilterState = { stars: null, hearts: null, kinds: [], cameras: [] };
+export const NO_FILTER: FilterState = { stars: null, hearts: null, kinds: [], cameras: [], sources: [] };
 
-export const isSet = (f: FilterState): boolean => !!f.stars || !!f.hearts || f.kinds.length > 0 || f.cameras.length > 0;
+export const isSet = (f: FilterState): boolean =>
+  !!f.stars || !!f.hearts || f.kinds.length > 0 || f.cameras.length > 0 || f.sources.length > 0;
 
 /** What the Rust core filters with (`filter::Filter`). */
 export type CoreFilter = {
   marks: { hashes: string[]; exclude: boolean } | null;
   kinds: Kind[];
   cameras: string[];
+  sources: string[];
   hidden: string[];
   revealed: string[];
 };
@@ -61,13 +65,14 @@ export function toCore(f: FilterState, m: MarksState, revealed: Set<string>): Co
     marks: marks && { ...marks, hashes: [...marks.hashes].sort() },
     kinds: f.kinds,
     cameras: f.cameras,
+    sources: f.sources,
     hidden: Object.keys(m.hidden).sort(),
     revealed: [...revealed].sort(),
   };
 }
 
 /** The same test as the core's, for a list's photos, which the frontend has already. */
-export function matches(item: Pick<Item, "hash" | "kind" | "live" | "camera">, c: CoreFilter, marksIn?: Set<string>): boolean {
+export function matches(item: Pick<Item, "hash" | "kind" | "live" | "camera"> & { source?: string | null }, c: CoreFilter, marksIn?: Set<string>): boolean {
   if (c.marks) {
     const inSet = (marksIn ?? new Set(c.marks.hashes)).has(item.hash);
     if (inSet === c.marks.exclude) return false;
@@ -77,6 +82,7 @@ export function matches(item: Pick<Item, "hash" | "kind" | "live" | "camera">, c
     if (!c.kinds.includes(kind)) return false;
   }
   if (c.cameras.length && !c.cameras.includes(item.camera ?? "")) return false;
+  if (c.sources.length && !c.sources.includes(item.source ?? "")) return false;
   return true;
 }
 
@@ -90,7 +96,18 @@ export function cameraButton(cameras: string[]): string {
   return `${cameras.length} camera's`;
 }
 
-/** A camera in the menu: name ("" unknown), photos and videos, latest `taken` (S04). */
+/** A source's name in the menu; "" is the files without one (S05). */
+export const sourceLabel = (s: string): string => s || "zonder bron";
+
+/** The source button: "Bron", the source for one, "3 bronnen" for more. */
+export function sourceButton(sources: string[]): string {
+  if (sources.length === 0) return "Bron";
+  if (sources.length === 1) return sourceLabel(sources[0]);
+  return `${sources.length} bronnen`;
+}
+
+/** A camera or a source in its menu: name ("" unknown or none), photos and videos, latest `taken`
+ * (S04, S05). */
 export type CameraCount = [camera: string, count: number, last: string | null];
 export type CameraOrder = "recent" | "count";
 
@@ -109,7 +126,7 @@ export function lastUsedLabel(last: string | null): string {
   return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("nl-BE", { month: "short", year: "numeric" }) : "";
 }
 
-/** Ticks or unticks one camera; null is "Alle camera's", which clears the choice. */
+/** Ticks or unticks one camera or source; null is "Alle …", which clears the choice. */
 export function toggleCamera(cameras: string[], c: string | null): string[] {
   if (c === null) return [];
   return cameras.includes(c) ? cameras.filter((x) => x !== c) : [...cameras, c];
@@ -125,6 +142,7 @@ export function filterText(f: FilterState): string {
   if (f.hearts) parts.push(f.hearts.anyone ? "♥ iemand" : `♥ ${f.hearts.people.join(", ")}`);
   if (f.kinds.length) parts.push(f.kinds.map((k) => KIND[k]).join(", "));
   if (f.cameras.length) parts.push(f.cameras.length === 1 ? f.cameras[0] || "camera onbekend" : `${f.cameras.length} camera's`);
+  if (f.sources.length) parts.push(sourceButton(f.sources));
   return parts.join(" · ");
 }
 
@@ -136,7 +154,8 @@ export function readFilter(v: unknown): FilterState {
   const hearts = o.hearts && Array.isArray(o.hearts.people) ? { anyone: !!o.hearts.anyone, people: o.hearts.people.map(String) } : null;
   const kinds = Array.isArray(o.kinds) ? o.kinds.filter((k): k is Kind => k === "photo" || k === "video" || k === "live") : [];
   const cameras = Array.isArray(o.cameras) ? o.cameras.map(String) : [];
-  return { stars, hearts, kinds, cameras };
+  const sources = Array.isArray(o.sources) ? o.sources.map(String) : [];
+  return { stars, hearts, kinds, cameras, sources };
 }
 
 /** Why the grid is empty: still loading at start, nothing that passes the filter, an empty list. */

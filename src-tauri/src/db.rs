@@ -132,6 +132,20 @@ impl Db {
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
     }
 
+    /// Each source with its photos and videos and the latest `taken` (F002/S05); "" for the files
+    /// without one, last.
+    pub fn source_counts(&self) -> Result<Vec<(String, i64, Option<String>)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT coalesce(source, '') AS s, count(*), max(taken) AS last FROM items
+                 WHERE kind IN ('photo', 'video') GROUP BY 1 ORDER BY s = '', last IS NULL, last DESC, 2 DESC, 1",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
     pub fn open(path: &Path) -> Result<Db, String> {
         if !path.is_file() {
             return Err(format!(
@@ -217,19 +231,27 @@ impl Db {
         let live = if self.has_live { "lp.photo IS NOT NULL" } else { "0" };
         let camera = if self.has_cameras { "cam.camera" } else { "NULL" };
         let sql = format!(
-            "SELECT coalesce(month, folder), coalesce(hash, ''), kind, {live}, {camera} FROM items {join}
+            "SELECT coalesce(month, folder), coalesce(hash, ''), kind, {live}, {camera}, source FROM items {join}
              WHERE kind IN ('photo', 'video')"
         );
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
         let mut counts: std::collections::BTreeMap<String, i64> = std::collections::BTreeMap::new();
         let rows = stmt
             .query_map([], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, bool>(3)?, r.get::<_, Option<String>>(4)?))
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, bool>(3)?,
+                    r.get::<_, Option<String>>(4)?,
+                    r.get::<_, Option<String>>(5)?,
+                ))
             })
             .map_err(|e| e.to_string())?;
         for row in rows {
-            let (month, hash, kind, live, camera) = row.map_err(|e| e.to_string())?;
-            let hit = f.matches(&crate::filter::Candidate { hash: &hash, kind: &kind, live, month: &month, camera: camera.as_deref() });
+            let (month, hash, kind, live, camera, source) = row.map_err(|e| e.to_string())?;
+            let c = crate::filter::Candidate { hash: &hash, kind: &kind, live, month: &month, camera: camera.as_deref(), source: source.as_deref() };
+            let hit = f.matches(&c);
             *counts.entry(month).or_insert(0) += hit as i64;
         }
         Ok(counts.into_iter().rev().collect())
@@ -241,7 +263,8 @@ impl Db {
             .items(month)?
             .into_iter()
             .filter(|i| {
-                f.matches(&crate::filter::Candidate { hash: &i.hash, kind: &i.kind, live: i.live.is_some(), month, camera: i.camera.as_deref() })
+                let source = i.source.as_deref();
+                f.matches(&crate::filter::Candidate { hash: &i.hash, kind: &i.kind, live: i.live.is_some(), month, camera: i.camera.as_deref(), source })
             })
             .collect())
     }

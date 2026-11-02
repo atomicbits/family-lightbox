@@ -1,4 +1,4 @@
-//! Filters (F002/S02): which photos match the filter bar's stars, hearts, kind and camera. The
+//! Filters (F002/S02): which photos match the filter bar's stars, hearts, kind, camera and source. The
 //! stars and hearts come from the frontend as the set of photos that pass them, since it shows
 //! a mark change before the NAS has it; the kind and the camera come from the index.
 
@@ -25,6 +25,9 @@ pub struct Filter {
     /// Camera names, with "" for unknown; empty: every camera (F002/S04).
     #[serde(default)]
     pub cameras: Vec<String>,
+    /// Sources, with "" for none (the folders before the source level); empty: every source (S05).
+    #[serde(default)]
+    pub sources: Vec<String>,
     /// Hidden photos are left out, except in these months (feature 14).
     #[serde(default)]
     pub hidden: HashSet<String>,
@@ -39,12 +42,13 @@ pub struct Candidate<'a> {
     pub live: bool,
     pub month: &'a str,
     pub camera: Option<&'a str>,
+    pub source: Option<&'a str>,
 }
 
 impl Filter {
     /// Whether any part filters (hidden photos alone don't count: they are left out anyway).
     pub fn is_set(&self) -> bool {
-        self.marks.is_some() || !self.kinds.is_empty() || !self.cameras.is_empty()
+        self.marks.is_some() || !self.kinds.is_empty() || !self.cameras.is_empty() || !self.sources.is_empty()
     }
 
     pub fn matches(&self, c: &Candidate) -> bool {
@@ -66,6 +70,9 @@ impl Filter {
         if !self.cameras.is_empty() && !self.cameras.iter().any(|k| k == c.camera.unwrap_or("")) {
             return false;
         }
+        if !self.sources.is_empty() && !self.sources.iter().any(|k| k == c.source.unwrap_or("")) {
+            return false;
+        }
         true
     }
 }
@@ -75,7 +82,20 @@ mod tests {
     use super::*;
 
     fn c<'a>(hash: &'a str, kind: &'a str, live: bool, camera: Option<&'a str>) -> Candidate<'a> {
-        Candidate { hash, kind, live, month: "2026/07", camera }
+        Candidate { hash, kind, live, month: "2026/07", camera, source: None }
+    }
+
+    #[test]
+    fn sources_one_several_none_and_with_the_rest() {
+        let at = |source: Option<&'static str>, camera: Option<&'static str>| Candidate { hash: "a", kind: "photo", live: false, month: "2026/07", camera, source };
+        let one = Filter { sources: vec!["Hero13".into()], ..Default::default() };
+        assert!(one.is_set());
+        assert!(one.matches(&at(Some("Hero13"), None)) && !one.matches(&at(Some("EOSR"), None)) && !one.matches(&at(None, None)));
+        let several = Filter { sources: vec!["Hero13".into(), "".into()], ..Default::default() };
+        assert!(several.matches(&at(Some("Hero13"), None)) && several.matches(&at(None, None)) && !several.matches(&at(Some("EOSR"), None)));
+        let with_camera = Filter { sources: vec!["EOSR".into()], cameras: vec!["Canon EOS R".into()], ..Default::default() };
+        assert!(with_camera.matches(&at(Some("EOSR"), Some("Canon EOS R"))));
+        assert!(!with_camera.matches(&at(Some("EOSR"), Some("Canon EOS R6"))));
     }
 
     #[test]

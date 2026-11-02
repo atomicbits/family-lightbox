@@ -572,6 +572,23 @@ mod tests {
     }
 
     #[test]
+    fn sources_reach_the_counts_and_the_filter() {
+        let f = fixture();
+        build(&f.library, &f.previews, &f.target).unwrap();
+        let db = Db::open(&f.target).unwrap();
+        // photos and videos only; "" is the folder without a source, last
+        assert_eq!(
+            db.source_counts().unwrap(),
+            [("EOSR".to_string(), 2, Some("2026-07-30T17:00:00+02:00".to_string())), ("".to_string(), 1, None)]
+        );
+        let eosr = crate::filter::Filter { sources: vec!["EOSR".into()], ..Default::default() };
+        assert_eq!(db.filtered_months(&eosr).unwrap(), [("2026/07".to_string(), 2), ("2012/scans Peter".to_string(), 0)]);
+        let none = crate::filter::Filter { sources: vec!["".into()], ..Default::default() };
+        assert_eq!(db.filtered_items("2012/scans Peter", &none).unwrap().len(), 1);
+        assert!(db.filtered_items("2026/07", &none).unwrap().is_empty());
+    }
+
+    #[test]
     fn broken_manifests_are_skipped_and_named() {
         let f = fixture();
         let bad = f.library.join("2016/12").join(MANIFEST);

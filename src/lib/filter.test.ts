@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_FILTER, gridEmptyText, cameraButton, cameraLabel, filterText, isSet, marksSet, matches, readFilter, toCore, sortCameras, toggleCamera, type CameraCount, type FilterState } from "./filter";
+import { NO_FILTER, gridEmptyText, cameraButton, cameraLabel, sourceButton, filterText, isSet, marksSet, matches, readFilter, toCore, sortCameras, toggleCamera, type CameraCount, type FilterState } from "./filter";
 import { NO_MARKS } from "./marks";
 
 const r = (stars: number) => ({ stars, by: "x", at: "" });
@@ -66,11 +66,32 @@ describe("camera (S04)", () => {
     expect(toggleCamera(c, null)).toEqual([]);
   });
   it("lets a list's photos through by camera, unknown as \"\"", () => {
-    const f = { marks: null, kinds: [], cameras: ["Canon EOS R", ""], hidden: [], revealed: [] };
+    const f = { marks: null, kinds: [], cameras: ["Canon EOS R", ""], sources: [], hidden: [], revealed: [] };
     expect(matches({ hash: "a", kind: "photo", live: null, camera: "Canon EOS R" }, f)).toBe(true);
     expect(matches({ hash: "a", kind: "photo", live: null, camera: null }, f)).toBe(true);
     expect(matches({ hash: "a", kind: "photo", live: null, camera: "Apple iPhone 12" }, f)).toBe(false);
     expect(matches({ hash: "a", kind: "photo", live: null, camera: "Apple iPhone 12" }, { ...f, cameras: [] })).toBe(true);
+  });
+});
+
+describe("the source (S05)", () => {
+  it("names the button and the filter", () => {
+    expect(sourceButton([])).toBe("Bron");
+    expect(sourceButton(["Hero13"])).toBe("Hero13");
+    expect(sourceButton([""])).toBe("zonder bron");
+    expect(sourceButton(["Hero13", "EOSR", ""])).toBe("3 bronnen");
+    expect(filterText(f({ kinds: ["photo"], sources: ["Flowtrack"] }))).toBe("foto · Flowtrack");
+    expect(isSet(f({ sources: ["Flowtrack"] }))).toBe(true);
+  });
+  it("reads a kept filter from before the sources", () => {
+    expect(readFilter({ kinds: ["photo"], cameras: [] })).toEqual({ ...NO_FILTER, kinds: ["photo"] });
+    expect(readFilter({ sources: ["Hero13", 3] }).sources).toEqual(["Hero13", "3"]);
+  });
+  it("lets a list's photos through by source, none as \"\"", () => {
+    const c = { marks: null, kinds: [], cameras: [], sources: ["Hero13", ""], hidden: [], revealed: [] };
+    expect(matches({ hash: "a", kind: "photo", live: null, camera: null, source: "Hero13" }, c)).toBe(true);
+    expect(matches({ hash: "a", kind: "photo", live: null, camera: null, source: null }, c)).toBe(true);
+    expect(matches({ hash: "a", kind: "photo", live: null, camera: null, source: "EOSR" }, c)).toBe(false);
   });
 });
 
