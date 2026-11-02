@@ -151,6 +151,9 @@ export default function App() {
   const [waitingForIndex, setWaitingForIndex] = useState(false);
   // Bumped on every reload after a rebuild, so answers to older requests are dropped.
   const generation = useRef(0);
+  // Bumped only when a rebuild reloads the months: a new filter (which bumps `generation`) doesn't
+  // make the months at start out of date (F008/S04).
+  const monthsGen = useRef(0);
 
   // The cameras for the filter bar (F002/S04), again after every index build.
   useEffect(() => {
@@ -165,10 +168,10 @@ export default function App() {
   useEffect(() => {
     config.device().then(setDevice);
     config.localFolders().then((l) => setLocalChosen(l.chosen)).catch(() => setLocalChosen(true));
-    const gen = generation.current;
+    const gen = monthsGen.current;
     api.status().then((s) => {
       if (s.index_exists)
-        api.months().then((m) => { if (gen === generation.current) setMonths(m); }).catch((e) => setError(String(e)));
+        api.months().then((m) => { if (gen === monthsGen.current) setMonths(m); }).catch((e) => setError(String(e)));
       else setWaitingForIndex(true);
       // a new Mac has no working copy until the first sync made it; that sync builds the index
       if (s.library_exists) index.rebuild({ visible: !s.index_exists, onlyIfStale: false }).catch((e) => setError(String(e)));
@@ -728,6 +731,7 @@ export default function App() {
   // top kept where they were.
   useEffect(() => {
     if (builds === 0) return;
+    ++monthsGen.current;
     if (listId) {
       // the list reloads by itself; the library starts over when it is shown again
       ++generation.current;

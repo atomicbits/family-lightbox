@@ -77,3 +77,10 @@ From Peter's observation that the previews seemed to wait for the NAS at start.
   preview that came outside the app is), `cargo clippy --all-targets` clean; `pnpm test` 136
   passed (2 new: the filter in any order, marks read again).
 - Still to check in the app: with a filter on, a start with the NAS connected loads the tiles once.
+
+### [2026-11-02] Fix: the grid stayed on *foto's laden…*
+
+- At start the months were fetched once, and the answer was dropped when the filter's first key
+  bumped the grid's generation meanwhile. Until now the rebuild at start always fetched them
+  again; since it no longer counts when nothing changed, they never came. The months at start now
+  have a generation of their own (`monthsGen`), bumped only when a rebuild reloads the months.
