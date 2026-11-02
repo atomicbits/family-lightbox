@@ -14,7 +14,10 @@ const button = "px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-
  * and *Importeren*, which copies to the NAS and only then tidies the source. */
 export default function ImportView({ importer, onClose, onOpenSettings }: Props) {
   const [startError, setStartError] = useState<string | null>(null);
-  const start = (path: string, name: string) => { setStartError(null); importer.start(path, name).catch((e) => setStartError(String(e))); };
+  // per source what a click on Importeren did or why it can't (F018/S05): never a silent button
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const note = (path: string, text: string | null) =>
+    setNotes((n) => { const m = { ...n }; if (text) m[path] = text; else delete m[path]; return m; });
   const [found, setFound] = useState<Found[] | null>(null);
   const [plans, setPlans] = useState<Record<string, SourcePlan>>({});
   const [busy, setBusy] = useState<Record<string, PlanProgress | true>>({});
@@ -36,6 +39,19 @@ export default function ImportView({ importer, onClose, onOpenSettings }: Props)
       .then((p) => setPlans((ps) => ({ ...ps, [path]: p })))
       .catch((e) => setErrors((es) => ({ ...es, [path]: String(e) })))
       .finally(() => setBusy((b) => { const n = { ...b }; delete n[path]; return n; }));
+  };
+
+  const start = (f: Found) => {
+    setStartError(null);
+    const plan = plans[f.path];
+    if (!plan) {
+      note(f.path, "eerst het plan: kijk het na en klik dan nog eens op Importeren");
+      makePlan(f.path);
+      return;
+    }
+    if (plan.copy_files + plan.duplicates === 0) return note(f.path, "niets nieuws om te importeren");
+    note(f.path, null);
+    importer.start(f.path, f.name).catch((e) => note(f.path, String(e)));
   };
 
   const shown = (found ?? []).filter((f) => !f.ignore);
@@ -90,15 +106,19 @@ export default function ImportView({ importer, onClose, onOpenSettings }: Props)
                 </button>
                 <button
                   className={button}
-                  disabled={!plan || plan.copy_files + plan.duplicates === 0 || !!importer.running || !!progress}
-                  title={plan ? "kopieert naar de NAS, en verplaatst daarna de originelen naar _imported" : "eerst een plan"}
-                  onClick={() => start(f.path, f.name)}
+                  disabled={!!importer.running || !!progress || !!f.problem || f.kind === "synced"}
+                  title={plan ? "kopieert naar de NAS, en verplaatst daarna de originelen naar _imported" : "maakt eerst het plan, om na te kijken"}
+                  onClick={() => start(f)}
                 >
                   Importeren
                 </button>
                 {progress && <span className="text-xs text-neutral-500">{progress === true ? "bestanden zoeken…" : progressText(progress)}</span>}
                 {f.kind === "synced" && <span className="text-xs text-neutral-500">gesynchroniseerde mappen komen in een volgende stap</span>}
               </div>
+              {importer.running?.path === f.path && (
+                <div className="text-xs text-blue-600">{importLine(importer.running.name, importer.progress, importer.planProgress)}</div>
+              )}
+              {notes[f.path] && <div className="text-xs text-amber-600">{notes[f.path]}</div>}
               {err && <div className="text-xs text-amber-600">{err}</div>}
               {plan && (
                 <div className="text-xs space-y-0.5">

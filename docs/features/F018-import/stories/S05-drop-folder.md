@@ -76,3 +76,11 @@ folder's new files onto the NAS, verified, with previews, and tidies up after it
   the NAS it waits and tidies nothing; a file changed after the plan stays where it is; the
   months kept), `pnpm test` 132; clippy, tsc, build.
 - Not yet: the check next to the CLI on a real source, which writes to the NAS.
+
+### [2026-11-02] *Importeren* always answers
+
+- Peter clicked *Importeren* for `Max2` and nothing visible happened: the button was disabled
+  until a plan was made, and a disabled button says nothing. Now *Importeren* is only disabled
+  while an import or a plan runs: without a plan it makes one and says to check it and click again;
+  with a plan that has nothing new it says so; an error starting the import shows under the source,
+  as does the progress of the import running.
