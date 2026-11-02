@@ -84,3 +84,13 @@ folder's new files onto the NAS, verified, with previews, and tidies up after it
   while an import or a plan runs: without a plan it makes one and says to check it and click again;
   with a plan that has nothing new it says so; an error starting the import shows under the source,
   as does the progress of the import running.
+
+### [2026-11-02] Progress that moves
+
+- Peter: it must be clearer that a plan is being made, whether a sync runs, and that there is
+  progress. `Progress.tsx`: a spinner with its text and a bar that fills by the bytes or files
+  done, or moves to and fro while the amount isn't known yet (`fraction` in `progress.ts`).
+- In the import view: under the source while its plan is made (*plan maken: bestanden lezen …*)
+  and while it is imported; at the top while a sync with the NAS runs, with *importeren kan
+  daarna*, and *Importeren* disabled meanwhile. The footer's sync line has the spinner too.
+- `pnpm test` 140 passed (1 new), `tsc` and `vite build` clean.

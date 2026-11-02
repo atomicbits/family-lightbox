@@ -1085,7 +1085,7 @@ export default function App() {
       {welcome && device && (
         <DeviceSetup nas={nas} device={device.device} onDone={(d) => setDevice({ ...device, device: d })} />
       )}
-      {showImport && <ImportView importer={importer} onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
+      {showImport && <ImportView importer={importer} sync={sync} onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
       {showSettings && (
         <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}

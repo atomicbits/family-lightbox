@@ -1,4 +1,5 @@
 import type { Sync } from "../lib/sync";
+import { Spinner } from "./Progress";
 
 type Props = { sync: Sync; onConfirm: () => void };
 
@@ -14,7 +15,10 @@ export default function SyncLine({ sync, onConfirm }: Props) {
           {l.text}
         </button>
       ) : (
-        <span className="tabular-nums">{l.text}</span>
+        <>
+          {sync.state?.running && <Spinner />}
+          <span className="tabular-nums">{l.text}</span>
+        </>
       )}
       {l.cancellable && (
         <button className="px-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" title="synchroniseren stoppen" onClick={() => sync.cancel()}>

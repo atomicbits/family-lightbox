@@ -5,14 +5,16 @@ import { config, type Found } from "../lib/api";
 import { actionText, datesText, monthsText, planSummary, progressText, type PlanProgress, type SourcePlan } from "../lib/importplan";
 import { baseName, layoutText } from "../lib/sources";
 import { doneText, importLine, pendingText, type Importer } from "../lib/importjob";
+import { syncLine, type Sync } from "../lib/sync";
+import Progress from "./Progress";
 
-type Props = { importer: Importer; onClose: () => void; onOpenSettings: () => void };
+type Props = { importer: Importer; sync: Sync; onClose: () => void; onOpenSettings: () => void };
 
 const button = "px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs disabled:opacity-40";
 
 /** The import (F018/S04, S05): the sources found, per source the plan of what an import would do,
  * and *Importeren*, which copies to the NAS and only then tidies the source. */
-export default function ImportView({ importer, onClose, onOpenSettings }: Props) {
+export default function ImportView({ importer, sync, onClose, onOpenSettings }: Props) {
   const [startError, setStartError] = useState<string | null>(null);
   // per source what a click on Importeren did or why it can't (F018/S05): never a silent button
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -68,7 +70,14 @@ export default function ImportView({ importer, onClose, onOpenSettings }: Props)
           Eerst een plan: welke bestanden nieuw zijn, waar ze komen, en wat de bibliotheek al heeft (op inhoud, onder welke naam ook). Er verandert nog niets.
         </p>
         {errors[""] && <div className="text-red-600 text-xs">{errors[""]}</div>}
-        {importer.running && <div className="text-xs text-blue-600">{importLine(importer.running.name, importer.progress, importer.planProgress)}</div>}
+        {sync.state?.running && (
+          <Progress
+            tone="text-neutral-500"
+            text={`er loopt een synchronisatie met de NAS (${syncLine(sync.state)?.text ?? "bezig"}); importeren kan daarna`}
+            done={sync.state.phase === "copying" ? sync.state.bytes_done : sync.state.phase === "manifests" ? sync.state.files_done : undefined}
+            total={sync.state.phase === "copying" ? sync.state.bytes_total : sync.state.phase === "manifests" ? sync.state.files_total : undefined}
+          />
+        )}
         {importer.last && !importer.running && (
           <div className={"text-xs " + (importer.last.error || importer.last.failed ? "text-amber-600" : "text-green-700 dark:text-green-500")}>
             {doneText(importer.last)}
@@ -106,19 +115,29 @@ export default function ImportView({ importer, onClose, onOpenSettings }: Props)
                 </button>
                 <button
                   className={button}
-                  disabled={!!importer.running || !!progress || !!f.problem || f.kind === "synced"}
-                  title={plan ? "kopieert naar de NAS, en verplaatst daarna de originelen naar _imported" : "maakt eerst het plan, om na te kijken"}
+                  disabled={!!importer.running || !!progress || !!f.problem || f.kind === "synced" || !!sync.state?.running}
+                  title={sync.state?.running ? "er loopt een synchronisatie: importeren kan daarna" : plan ? "kopieert naar de NAS, en verplaatst daarna de originelen naar _imported" : "maakt eerst het plan, om na te kijken"}
                   onClick={() => start(f)}
                 >
                   Importeren
                 </button>
-                {progress && <span className="text-xs text-neutral-500">{progress === true ? "bestanden zoeken…" : progressText(progress)}</span>}
                 {f.kind === "synced" && <span className="text-xs text-neutral-500">gesynchroniseerde mappen komen in een volgende stap</span>}
               </div>
-              {importer.running?.path === f.path && (
-                <div className="text-xs text-blue-600">{importLine(importer.running.name, importer.progress, importer.planProgress)}</div>
+              {progress && (
+                <Progress
+                  text={progress === true ? "plan maken: bestanden zoeken…" : `plan maken: bestanden lezen · ${progressText(progress)}`}
+                  done={progress === true ? undefined : progress.bytes_done}
+                  total={progress === true ? undefined : progress.bytes_total}
+                />
               )}
-              {notes[f.path] && <div className="text-xs text-amber-600">{notes[f.path]}</div>}
+              {importer.running?.path === f.path && (
+                <Progress
+                  text={importLine(importer.running.name, importer.progress, importer.planProgress)}
+                  done={importer.progress?.done ?? importer.planProgress?.bytes_done}
+                  total={importer.progress?.total ?? importer.planProgress?.bytes_total}
+                />
+              )}
+              {notes[f.path] && !progress && <div className="text-xs text-amber-600">{notes[f.path]}</div>}
               {err && <div className="text-xs text-amber-600">{err}</div>}
               {plan && (
                 <div className="text-xs space-y-0.5">

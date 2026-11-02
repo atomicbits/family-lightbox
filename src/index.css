@@ -12,3 +12,9 @@ html, body, #root {
   overflow: hidden;
   user-select: none;
 }
+
+/* the bar of work whose amount isn't known yet moves to and fro (F018/S05) */
+@keyframes slide {
+  from { transform: translateX(0); }
+  to { transform: translateX(200%); }
+}
