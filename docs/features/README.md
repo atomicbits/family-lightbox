@@ -170,3 +170,4 @@ no folder yet.
 | 18 | [Import](F018-import/plan.md): from a drop folder, a synced folder or a card, into the right month and source on the NAS, verified, with previews (the import and push part of 10) | In progress | 6, 8, 12 |
 | 19 | [The NAS layout in one file](F019-nas-layout/plan.md): where the library, previews, lists and exports are, in `familylightbox.json` on the NAS for all Macs; one share by default | In progress | 6, 7, 18 |
 | 20 | [Changes without the NAS](F020-offline-changes/plan.md): lists, stars, hearts, hiding and stacks changed offline, kept in an outbox and sent when the NAS is back | In design | 3, 13, 14, 15 |
+| 21 | [The settings window](F021-settings-window/plan.md): wider, the topics on tabs | In progress | 6, 18, 19 |

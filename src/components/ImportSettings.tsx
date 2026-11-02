@@ -13,7 +13,7 @@ type Props = {
 const small = "px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent text-xs";
 const button = "px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs";
 
-/** The settings' *Importeren* (F018/S03): drop folders and synced folders on this Mac, and per
+/** The settings' *Importeren* tab (F018/S03, F021/S01): drop folders and synced folders on this Mac, and per
  * source found its name in the library, whether to skip it, and its exclusions. */
 export default function ImportSettings({ value, onChange, version }: Props) {
   const imp = value ?? NO_IMPORT;
@@ -39,7 +39,6 @@ export default function ImportSettings({ value, onChange, version }: Props) {
 
   return (
     <section className="space-y-2">
-      <h3 className="font-medium">Importeren</h3>
       <p className="text-xs text-neutral-500">
         Waar nieuwe foto's binnenkomen op deze laptop. Elke submap van een aflevermap is een bron; een gesynchroniseerde map (bv. van een telefoon) wordt nooit gewijzigd. Kaarten worden vanzelf herkend.
       </p>
