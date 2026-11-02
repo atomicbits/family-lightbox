@@ -132,6 +132,24 @@ impl Db {
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
     }
 
+    /// The years with photos or videos that have no preview on this Mac (F007/S07), sorted;
+    /// `failed` are the ones this Mac couldn't make, which the NAS won't have either.
+    pub fn missing_preview_years(&self, failed: &std::collections::HashSet<String>) -> Result<Vec<String>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT path, substr(coalesce(month, folder), 1, 4) FROM items WHERE kind IN ('photo', 'video') AND preview = 0")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))).map_err(|e| e.to_string())?;
+        let mut years = std::collections::BTreeSet::new();
+        for row in rows {
+            let (path, year) = row.map_err(|e| e.to_string())?;
+            if !failed.contains(&path) {
+                years.insert(year);
+            }
+        }
+        Ok(years.into_iter().collect())
+    }
+
     /// Each source with its photos and videos and the latest `taken` (F002/S05); "" for the files
     /// without one, last.
     pub fn source_counts(&self) -> Result<Vec<(String, i64, Option<String>)>, String> {

@@ -276,6 +276,9 @@ pub struct AppState {
     pub previews_paused: bool,
     /// The filter bar's filter (F002/S03), as the frontend keeps it; kept after a restart.
     pub filter: Option<serde_json::Value>,
+    /// When the last full count of the previews finished (F007/S07); the sync at start counts only
+    /// where something can be new while it is less than a week old.
+    pub previews_full_at: Option<String>,
 }
 
 /// The state, or the default when it is missing or broken (a broken file is left alone).

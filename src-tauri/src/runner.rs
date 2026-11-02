@@ -148,6 +148,40 @@ pub struct Jobs {
     pub previews: Result<Job, String>,
     pub config_dir: PathBuf,
     pub free: fn(&Path) -> Option<u64>,
+    /// Which previews the pass counts (F007/S07).
+    pub scope: Scope,
+}
+
+/// Every year of the previews, or at start only where something can be new (F007/S07).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Scope {
+    Full,
+    /// The years whose manifests this sync changed and those with photos the index has without a
+    /// preview, apart from the previews this Mac failed to make (`record`); full when the index
+    /// can't be read.
+    WhereNew { index: PathBuf, record: PathBuf },
+}
+
+/// How long the sync at start may count only where something can be new.
+pub const FULL_EVERY: chrono::Duration = chrono::Duration::days(7);
+
+/// Whether the sync at start should count every year: never a full count yet, or the last more
+/// than `FULL_EVERY` ago (or unreadable).
+pub fn full_due(last: Option<&str>, now: chrono::DateTime<chrono::FixedOffset>) -> bool {
+    match last.and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()) {
+        Some(t) => now - t > FULL_EVERY,
+        None => true,
+    }
+}
+
+/// The years to count: those of the changed manifests (`2026/07`, `2012/scans Peter`) and those
+/// without previews, sorted, each once; `None` for every year (the index couldn't be read).
+pub fn years_to_count(changed: &[String], missing: Option<Vec<String>>) -> Option<Vec<String>> {
+    let mut years: Vec<String> = missing?;
+    years.extend(changed.iter().filter_map(|c| c.get(..4)).map(str::to_string));
+    years.sort();
+    years.dedup();
+    Some(years)
 }
 
 struct Counted {
@@ -168,6 +202,14 @@ pub struct SyncRunner {
     cancel: Arc<AtomicBool>,
     /// The sync at launch ran in this process; a reloaded window doesn't start it again.
     launched: Arc<AtomicBool>,
+}
+
+/// Keeps the moment of a full count that finished (F007/S07); a failure to write only means the
+/// next start counts in full again.
+fn record_full_count(config_dir: &Path) {
+    let mut state = config::load_state(config_dir);
+    state.previews_full_at = Some(chrono::Local::now().fixed_offset().to_rfc3339());
+    let _ = config::save_state(config_dir, &state);
 }
 
 impl SyncRunner {
@@ -281,12 +323,27 @@ impl SyncRunner {
             }
         }
 
-        let job = match jobs.previews {
+        let mut job = match jobs.previews {
             Ok(j) => j,
             // Without a Previews mount only the manifests run.
             Err(_) if kind == Kind::All => return self.finish(sink, Phase::Done, None),
             Err(e) => return self.finish(sink, Phase::Failed, Some(e)),
         };
+        // At start, only the years where something can be new (F007/S07).
+        if let (Kind::All, Scope::WhereNew { index, record }) = (kind, &jobs.scope) {
+            let failed: std::collections::HashSet<String> = crate::previews_plan::Record::open(record)
+                .and_then(|r| r.failures())
+                .map(|f| f.into_iter().map(|x| x.path).collect())
+                .unwrap_or_default();
+            let missing = crate::db::Db::open(index).and_then(|d| d.missing_preview_years(&failed)).ok();
+            let changed = self.status().manifests_changed;
+            match years_to_count(&changed, missing) {
+                Some(years) if years.is_empty() => return self.finish(sink, Phase::Done, None),
+                Some(years) => job.only = Some(years),
+                None => {}
+            }
+        }
+        let full = job.only.is_none();
 
         // A plan counted for the confirmation dialog is reused while it is fresh.
         let reuse = if kind == Kind::Previews && confirmed {
@@ -300,7 +357,12 @@ impl SyncRunner {
                 let s = self.update(|s| s.phase = Phase::Counting);
                 sink.progress(&s);
                 match sync::plan(&job, &mut |p| report(Phase::Counting, p), &self.cancel) {
-                    Ok(p) => (job, p),
+                    Ok(p) => {
+                        if full {
+                            record_full_count(&jobs.config_dir);
+                        }
+                        (job, p)
+                    }
                     Err(sync::Stop::Cancelled) => return self.finish(sink, Phase::Cancelled, None),
                     Err(sync::Stop::Failed(e)) => return self.finish(sink, Phase::Failed, Some(e)),
                 }
@@ -430,6 +492,7 @@ mod tests {
             previews: Ok(Job { remote: pv_r.into(), local: pv_l.into(), filter: pull::is_preview, only: None, max_depth: None }),
             config_dir: cfg.into(),
             free: plenty,
+            scope: Scope::Full,
         }
     }
 
@@ -490,6 +553,77 @@ mod tests {
         assert!(config::load_state(cfg).previews_confirmed_at.is_some());
         assert!(!ev.iter().any(|e| e.0 == "year"), "one year: the rebuild after the sync covers it");
         assert!(!ev.iter().any(|e| e.0 == "manifests_in"), "only the previews this time");
+    }
+
+    #[test]
+    fn the_years_to_count_at_start() {
+        let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        assert_eq!(years_to_count(&s(&["2026/07", "2012/scans Peter"]), Some(vec![])), Some(s(&["2012", "2026"])));
+        assert_eq!(years_to_count(&[], Some(s(&["2004", "2019"]))), Some(s(&["2004", "2019"])));
+        assert_eq!(years_to_count(&s(&["2019/05"]), Some(s(&["2019", "2004"]))), Some(s(&["2004", "2019"])));
+        assert_eq!(years_to_count(&[], Some(vec![])), Some(vec![]), "nothing can be new");
+        assert_eq!(years_to_count(&s(&["2026/07"]), None), None, "no index: every year");
+    }
+
+    #[test]
+    fn a_full_count_once_a_week() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-11-02T21:00:00+01:00").unwrap();
+        assert!(full_due(None, now));
+        assert!(full_due(Some("nonsense"), now));
+        assert!(!full_due(Some("2026-10-30T09:00:00+01:00"), now));
+        assert!(full_due(Some("2026-10-26T20:00:00+01:00"), now));
+    }
+
+    #[test]
+    fn at_start_only_where_something_can_be_new() {
+        let d: Vec<_> = (0..5).map(|_| tempfile::tempdir().unwrap()).collect();
+        let (lib_r, lib_l, pv_r, pv_l, cfg) = (d[0].path(), d[1].path(), d[2].path(), d[3].path(), d[4].path());
+        let manifest = |n: usize| {
+            let files: Vec<String> = (0..n)
+                .map(|i| format!(r#"{{"path": "2019/05/Cam/b{i}.JPG", "size": 1, "hash": "sha256:b{i}", "kind": "photo", "source": "Cam"}}"#))
+                .collect();
+            format!(r#"{{"month": "2019/05", "files": [{}]}}"#, files.join(","))
+        };
+        put(lib_r, "2019/05/.manifest.json", &manifest(1));
+        put(pv_r, "2019/05/Cam/b0.JPG.jpg", "b");
+        let runner = SyncRunner::default();
+        let index = cfg.join("index.sqlite");
+        let record = cfg.join(crate::previews_plan::RECORD_FILE);
+        let where_new = || Jobs { scope: Scope::WhereNew { index: index.clone(), record: record.clone() }, ..jobs(lib_r, lib_l, pv_r, pv_l, cfg) };
+        let counted = |rec: &Recorder| rec.events.lock().unwrap().iter().any(|e| e.1 == Phase::Counting);
+
+        // without an index: every year, and the full count is kept
+        let rec = Arc::new(Recorder::default());
+        runner.start(Kind::All, false, where_new(), rec.clone()).unwrap().join().unwrap();
+        assert!(counted(&rec));
+        assert!(config::load_state(cfg).previews_full_at.is_some());
+
+        // every preview there or failed on this Mac, no manifest changed: no count at all
+        put(pv_l, "2019/05/Cam/b0.JPG.jpg", "b");
+        put(lib_r, "2004/03/.manifest.json", r#"{"month": "2004/03", "files": [{"path": "2004/03/Cam/x.AVI", "size": 1, "hash": "sha256:x", "kind": "video"}]}"#);
+        runner.start(Kind::All, false, where_new(), Arc::new(Recorder::default())).unwrap().join().unwrap();
+        crate::index::build(lib_l, pv_l, &index).unwrap();
+        crate::previews_plan::Record::open(&record).unwrap().failed("2004/03/Cam/x.AVI", "sha256:x", "geen beeld").unwrap();
+        put(pv_r, "2019/05/Cam/other.JPG.jpg", "o");
+        let rec = Arc::new(Recorder::default());
+        runner.start(Kind::All, false, where_new(), rec.clone()).unwrap().join().unwrap();
+        assert!(!counted(&rec));
+        assert_eq!(runner.status().phase, Phase::Done);
+        assert!(!pv_l.join("2019/05/Cam/other.JPG.jpg").exists());
+
+        // a manifest changed on the NAS: its year is counted
+        put(lib_r, "2019/05/.manifest.json", &manifest(2));
+        put(pv_r, "2020/01/Cam/c.JPG.jpg", "c");
+        let rec = Arc::new(Recorder::default());
+        runner.start(Kind::All, false, where_new(), rec.clone()).unwrap().join().unwrap();
+        assert!(counted(&rec));
+        let summary = runner.status().summary.unwrap();
+        assert_eq!(summary.copy_files, 1, "2019's new preview, not 2020's: {summary:?}");
+
+        // by hand: every year
+        let rec = Arc::new(Recorder::default());
+        runner.start(Kind::All, false, jobs(lib_r, lib_l, pv_r, pv_l, cfg), rec.clone()).unwrap().join().unwrap();
+        assert_eq!(runner.status().summary.unwrap().copy_files, 2);
     }
 
     #[test]

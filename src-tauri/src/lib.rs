@@ -770,7 +770,7 @@ fn index_status(runner: State<index::IndexRunner>) -> index::IndexState {
 }
 
 /// The two sync jobs for the current settings and mounts.
-fn sync_jobs(paths: &Paths) -> runner::Jobs {
+fn sync_jobs(paths: &Paths, scope: runner::Scope) -> runner::Jobs {
     let (settings, _) = config::load_settings(&paths.config);
     let found = mounts::find_shares(&mounts::system_mounts(), &settings);
     runner::Jobs {
@@ -779,6 +779,7 @@ fn sync_jobs(paths: &Paths) -> runner::Jobs {
         previews: pull::previews_job(&settings, &found, &paths.previews),
         config_dir: paths.config.clone(),
         free: pull::free_bytes,
+        scope,
     }
 }
 
@@ -813,7 +814,15 @@ fn sync_start(
         "previews" => runner::Kind::Previews,
         other => return Err(format!("onbekende synchronisatie: {other}")),
     };
-    runner.start(kind, confirmed, sync_jobs(&paths), Arc::new(EventSink(app))).map(|_| ())
+    // the sync at start counts the previews only where something can be new, and every year once a
+    // week; Synchroniseren in the settings always every year (F007/S07)
+    let last_full = config::load_state(&paths.config).previews_full_at;
+    let scope = if at_launch == Some(true) && !runner::full_due(last_full.as_deref(), chrono::Local::now().fixed_offset()) {
+        runner::Scope::WhereNew { index: paths.index(), record: paths.config.join(previews_plan::RECORD_FILE) }
+    } else {
+        runner::Scope::Full
+    };
+    runner.start(kind, confirmed, sync_jobs(&paths, scope), Arc::new(EventSink(app))).map(|_| ())
 }
 
 #[tauri::command]
