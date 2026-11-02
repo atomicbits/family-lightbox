@@ -62,3 +62,11 @@ The first version was built before this process and has no stories. Changes sinc
 
 - 2026-10-30: the lightbox's bar shows the video icon and "NAS" like the tiles (Peter: they were
   missing in the large view).
+
+## [2026-11-02] An empty grid says why
+
+At start the grid said "niets om te tonen" for a moment, before the months were loaded, which
+looked as if the photos were gone (Peter). The grid now says why it is empty: *foto's laden…*
+until the first months are in, *geen foto's die bij de filter passen* with a filter, *deze lijst
+is nog leeg* in a list, and *niets om te tonen* only when there really is nothing
+(`gridEmptyText`, tested).

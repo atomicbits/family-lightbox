@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_FILTER, cameraButton, cameraLabel, filterText, isSet, marksSet, matches, readFilter, toCore, sortCameras, toggleCamera, type CameraCount, type FilterState } from "./filter";
+import { NO_FILTER, gridEmptyText, cameraButton, cameraLabel, filterText, isSet, marksSet, matches, readFilter, toCore, sortCameras, toggleCamera, type CameraCount, type FilterState } from "./filter";
 import { NO_MARKS } from "./marks";
 
 const r = (stars: number) => ({ stars, by: "x", at: "" });
@@ -74,5 +74,14 @@ describe("camera order (S04)", () => {
   });
   it("or the most used first", () => {
     expect(sortCameras(list, "count").map((c) => c[0])).toEqual(["NIKON D80", "Canon EOS R", "GoPro HD2", ""]);
+  });
+});
+
+describe("an empty grid says why", () => {
+  it("is loading, filtered, an empty list, or empty", () => {
+    expect(gridEmptyText(false, true, true)).toBe("foto's laden…");
+    expect(gridEmptyText(true, true, false)).toBe("geen foto's die bij de filter passen");
+    expect(gridEmptyText(true, false, true)).toBe("deze lijst is nog leeg");
+    expect(gridEmptyText(true, false, false)).toBe("niets om te tonen");
   });
 });

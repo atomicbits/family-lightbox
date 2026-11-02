@@ -15,6 +15,8 @@ import { buildLayout, rowOf, sectionsInRange, type Section, type Sel } from "../
 
 type Props = {
   sections: Section[];
+  /** Shown when there are no sections: why the grid is empty (still loading, a filter, a list). */
+  emptyText?: string;
   /** A month's items, or undefined while it isn't loaded yet. */
   itemsOf: (month: string) => Item[] | undefined;
   selected: Sel | null;
@@ -67,7 +69,7 @@ const BAND_PAD = 4;
 const HEADER = 52;
 
 /** The whole library as one grid, virtualized per row, with a header where each month begins (F001/S01). */
-export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, unfolded, onToggleStack, inList, activeBar, quietSelection, onDragTile, onMenu }: Props) {
+export default function Grid({ sections, emptyText, itemsOf, selected, onSelect, onOpen, onColumns, onNeed, onTopSection, jump, tile, marked, picked, marks, me, dimHidden, unfolded, onToggleStack, inList, activeBar, quietSelection, onDragTile, onMenu }: Props) {
   // A callback ref, so the width is measured as soon as the scroll box exists. On the first
   // render the library is often still empty and there is no scroll box yet; a ref read once in
   // an effect would never measure.
@@ -149,7 +151,7 @@ export default function Grid({ sections, itemsOf, selected, onSelect, onOpen, on
   }, [jump]);
 
   if (sections.length === 0) {
-    return <div className="h-full grid place-items-center text-neutral-400">niets om te tonen</div>;
+    return <div className="h-full grid place-items-center text-neutral-400">{emptyText ?? "niets om te tonen"}</div>;
   }
 
   const width = rowWidth(cols, tile, GAP);

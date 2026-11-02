@@ -130,3 +130,11 @@ export function readFilter(v: unknown): FilterState {
   const cameras = Array.isArray(o.cameras) ? o.cameras.map(String) : [];
   return { stars, hearts, kinds, cameras };
 }
+
+/** Why the grid is empty: still loading at start, nothing that passes the filter, an empty list. */
+export function gridEmptyText(loaded: boolean, filterOn: boolean, inList: boolean): string {
+  if (!loaded) return "foto's laden…";
+  if (filterOn) return "geen foto's die bij de filter passen";
+  if (inList) return "deze lijst is nog leeg";
+  return "niets om te tonen";
+}

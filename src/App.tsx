@@ -25,7 +25,7 @@ import { photosText, refOf, useLists, type ListDone } from "./lib/lists";
 import { hideText, listText, skippedText, stackText, undoHeart, undoHide, undoList, undoStack, undoStars, useUndo } from "./lib/undo";
 import Toast from "./components/Toast";
 import { shownCount, toggled, visibleItems, withHidden, withRevealed } from "./lib/hidden";
-import { NO_FILTER, isSet, matches, readFilter, toCore, type CameraCount, type FilterState } from "./lib/filter";
+import { NO_FILTER, gridEmptyText, isSet, matches, readFilter, toCore, type CameraCount, type FilterState } from "./lib/filter";
 import FilterBar from "./components/FilterBar";
 import { PALETTE, arrange, buildStacks, stackActions, stackColor, stackDelta, type Member as StackMember, type View as StackView } from "./lib/stacks";
 import UndoIcon from "./components/UndoIcon";
@@ -59,6 +59,9 @@ function toListView(id: string, rows: (Item & { month: string })[], missing: num
 
 export default function App() {
   const [months, setMonths] = useState<MonthSummary[]>([]);
+  // the months come in a moment after start: until then the grid says it is loading, not empty
+  const [monthsLoaded, setMonthsLoaded] = useState(false);
+  useEffect(() => { if (months.length) setMonthsLoaded(true); }, [months]);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Sel | null>(null);
   // Several tiles picked with shift or ⌘ (F003/S05), and where a shift range starts.
@@ -895,6 +898,7 @@ export default function App() {
           <main className="flex-1 min-w-0">
             <Grid
               sections={sections}
+              emptyText={gridEmptyText(monthsLoaded, filterOn, !!listId)}
               itemsOf={itemsOf}
               selected={selected}
               onSelect={select}
