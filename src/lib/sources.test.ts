@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_IMPORT, baseName, layoutText, patterns, withSource } from "./sources";
+import { NO_IMPORT, baseName, layoutText, patterns, withSource, syncedHint } from "./sources";
 
 describe("import sources (F018/S03)", () => {
   it("says how a source is laid out", () => {
@@ -15,5 +15,15 @@ describe("import sources (F018/S03)", () => {
   it("reads names and exclusions", () => {
     expect(baseName("/Users/x/Media Offload Folder/")).toBe("Media Offload Folder");
     expect(patterns(" *-mask.png, ,*.psd ")).toEqual(["*-mask.png", "*.psd"]);
+  });
+});
+
+describe("the hint under a synced folder", () => {
+  it("says what a source is, and where the files go", () => {
+    expect(syncedHint("", "")).toContain("bv. <jaar>/<maand>/iPhone-photos/");
+    expect(syncedHint("Phone-photos", "")).toContain("Geef ook de bron voor de video's");
+    expect(syncedHint("", "Phone-videos")).toContain("Geef ook de bron voor de foto's");
+    expect(syncedHint("Phone", "Phone")).toBe("Foto's en video's komen samen in <jaar>/<maand>/Phone/.");
+    expect(syncedHint("Phone-photos", "Phone-videos")).toBe("Foto's komen in <jaar>/<maand>/Phone-photos/, video's in <jaar>/<maand>/Phone-videos/.");
   });
 });

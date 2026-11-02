@@ -28,3 +28,13 @@ export function withSource(imp: Import, folder: string, change: Partial<SourceSe
 export function patterns(text: string): string[] {
   return text.split(",").map((p) => p.trim()).filter(Boolean);
 }
+
+/** Under a synced folder's sources in the settings: what a source is and where its files go. */
+export function syncedHint(photos: string, videos: string): string {
+  const at = (src: string) => `<jaar>/<maand>/${src.trim()}/`;
+  const what = "Een bron is de map in de bibliotheek waarin de bestanden uit deze map komen, per maand";
+  if (!photos.trim() && !videos.trim()) return `${what}, bv. ${at("iPhone-photos")}. Foto's en video's mogen dezelfde bron hebben.`;
+  if (!photos.trim() || !videos.trim()) return `${what}. Geef ook de bron voor de ${photos.trim() ? "video's" : "foto's"}; dat mag dezelfde zijn.`;
+  if (photos.trim() === videos.trim()) return `Foto's en video's komen samen in ${at(photos)}.`;
+  return `Foto's komen in ${at(photos)}, video's in ${at(videos)}.`;
+}

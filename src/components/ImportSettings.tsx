@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { config, type Found, type Import } from "../lib/api";
-import { NO_IMPORT, baseName, layoutText, patterns, withSource } from "../lib/sources";
+import { NO_IMPORT, baseName, layoutText, patterns, syncedHint, withSource } from "../lib/sources";
 
 type Props = {
   value: Import | undefined;
@@ -67,12 +67,17 @@ export default function ImportSettings({ value, onChange, version }: Props) {
               <span className="flex-1 truncate" title={s.path}>{s.path}</span>
               <button className="text-neutral-400 hover:text-red-600" title="weghalen (de map zelf blijft)" onClick={() => onChange({ ...imp, synced: imp.synced.filter((_, j) => j !== i) })}>✕</button>
             </div>
-            <div className="flex gap-2 text-xs items-center">
-              <span className="text-neutral-500">foto's naar</span>
-              <input className={`${small} font-mono w-36`} value={s.photos} placeholder="bron" onChange={(e) => onChange({ ...imp, synced: imp.synced.map((x, j) => (j === i ? { ...x, photos: e.target.value } : x)) })} />
-              <span className="text-neutral-500">video's naar</span>
-              <input className={`${small} font-mono w-36`} value={s.videos} placeholder="bron" onChange={(e) => onChange({ ...imp, synced: imp.synced.map((x, j) => (j === i ? { ...x, videos: e.target.value } : x)) })} />
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs items-center">
+              <label className="flex items-center gap-2">
+                <span className="text-neutral-500">Bron voor de foto's</span>
+                <input className={`${small} font-mono w-40`} value={s.photos} placeholder="bv. iPhone-photos" onChange={(e) => onChange({ ...imp, synced: imp.synced.map((x, j) => (j === i ? { ...x, photos: e.target.value } : x)) })} />
+              </label>
+              <label className="flex items-center gap-2">
+                <span className="text-neutral-500">Bron voor de video's</span>
+                <input className={`${small} font-mono w-40`} value={s.videos} placeholder="bv. iPhone-videos" onChange={(e) => onChange({ ...imp, synced: imp.synced.map((x, j) => (j === i ? { ...x, videos: e.target.value } : x)) })} />
+              </label>
             </div>
+            <p className="text-xs text-neutral-500">{syncedHint(s.photos, s.videos)}</p>
           </div>
         ))}
       </div>

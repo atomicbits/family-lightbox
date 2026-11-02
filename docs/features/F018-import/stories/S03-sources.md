@@ -74,3 +74,10 @@ folders, and cards or devices with `DCIM/`; each with a source name and its few 
 - On Peter's index (read only, `examples/sources-check`): `EOSR` split with day folders, the phone
   streams flat; a GoPro HERO13 card proposes `Hero13`, a Canon EOS R `EOSR`, a camera the library
   doesn't know a name from its model.
+
+### [2026-11-02] A synced folder's sources explained
+
+- Peter: *foto's naar* and *video's naar* weren't clear to a new user. The fields are now *Bron
+  voor de foto's* and *Bron voor de video's*, with an example as placeholder, and a line below
+  them (`syncedHint`) says what a source is and where the files go (`<jaar>/<maand>/<bron>/`), or
+  which of the two is still missing. `pnpm test` 139 passed (1 new).
