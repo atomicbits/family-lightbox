@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyLocal, newStackId, changeText, heartAfterClick, heartState, heartView, markSize, marksBlocked, marksLines, sharedStars, starsAfterClick, starsText, NO_MARKS } from "./marks";
+import { applyLocal, newStackId, changeText, heartAfterClick, heartState, heartView, markSize, marksBlocked, marksLines, sharedStars, starsAfterClick, starsText, sameMarks, NO_MARKS } from "./marks";
 
 describe("marks on a tile", () => {
   it("scales with the tile within readable bounds", () => {
@@ -84,5 +84,14 @@ describe("changes shown at once", () => {
 
   it("makes a stack id like the Rust side", () => {
     expect(newStackId("mbp-peter", new Date(2026, 9, 30, 21, 15, 2, 7))).toBe("mbp-peter-20261030T211502007");
+  });
+});
+
+describe("marks read again", () => {
+  it("are the same when their content is (F008/S04)", () => {
+    const a = { ...NO_MARKS, source: "local" as const, hidden: { x: { by: "peter", at: "t" } } };
+    expect(sameMarks(a, { ...a, hidden: { x: { by: "peter", at: "t" } } })).toBe(true);
+    expect(sameMarks(a, { ...a, source: "nas" })).toBe(false);
+    expect(sameMarks(a, { ...a, hidden: {} })).toBe(false);
   });
 });

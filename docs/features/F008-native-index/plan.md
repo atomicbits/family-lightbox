@@ -79,6 +79,7 @@ longer depends on the CLI having run `media index` after an import or a `thin`.
 | [S01](stories/S01-index-builder.md) | Index builder: manifests to the app's own index file, atomically, same rows as `media index` | Done | — |
 | [S02](stories/S02-app-uses-own-index.md) | The app reads its own index and keeps it current: at start, after a sync, on focus, by hand | In progress: built, in-app check owed | S01 |
 | [S03](stories/S03-previews-during-first-sync.md) | Previews appear during a long sync, folder by folder | In progress: built, in-app check owed | S02 |
+| [S04](stories/S04-quiet-start.md) | A quiet start: the grid loads once, not again for a rebuild or marks that changed nothing | In progress: built, in-app check owed | S02 |
 
 ## Open points
 

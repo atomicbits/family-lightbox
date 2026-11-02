@@ -54,8 +54,16 @@ export function marksSet(f: FilterState, m: Pick<MarksState, "ratings" | "hearts
   return { hashes, exclude: false };
 }
 
+/** Hashes sorted, so the same marks give the same filter and key in any order (F008/S04). */
 export function toCore(f: FilterState, m: MarksState, revealed: Set<string>): CoreFilter {
-  return { marks: marksSet(f, m), kinds: f.kinds, cameras: f.cameras, hidden: Object.keys(m.hidden), revealed: [...revealed] };
+  const marks = marksSet(f, m);
+  return {
+    marks: marks && { ...marks, hashes: [...marks.hashes].sort() },
+    kinds: f.kinds,
+    cameras: f.cameras,
+    hidden: Object.keys(m.hidden).sort(),
+    revealed: [...revealed].sort(),
+  };
 }
 
 /** The same test as the core's, for a list's photos, which the frontend has already. */

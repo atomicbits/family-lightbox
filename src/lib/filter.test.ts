@@ -30,6 +30,18 @@ describe("the filter", () => {
     expect(matches({ hash: "b", kind: "video", live: "x.HEIC" }, c)).toBe(false);
   });
 
+  it("gives the same filter for the same marks in any order (F008/S04)", () => {
+    const h = { by: "x", at: "" };
+    const one = toCore(f({ kinds: ["photo"], stars: { op: "gte", n: 1 } }), { ...NO_MARKS, ...m, hidden: { z: h, y: h } }, new Set(["2026/02", "2026/01"]));
+    const two = toCore(
+      f({ kinds: ["photo"], stars: { op: "gte", n: 1 } }),
+      { ...NO_MARKS, ratings: { c: r(1), b: r(3), a: r(5) }, hearts: m.hearts, hidden: { y: h, z: h } },
+      new Set(["2026/01", "2026/02"]),
+    );
+    expect(JSON.stringify(one)).toBe(JSON.stringify(two));
+    expect(one.hidden).toEqual(["y", "z"]);
+  });
+
   it("says what is set, and reads a kept filter back safely", () => {
     expect(isSet(NO_FILTER)).toBe(false);
     expect(filterText(f({ stars: { op: "gte", n: 4 }, hearts: { anyone: false, people: ["lynn"] }, kinds: ["photo", "live"] }))).toBe("★ ≥ 4 · ♥ lynn · foto, Live Photo");

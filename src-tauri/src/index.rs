@@ -118,6 +118,8 @@ pub struct BuildOutcome {
     /// Manifests that couldn't be read, as `<year>/<subfolder>` with the reason.
     pub broken: Vec<String>,
     pub millis: u64,
+    /// Whether the index differs from the one that was there; an equal one is left as it was (S04).
+    pub changed: bool,
 }
 
 /// Every `<year>/<subfolder>/.manifest.json`, years and subfolders sorted by name (as the CLI).
@@ -162,7 +164,12 @@ pub fn build(library: &Path, previews: &Path, target: &Path) -> Result<BuildOutc
         fs::create_dir_all(dir).map_err(|e| format!("map {} maken mislukt: {e}", dir.display()))?;
     }
     let result = write(&tmp, library, previews, &paths).and_then(|mut out| {
-        fs::rename(&tmp, target).map_err(|e| format!("index vervangen mislukt: {e}"))?;
+        out.changed = digest(target) != digest(&tmp);
+        if out.changed {
+            fs::rename(&tmp, target).map_err(|e| format!("index vervangen mislukt: {e}"))?;
+        } else {
+            let _ = fs::remove_file(&tmp);
+        }
         out.millis = started.elapsed().as_millis() as u64;
         Ok(out)
     });
@@ -170,6 +177,32 @@ pub fn build(library: &Path, previews: &Path, target: &Path) -> Result<BuildOutc
         let _ = fs::remove_file(&tmp);
     }
     result
+}
+
+/// What an index holds, every table in the order of its key; `None` without a readable index.
+fn digest(index: &Path) -> Option<u64> {
+    if !index.is_file() {
+        return None;
+    }
+    let conn = Connection::open_with_flags(index, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).ok()?;
+    let mut h = DefaultHasher::new();
+    for (table, key) in [("folders", "folder"), ("items", "path"), ("live_photos", "video"), ("cameras", "path")] {
+        let mut stmt = conn.prepare(&format!("SELECT * FROM {table} ORDER BY {key}")).ok()?;
+        let n = stmt.column_count();
+        table.hash(&mut h);
+        let mut rows = stmt.query([]).ok()?;
+        while let Some(row) = rows.next().ok()? {
+            for c in 0..n {
+                match row.get_ref(c).ok()? {
+                    rusqlite::types::ValueRef::Null => 0u8.hash(&mut h),
+                    rusqlite::types::ValueRef::Integer(i) => (1u8, i).hash(&mut h),
+                    rusqlite::types::ValueRef::Real(f) => (2u8, f.to_bits()).hash(&mut h),
+                    rusqlite::types::ValueRef::Text(t) | rusqlite::types::ValueRef::Blob(t) => (3u8, t).hash(&mut h),
+                }
+            }
+        }
+    }
+    Some(h.finish())
 }
 
 fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Result<BuildOutcome, String> {
@@ -297,7 +330,7 @@ pub struct IndexState {
     /// The last build that finished, or none yet.
     pub outcome: Option<BuildOutcome>,
     pub error: Option<String>,
-    /// Builds finished since the app started; the grid reloads when it goes up.
+    /// Builds since the app started that changed the index; the grid reloads when it goes up.
     pub builds: u64,
 }
 
@@ -361,13 +394,16 @@ impl IndexRunner {
                 let mut i = self.inner.lock().unwrap_or_else(|e| e.into_inner());
                 match result {
                     Ok(out) => {
+                        // only a build that changed the index makes the grid reload (S04)
+                        if out.changed {
+                            i.state.builds += 1;
+                        }
                         i.state.outcome = Some(out);
                         i.state.error = None;
                         i.built_from = before;
                     }
                     Err(e) => i.state.error = Some(e),
                 }
-                i.state.builds += 1;
                 let again = std::mem::take(&mut i.queued);
                 i.state.running = again;
                 (i.state.clone(), again)
@@ -646,7 +682,7 @@ mod tests {
         let done = rec.done.lock().unwrap();
         assert_eq!(done.len(), 2, "this build and the queued one");
         assert!(done[0].running && !done[1].running);
-        assert_eq!(done[1].builds, 2);
+        assert_eq!(done[1].builds, 1, "the second build found nothing new");
         assert!(done[1].outcome.as_ref().unwrap().items == 5 && done[1].error.is_none());
         assert!(!r.status().running);
     }
@@ -663,7 +699,33 @@ mod tests {
         let s = r.status();
         assert!(s.error.unwrap().starts_with("werkkopie niet gevonden"));
         assert_eq!(s.outcome.unwrap().items, 5);
+        assert_eq!(s.builds, 1, "a failed build changes nothing");
+    }
+
+    #[test]
+    fn a_rebuild_without_changes_keeps_the_file_and_isnt_counted() {
+        let f = fixture();
+        let r = IndexRunner::default();
+        let rec = Arc::new(Recorder::default());
+        r.request(job(&f), rec.clone()).unwrap().join().unwrap();
+        assert!(r.status().outcome.unwrap().changed, "no index yet");
+        let inode = |p: &Path| std::os::unix::fs::MetadataExt::ino(&fs::metadata(p).unwrap());
+        let before = inode(&f.target);
+
+        r.request(job(&f), rec.clone()).unwrap().join().unwrap();
+        let s = r.status();
+        assert!(!s.outcome.unwrap().changed);
+        assert_eq!(s.builds, 1);
+        assert_eq!(inode(&f.target), before, "the same file");
+        assert!(!f.target.with_file_name(format!("{INDEX_FILE}.tmp")).exists());
+
+        // a preview that came outside the app: only a flag changes, and that counts
+        touch(&f.previews.join("2012/scans Peter/scan1.tif.jpg"));
+        r.request(job(&f), rec.clone()).unwrap().join().unwrap();
+        let s = r.status();
+        assert!(s.outcome.unwrap().changed);
         assert_eq!(s.builds, 2);
+        assert_ne!(inode(&f.target), before);
     }
 
     #[test]

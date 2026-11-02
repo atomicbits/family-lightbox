@@ -172,6 +172,11 @@ export type Marks = {
 };
 
 /** `version` changes when the watch of `useLists` read the share again; `me` is this Mac's owner. */
+/** Whether two marks states are the same; the core sends its maps sorted (F008/S04). */
+export function sameMarks(a: MarksState, b: MarksState): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function useMarks(version: number, me: string | null, onError: (message: string) => void): Marks {
   const [state, setState] = useState<MarksState>(NO_MARKS);
   // writes still under way: an answer from the share only replaces the state when it is the last
@@ -179,16 +184,19 @@ export function useMarks(version: number, me: string | null, onError: (message: 
   const current = useRef(state);
   current.current = state;
 
+  // the same marks read again (the share after the local copy) keep the state, so nothing reloads
+  const replace = useCallback((s: MarksState) => setState((old) => (sameMarks(old, s) ? old : s)), []);
+
   const reload = useCallback(async () => {
     if (pending.current > 0) return current.current;
     const s = await invoke<MarksState>("marks_state");
-    setState(s);
+    replace(s);
     return s;
-  }, []);
+  }, [replace]);
 
   useEffect(() => {
-    if (pending.current === 0) invoke<MarksState>("marks_state").then((s) => { if (pending.current === 0) setState(s); }).catch(() => {});
-  }, [version]);
+    if (pending.current === 0) invoke<MarksState>("marks_state").then((s) => { if (pending.current === 0) replace(s); }).catch(() => {});
+  }, [version, replace]);
 
   const change = useCallback((c: MarkChange) => {
     setState((s) => applyLocal(s, c, me ?? "", new Date().toISOString()));
@@ -198,7 +206,7 @@ export function useMarks(version: number, me: string | null, onError: (message: 
     write()
       .catch(() => new Promise<MarksState>((ok, fail) => setTimeout(() => write().then(ok, fail), RETRY_MS)))
       .then(
-        (s) => { pending.current--; if (pending.current === 0) setState(s); },
+        (s) => { pending.current--; if (pending.current === 0) replace(s); },
         (e) => {
           pending.current--;
           if (pending.current === 0) reload().catch(() => {});

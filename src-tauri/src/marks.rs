@@ -107,15 +107,15 @@ pub struct Rating {
 /// The merged marks, by hash.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct Marks {
-    pub ratings: HashMap<String, Rating>,
+    pub ratings: BTreeMap<String, Rating>,
     /// Per photo, the people whose heart is on it, with when they put it on.
-    pub hearts: HashMap<String, BTreeMap<String, String>>,
+    pub hearts: BTreeMap<String, BTreeMap<String, String>>,
     /// Hidden photos, with who hid them and when (F014/S01).
-    pub hidden: HashMap<String, Hidden>,
+    pub hidden: BTreeMap<String, Hidden>,
     /// Each photo in a stack, with its stack's id; stacks of one photo left out (F015/S01).
-    pub stacks: HashMap<String, String>,
+    pub stacks: BTreeMap<String, String>,
     /// The color chosen for a stack, by id (F015/S05).
-    pub stack_colors: HashMap<String, String>,
+    pub stack_colors: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
