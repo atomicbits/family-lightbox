@@ -1,7 +1,7 @@
 # Story S04: Moving an existing library to one share
 
 **Feature:** `F019-nas-layout`
-**Status:** Built in the app (2026-10-31); the move itself waits for LibraryLocal F012
+**Status:** Done (2026-11-02); the old shares go later
 **Depends on:** S03; LibraryLocal's feature for the NAS's scripts, the Drive mirror and the
 snapshots
 
@@ -57,3 +57,13 @@ file alone.
 - Tests: `cargo test` 186 (the version kept current, following the home, the check before a
   move), `pnpm test` 133; clippy, tsc, build.
 - The NAS's side (the CLI, the scripts, Drive, snapshots, rights) is LibraryLocal F012.
+
+### [2026-11-02] Moved
+
+This library moved to one share by the steps of `docs/moving-to-one-share.md`, with two changes
+learnt on the way: on a NAS where each share is its own file-system volume, moving between shares
+is a copy anyway, so the contents were copied and the old shares left as they were until they are
+removed; and a copy that sets file modes can drop the files' inherited rights, which then have
+to be applied again from the top. Then the file with `home` in both places. Both Macs (0.5.0)
+followed by opening the app: the new share became their home share, the layout came from the NAS,
+nothing was written to the old places since. The details of this NAS are in LibraryLocal.

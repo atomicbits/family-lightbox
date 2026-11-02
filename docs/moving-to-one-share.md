@@ -21,9 +21,15 @@ the same time, by its own instructions.
 
 4. Create the new shared folder (say `Photos`) with the same users and rights as the old shares:
    read and write for everyone who uses the app.
-5. Move the contents of each old share into a subfolder of the new one: `Library`, `Previews`,
-   `Lists`, `Exports`. On one volume this is a rename, nothing is copied, even for terabytes.
-   Folders keep their own rights, so a year folder denied to someone stays denied.
+5. Copy the contents of each old share into a subfolder of the new one: `Library`, `Previews`,
+   `Lists`, `Exports`, keeping times (`rsync -aH`). On a NAS where every shared folder is its own
+   file-system volume (Btrfs on Synology), moving between shares is a copy anyway; copying leaves
+   the old shares as they were, so going back stays possible until they are removed. Compare
+   afterwards (`rsync -n --itemize-changes`: nothing left), and check a sample of hashes against
+   the manifests.
+   A copy that sets file modes can drop the rights the files inherited: apply the new share's
+   inheritance again from the top, and set again any rights a folder had of its own (and only then
+   let what is below it inherit, so that folder keeps them).
 6. Make the old shares read-only, so nothing can be written to the old places by mistake.
 7. Write the new `familylightbox.json`, with `home` naming the new share, in the root of the new
    share **and** in the root of the old home share (which is empty now apart from it):
