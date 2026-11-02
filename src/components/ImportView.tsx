@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { config, type Found } from "../lib/api";
-import { actionText, datesText, monthsText, planSummary, progressText, type PlanProgress, type SourcePlan } from "../lib/importplan";
+import { actionText, datesText, monthsText, planSummary, progressText, syncedText, type PlanProgress, type SourcePlan } from "../lib/importplan";
 import { baseName, layoutText } from "../lib/sources";
 import { doneText, importLine, pendingText, type Importer } from "../lib/importjob";
 import { syncLine, type Sync } from "../lib/sync";
@@ -106,22 +106,28 @@ export default function ImportView({ importer, sync, onClose, onOpenSettings }: 
                 {f.camera && <span className="text-xs text-neutral-500">{f.camera}</span>}
                 <span className="flex-1" />
                 <span className="text-xs text-neutral-500">
-                  naar <span className="font-mono">{f.name || "?"}</span> · {f.known ? layoutText(f.layout) : "nieuwe bron, met dagmap"}
+                  naar <span className="font-mono">{f.name || "?"}</span>
+                  {f.videos ? <> en <span className="font-mono">{f.videos}</span></> : null} · {f.known ? layoutText(f.layout) : "nieuwe bron, met dagmap"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button className={button} disabled={!!progress || !!f.problem || f.kind === "synced"} onClick={() => makePlan(f.path)}>
+                <button className={button} disabled={!!progress || !!f.problem} onClick={() => makePlan(f.path)}>
                   {plan ? "Opnieuw plannen" : "Plan maken"}
                 </button>
                 <button
                   className={button}
-                  disabled={!!importer.running || !!progress || !!f.problem || f.kind === "synced" || !!sync.state?.running}
-                  title={sync.state?.running ? "er loopt een synchronisatie: importeren kan daarna" : plan ? "kopieert naar de NAS, en verplaatst daarna de originelen naar _imported" : "maakt eerst het plan, om na te kijken"}
+                  disabled={!!importer.running || !!progress || !!f.problem || !!sync.state?.running}
+                  title={
+                    sync.state?.running ? "er loopt een synchronisatie: importeren kan daarna"
+                    : !plan ? "maakt eerst het plan, om na te kijken"
+                    : f.kind === "synced" ? "kopieert naar de NAS; de gesynchroniseerde map zelf blijft zoals ze is"
+                    : "kopieert naar de NAS, en verplaatst daarna de originelen naar _imported"
+                  }
                   onClick={() => start(f)}
                 >
                   Importeren
                 </button>
-                {f.kind === "synced" && <span className="text-xs text-neutral-500">gesynchroniseerde mappen komen in een volgende stap</span>}
+                {f.kind === "synced" && <span className="text-xs text-neutral-500">alleen kopiëren: de map zelf blijft zoals ze is</span>}
               </div>
               {progress && (
                 <Progress
@@ -142,6 +148,7 @@ export default function ImportView({ importer, sync, onClose, onOpenSettings }: 
               {plan && (
                 <div className="text-xs space-y-0.5">
                   <div>{planSummary(plan)}{plan.excluded > 0 ? ` · ${plan.excluded} uitgesloten` : ""}</div>
+                  {syncedText(plan) && <div className="text-neutral-500">{syncedText(plan)}</div>}
                   {Object.keys(plan.months).length > 0 && <div className="text-neutral-500">{monthsText(plan.months)}</div>}
                   {datesText(plan.not_from_file) && <div className="text-amber-600">{datesText(plan.not_from_file)}</div>}
                   {plan.problems.slice(0, 5).map((p) => <div key={p} className="text-red-600">{p}</div>)}

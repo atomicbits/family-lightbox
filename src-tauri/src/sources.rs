@@ -58,6 +58,14 @@ pub fn source_name_problem(name: &str) -> Option<String> {
     (!ok).then(|| format!("'{name}': letters, cijfers, '.', '_' en '-', beginnend met een letter of cijfer, hoogstens 64"))
 }
 
+/// A synced folder's first month: empty, or `YYYY/MM` (S06).
+pub fn from_problem(from: &str) -> Option<String> {
+    let f = from.trim();
+    let ok = f.is_empty()
+        || (f.len() == 7 && f.as_bytes()[4] == b'/' && f[..4].bytes().all(|b| b.is_ascii_digit()) && matches!(f[5..].parse::<u8>(), Ok(1..=12)));
+    (!ok).then(|| format!("vanaf '{f}': een maand als 2026/01, of leeg"))
+}
+
 /// A source name from a camera's model: `GoPro HERO13 Black` → `GoPro-HERO13-Black`.
 pub fn name_from_model(camera: &str) -> String {
     let mut s = String::new();
@@ -141,7 +149,7 @@ pub fn discover(import: &Import, volumes: &Path, layouts: &HashMap<String, Layou
         let problem = if !Path::new(&s.path).is_dir() {
             Some("map niet gevonden".into())
         } else {
-            source_name_problem(&s.photos).or_else(|| source_name_problem(&s.videos))
+            source_name_problem(&s.photos).or_else(|| source_name_problem(&s.videos)).or_else(|| from_problem(&s.from))
         };
         out.push(Found { kind: "synced", path: s.path.clone(), name: s.photos.clone(), videos: s.videos.clone(), layout: layout(&s.photos), known: layouts.contains_key(&s.photos), camera: None, ignore: false, problem });
     }
@@ -188,6 +196,13 @@ mod tests {
 
     fn p(source: &str, path: &str) -> (String, String) {
         (source.to_string(), path.to_string())
+    }
+
+    #[test]
+    fn a_synced_folders_first_month() {
+        assert_eq!(from_problem(""), None);
+        assert_eq!(from_problem("2026/01"), None);
+        assert!(from_problem("2026/13").is_some() && from_problem("2026-01").is_some() && from_problem("26/01").is_some());
     }
 
     #[test]
@@ -240,7 +255,7 @@ mod tests {
         fs::create_dir_all(volumes.join("Library")).unwrap(); // a NAS share, no DCIM
 
         let mut import = Import { drop_folders: vec![drop.display().to_string(), d.path().join("gone").display().to_string()], ..Default::default() };
-        import.synced.push(Synced { path: synced.display().to_string(), photos: "Phone-photos".into(), videos: "Phone-videos".into() });
+        import.synced.push(Synced { path: synced.display().to_string(), photos: "Phone-photos".into(), videos: "Phone-videos".into(), from: String::new() });
         import.sources.insert("camping".into(), SourceSettings { name: "camping-2026".into(), ignore: true, ..Default::default() });
         let layouts = layouts(&[p("Hero13", "2026/08/Hero13/2026-08-03/a.MP4"), p("Phone-photos", "2026/08/Phone-photos/a.HEIC")]);
         let found = discover(&import, &volumes, &layouts, &|c| if c == "GoPro HERO13 Black" { vec![("Hero13".into(), 81)] } else { vec![] });

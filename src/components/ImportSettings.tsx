@@ -33,7 +33,7 @@ export default function ImportSettings({ value, onChange, version }: Props) {
   };
   const addSynced = async () => {
     const f = await pick("Map die een andere app gesynchroniseerd houdt");
-    if (f && !imp.synced.some((s) => s.path === f)) onChange({ ...imp, synced: [...imp.synced, { path: f, photos: "", videos: "" }] });
+    if (f && !imp.synced.some((s) => s.path === f)) onChange({ ...imp, synced: [...imp.synced, { path: f, photos: "", videos: "", from: "" }] });
   };
   const folderOf = (f: Found) => baseName(f.path);
 
@@ -75,6 +75,10 @@ export default function ImportSettings({ value, onChange, version }: Props) {
               <label className="flex items-center gap-2">
                 <span className="text-neutral-500">Bron voor de video's</span>
                 <input className={`${small} font-mono w-40`} value={s.videos} placeholder="bv. iPhone-videos" onChange={(e) => onChange({ ...imp, synced: imp.synced.map((x, j) => (j === i ? { ...x, videos: e.target.value } : x)) })} />
+              </label>
+              <label className="flex items-center gap-2" title="oudere maanden worden nooit gelezen; leeg: vanaf de eerste maand van de bron in de bibliotheek">
+                <span className="text-neutral-500">Vanaf</span>
+                <input className={`${small} font-mono w-20`} value={s.from ?? ""} placeholder="JJJJ/MM" onChange={(e) => onChange({ ...imp, synced: imp.synced.map((x, j) => (j === i ? { ...x, from: e.target.value.trim() } : x)) })} />
               </label>
             </div>
             <p className="text-xs text-neutral-500">{syncedHint(s.photos, s.videos)}</p>

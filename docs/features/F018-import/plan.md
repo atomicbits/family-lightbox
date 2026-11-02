@@ -124,7 +124,7 @@ keeps file names unique (two iPhones both make `IMG_0955.JPG`).
 | [S03](stories/S03-sources.md) | Sources: the drop folder's subfolders, synced folders, cards; their settings; the name proposed from the library | Built | — |
 | [S04](stories/S04-the-plan.md) | The plan and the import screen: what is new per source, months, dates, duplicates by hash, conflicts | Built | S01, S03 |
 | [S05](stories/S05-drop-folder.md) | Importing from a drop folder: staging, previews, NAS, verify, `_imported/` (or delete), what stays local, the index; resumable | Built | S02, S04 |
-| [S06](stories/S06-synced-folders.md) | Synced folders: copy only, remember what was taken, the iPhone sources' historical layout | Planned | S05 |
+| [S06](stories/S06-synced-folders.md) | Synced folders: copy only, remember what was taken, the iPhone sources' historical layout | Built: the first plan on real data still to make | S05 |
 | [S07](stories/S07-cards.md) | Cards and devices: `DCIM/` volumes, never erased, eject afterwards | Planned | S05 |
 
 ## Decisions

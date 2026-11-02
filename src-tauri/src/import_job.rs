@@ -1,6 +1,7 @@
 //! Importing one source (F018/S05): its new files staged in the working copy, put on the NAS with
 //! their month's manifest (S02), kept locally for the months this Mac keeps, and only then the
-//! originals moved to the drop folder's `_imported/`. Each step is written to `job.json`, so an
+//! originals moved to the drop folder's `_imported/`, or, from a synced folder, recorded as taken
+//! and left where they are (S06). Each step is written to `job.json`, so an
 //! import that stops (the app quits, the NAS goes away) continues where it was.
 
 use crate::import_plan::{Action, SourcePlan};
@@ -65,6 +66,9 @@ pub struct Job {
     pub files: Vec<JobFile>,
     pub problems: Vec<String>,
     pub created: String,
+    /// From a synced folder (S06): nothing is moved there, what was taken is recorded.
+    #[serde(default)]
+    pub synced: bool,
 }
 
 /// Where a job runs: the working copy, the `Library` share (none when it isn't connected), the
@@ -74,6 +78,8 @@ pub struct Env<'a> {
     pub share: Option<&'a Path>,
     pub device: &'a str,
     pub keep_from: String,
+    /// What was taken from synced folders (S06).
+    pub taken: Option<&'a Path>,
 }
 
 /// The first month this Mac keeps: `keep` months back from now, as `YYYY/MM`.
@@ -107,6 +113,7 @@ impl Job {
             files,
             problems: Vec::new(),
             created: manifest::local_iso(Local::now()),
+            synced: plan.synced,
         }
     }
 
@@ -221,6 +228,7 @@ pub fn run(job: &mut Job, env: &Env, progress: &mut dyn FnMut(&Progress), stop_a
             Step::Stage => stage(job, &staging, progress)?,
             Step::Nas => nas(job, &staging, env, progress)?,
             Step::Local => local(job, &staging, env)?,
+            Step::Source if job.synced => record_taken(job, env, progress)?,
             Step::Source => source(job, progress),
             Step::Done => break,
         }
@@ -337,6 +345,21 @@ fn local(job: &mut Job, staging: &Path, env: &Env) -> Result<(), String> {
     Ok(())
 }
 
+/// A synced folder's files stay where they are; what reached the NAS or was there already is
+/// recorded, so the next plan skips it without reading (S06).
+fn record_taken(job: &mut Job, env: &Env, progress: &mut dyn FnMut(&Progress)) -> Result<(), String> {
+    let record = crate::import_plan::TakenRecord::open(env.taken.ok_or("geen register van wat al genomen is")?)?;
+    let total = job.files.iter().filter(|f| matches!(f.state, FileState::OnNas | FileState::Duplicate)).count();
+    for (i, f) in job.files.iter_mut().filter(|f| matches!(f.state, FileState::OnNas | FileState::Duplicate)).enumerate() {
+        match record.record(Path::new(&f.src)) {
+            Ok(()) => f.state = FileState::Done,
+            Err(e) => job.problems.push(e),
+        }
+        progress(&Progress { step: "taken".into(), done: i + 1, total });
+    }
+    Ok(())
+}
+
 fn source(job: &mut Job, progress: &mut dyn FnMut(&Progress)) {
     let root = PathBuf::from(&job.drop_root);
     let total = job.files.iter().filter(|f| matches!(f.state, FileState::OnNas | FileState::Duplicate)).count();
@@ -403,7 +426,7 @@ mod tests {
     }
 
     fn env<'a>(f: &'a F, share: bool) -> Env<'a> {
-        Env { library: &f.library, share: share.then_some(f.share.as_path()), device: "mbp-test", keep_from: "2025/06".into() }
+        Env { library: &f.library, share: share.then_some(f.share.as_path()), device: "mbp-test", keep_from: "2025/06".into(), taken: None }
     }
 
     fn check_result(f: &F) {
@@ -488,5 +511,38 @@ mod tests {
         let k = keep_from(18);
         assert_eq!(k.len(), 7);
         assert!(k < keep_from(1) && keep_from(1) <= Local::now().format("%Y/%m").to_string());
+    }
+
+    #[test]
+    fn an_import_from_a_synced_folder_leaves_it_as_it_was_and_records_what_it_took() {
+        let f = fixture();
+        let src = f.drop.parent().unwrap().join("Drive/PhoneSync");
+        let photo = jpeg_file(&tiff(true, CANON, &[(0x9003, "2026:08:02 10:00:00")]));
+        for (rel, b) in [("2026/08/IMG_1.JPG", photo.as_slice()), ("2026/08/IMG_1.MOV", b"clip".as_slice())] {
+            fs::create_dir_all(src.join(rel).parent().unwrap()).unwrap();
+            fs::write(src.join(rel), b).unwrap();
+        }
+        let flat = Layout { split: false, day: false };
+        let to = crate::import_plan::SyncedTo { photos: ("Phone-photos".into(), flat), videos: ("Phone-videos".into(), flat), from_month: None };
+        let cache = HashCache::open(&f.library.join("h.sqlite")).unwrap();
+        let taken = f.library.join("taken.sqlite");
+        let record = crate::import_plan::TakenRecord::open(&taken).unwrap();
+        let none = HashMap::new();
+        let p = crate::import_plan::plan_synced(&src, &to, &[], &none, &HashMap::new(), &cache, &record, &mut |_| {});
+        let mut j = Job::from_plan(&p, src.parent().unwrap(), "20261102-220000", false, 18);
+        assert!(j.synced);
+        let env = Env { taken: Some(&taken), ..env(&f, true) };
+        let mut steps = Vec::new();
+        run(&mut j, &env, &mut |pr| steps.push(pr.step.clone()), None).unwrap();
+        assert!(j.problems.is_empty(), "{:?}", j.problems);
+        assert_eq!(j.count(FileState::Done), 2);
+        assert!(f.share.join("2026/08/Phone-photos/IMG_1.JPG").is_file());
+        assert!(f.share.join("2026/08/Phone-videos/IMG_1.MOV").is_file());
+        // the synced folder is as it was: nothing moved, no _imported
+        assert!(src.join("2026/08/IMG_1.JPG").is_file() && src.join("2026/08/IMG_1.MOV").is_file());
+        assert!(!src.parent().unwrap().join(crate::sources::IMPORTED).exists());
+        assert!(steps.contains(&"taken".to_string()) && !steps.contains(&"source".to_string()));
+        let again = crate::import_plan::plan_synced(&src, &to, &[], &none, &HashMap::new(), &cache, &record, &mut |_| {});
+        assert_eq!((again.taken_before, again.read, again.copy_files), (2, 0, 0));
     }
 }

@@ -55,6 +55,16 @@ pub struct SourcePlan {
     /// Of the files to copy, how many dates don't come from the file itself, by why.
     pub not_from_file: BTreeMap<String, usize>,
     pub problems: Vec<String>,
+    /// A synced folder (S06): copied only, and what was taken is recorded instead of moved.
+    pub synced: bool,
+    /// Of a synced folder: files an earlier import took, skipped without reading.
+    pub taken_before: usize,
+    /// Of a synced folder: files before its first month, never read.
+    pub older: usize,
+    /// That first month, `YYYY/MM`.
+    pub from_month: Option<String>,
+    /// Of a synced folder: files that had to be read and hashed.
+    pub read: usize,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -256,6 +266,208 @@ pub fn plan(
     out
 }
 
+// ── synced folders (S06) ─────────────────────────────────────────────────────
+
+/// What a synced folder's files go to: the photos' source and the videos', each with its layout.
+#[derive(Debug, Clone)]
+pub struct SyncedTo {
+    pub photos: (String, Layout),
+    pub videos: (String, Layout),
+    /// The first month taken, `YYYY/MM`; older files are left alone.
+    pub from_month: Option<String>,
+}
+
+fn is_number(s: &str, len: usize) -> bool {
+    s.len() == len && s.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// A synced folder's files, each with the month of its `<year>/<month>/` folder; with no such
+/// folders, every file below it without a month. The root is followed when it is a link.
+pub fn synced_files(root: &Path, patterns: &[String]) -> (Vec<(PathBuf, Option<String>)>, usize) {
+    let root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let dirs = |p: &Path, len: usize| -> Vec<PathBuf> {
+        let mut v: Vec<PathBuf> = fs::read_dir(p)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|e| is_number(&e.file_name().to_string_lossy(), len) && e.path().is_dir())
+            .map(|e| e.path())
+            .collect();
+        v.sort();
+        v
+    };
+    let years = dirs(&root, 4);
+    if years.is_empty() {
+        let (list, left) = files(&root, patterns);
+        return (list.into_iter().map(|p| (p, None)).collect(), left);
+    }
+    let (mut out, mut left) = (Vec::new(), 0);
+    for y in years {
+        for m in dirs(&y, 2) {
+            let month = format!("{}/{}", y.file_name().unwrap().to_string_lossy(), m.file_name().unwrap().to_string_lossy());
+            let mut entries: Vec<_> = fs::read_dir(&m).into_iter().flatten().flatten().collect();
+            entries.sort_by_key(|e| e.file_name());
+            for e in entries {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if left_out(&name, patterns) {
+                    left += 1;
+                } else if e.file_type().is_ok_and(|t| t.is_file()) {
+                    out.push((e.path(), Some(month.clone())));
+                }
+            }
+        }
+    }
+    (out, left)
+}
+
+/// What imports took from synced folders (decision 7): path, size and modification time.
+pub struct TakenRecord {
+    conn: Connection,
+}
+
+impl TakenRecord {
+    pub fn open(path: &Path) -> Result<TakenRecord, String> {
+        let conn = Connection::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        conn.busy_timeout(std::time::Duration::from_secs(3)).map_err(|e| e.to_string())?;
+        conn.execute_batch("CREATE TABLE IF NOT EXISTS taken (path TEXT PRIMARY KEY, size INTEGER, mtime_ns INTEGER)")
+            .map_err(|e| e.to_string())?;
+        Ok(TakenRecord { conn })
+    }
+
+    /// Whether this file, with this size and time, was taken before.
+    pub fn has(&self, p: &Path) -> bool {
+        let Some((size, ns)) = HashCache::stamp(p) else { return false };
+        self.conn
+            .query_row("SELECT 1 FROM taken WHERE path = ?1 AND size = ?2 AND mtime_ns = ?3", params![p.display().to_string(), size as i64, ns], |_| Ok(()))
+            .is_ok()
+    }
+
+    pub fn record(&self, p: &Path) -> Result<(), String> {
+        let (size, ns) = HashCache::stamp(p).ok_or_else(|| format!("{}: niet leesbaar", p.display()))?;
+        self.conn
+            .execute("INSERT OR REPLACE INTO taken VALUES (?1, ?2, ?3)", params![p.display().to_string(), size as i64, ns])
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// The plan for a synced folder (S06). `known` is every path in the library with its hash,
+/// `sizes` with its size.
+#[allow(clippy::too_many_arguments)]
+pub fn plan_synced(
+    root: &Path,
+    to: &SyncedTo,
+    patterns: &[String],
+    known: &HashMap<String, String>,
+    sizes: &HashMap<String, u64>,
+    cache: &HashCache,
+    record: &TakenRecord,
+    progress: &mut dyn FnMut(&Progress),
+) -> SourcePlan {
+    let mut out = SourcePlan {
+        name: to.photos.0.clone(),
+        path: root.display().to_string(),
+        synced: true,
+        from_month: to.from_month.clone(),
+        ..Default::default()
+    };
+    let (list, excluded) = synced_files(root, patterns);
+    out.excluded = excluded;
+    let mut todo = Vec::new();
+    for (p, month) in list {
+        if month.as_deref().zip(to.from_month.as_deref()).is_some_and(|(m, from)| m < from) {
+            out.older += 1;
+        } else if record.has(&p) {
+            out.taken_before += 1;
+        } else {
+            todo.push((p, month));
+        }
+    }
+    let goes_to = |p: &Path| if capture::kind_of(p) == "video" { &to.videos } else { &to.photos };
+    let size_of = |p: &Path| fs::metadata(p).map(|m| m.len()).unwrap_or(0);
+    // the CLI's check: the same name with the same size in that month, in either source
+    let mut to_read = Vec::new();
+    for (p, month) in todo {
+        let file = p.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let size = size_of(&p);
+        let there = month.as_deref().and_then(|m| {
+            [&to.photos, &to.videos]
+                .into_iter()
+                .filter(|(_, l)| !l.day && !l.split)
+                .map(|(n, _)| format!("{m}/{n}/{file}"))
+                .find(|at| sizes.get(at) == Some(&size))
+        });
+        match there {
+            Some(at) => {
+                out.duplicates += 1;
+                let hash = known.get(&at).cloned().unwrap_or_default();
+                let action = Action::Duplicate { of: at.clone() };
+                out.files.push(Planned { src: p.display().to_string(), target: at, size, hash, kind: capture::kind_of(&p), taken: String::new(), taken_from: "", action });
+            }
+            None => to_read.push((p, month)),
+        }
+    }
+    out.read = to_read.len();
+    let mut pr = Progress { files_total: to_read.len(), bytes_total: to_read.iter().map(|(p, _)| size_of(p)).sum(), ..Default::default() };
+    progress(&pr);
+    let paths: Vec<PathBuf> = to_read.iter().map(|(p, _)| p.clone()).collect();
+    let dates = capture::resolve_with(&paths, |p| capture::read(p).date);
+    let by_hash: HashMap<&str, &str> = known.iter().map(|(p, h)| (h.as_str(), p.as_str())).collect();
+    let mut seen: HashMap<String, String> = HashMap::new();
+    let mut taken_targets: HashMap<String, String> = HashMap::new();
+    for (p, month) in &to_read {
+        let size = size_of(p);
+        let h = match cache.hash(p) {
+            Ok(h) => h,
+            Err(e) => {
+                out.problems.push(e);
+                continue;
+            }
+        };
+        pr.files_done += 1;
+        pr.bytes_done += size;
+        progress(&pr);
+        let kind = capture::kind_of(p);
+        let file = p.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let (taken, how) = dates[p];
+        let (name, layout) = goes_to(p);
+        let mut t = target(name, *layout, kind, &taken, &file);
+        // the month of the folder, as the CLI
+        if let Some(m) = month {
+            t = format!("{m}{}", &t[7..]);
+        }
+        let action = if let Some(at) = by_hash.get(h.as_str()) {
+            Action::Duplicate { of: at.to_string() }
+        } else if let Some(at) = seen.get(&h) {
+            Action::Duplicate { of: at.clone() }
+        } else if known.get(&t).is_some_and(|other| *other != h) || taken_targets.get(&t).is_some_and(|other| *other != h) {
+            let existing = t.clone();
+            t = conflict_name(&t, &h);
+            Action::Conflict { existing }
+        } else {
+            Action::New
+        };
+        match &action {
+            Action::Duplicate { .. } => out.duplicates += 1,
+            other => {
+                if matches!(other, Action::Conflict { .. }) {
+                    out.conflicts += 1;
+                }
+                out.copy_files += 1;
+                out.copy_bytes += size;
+                *out.months.entry(t[..7].to_string()).or_default() += 1;
+                if how != "exif" {
+                    *out.not_from_file.entry(how.to_string()).or_default() += 1;
+                }
+                seen.insert(h.clone(), t.clone());
+                taken_targets.insert(t.clone(), h.clone());
+            }
+        }
+        out.files.push(Planned { src: p.display().to_string(), target: t, size, hash: h, kind, taken: taken.manifest_time(), taken_from: how, action });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,5 +540,72 @@ mod tests {
         let again = plan(&src, "Hero13", Layout { split: false, day: true }, &["*-mask.png".to_string()], &known, &cache, &mut |_| {});
         assert_eq!(again.files.len(), 5);
         assert_eq!(cache.conn.query_row("SELECT count(*) FROM hashes", [], |r| r.get::<_, i64>(0)).unwrap(), 5);
+    }
+
+    fn synced_to(from: Option<&str>) -> SyncedTo {
+        let flat = Layout { split: false, day: false };
+        SyncedTo { photos: ("Phone-photos".into(), flat), videos: ("Phone-videos".into(), flat), from_month: from.map(str::to_string) }
+    }
+
+    #[test]
+    fn a_synced_folders_month_folders_without_recents_and_through_a_link() {
+        let d = tempfile::tempdir().unwrap();
+        let src = d.path().join("Drive/PhoneSync");
+        mk(&src, "2026/07/IMG_1.HEIC", b"a");
+        mk(&src, "2026/08/IMG_2.MOV", b"b");
+        mk(&src, "2026/08/.DS_Store", b"never");
+        mk(&src, "iPhone/Recents/IMG_2.MOV", b"b"); // a second copy, not looked at
+        mk(&src, "2026/notes.txt", b"not in a month folder");
+        let link = d.path().join("Shortcut");
+        std::os::unix::fs::symlink(&src, &link).unwrap();
+        let (list, left) = synced_files(&link, &[]);
+        let got: Vec<(String, Option<String>)> =
+            list.iter().map(|(p, m)| (p.file_name().unwrap().to_string_lossy().into_owned(), m.clone())).collect();
+        assert_eq!(got, [("IMG_1.HEIC".into(), Some("2026/07".into())), ("IMG_2.MOV".into(), Some("2026/08".into()))]);
+        assert_eq!(left, 1);
+        // without month folders: every file, without a month
+        let flat = d.path().join("Flat");
+        mk(&flat, "a/x.jpg", b"x");
+        assert_eq!(synced_files(&flat, &[]).0.iter().map(|(_, m)| m.clone()).collect::<Vec<_>>(), [None]);
+    }
+
+    #[test]
+    fn a_synced_folders_plan() {
+        let d = tempfile::tempdir().unwrap();
+        let src = d.path().join("PhoneSync");
+        let photo = jpeg_file(&tiff(true, CANON, &[(0x9003, "2026:07:31 23:30:00")]));
+        mk(&src, "2026/08/IMG_1.JPG", &photo); // taken in July, in the August folder: August, as the CLI
+        mk(&src, "2026/08/IMG_1.MOV", b"the clip of a Live Photo");
+        mk(&src, "2026/08/IMG_1.AAE", b"<edits/>");
+        mk(&src, "2026/08/IMG_2.JPG", b"already in the library, same name and size");
+        mk(&src, "2026/08/IMG_3.JPG", b"same name, other size");
+        mk(&src, "2019/10/IMG_0.JPG", b"before the first month");
+        let sizes: HashMap<String, u64> =
+            [("2026/08/Phone-photos/IMG_2.JPG".to_string(), 42), ("2026/08/Phone-photos/IMG_3.JPG".to_string(), 1)].into_iter().collect();
+        let known: HashMap<String, String> =
+            [("2026/08/Phone-photos/IMG_2.JPG".to_string(), "sha256:two".to_string()), ("2026/08/Phone-photos/IMG_3.JPG".to_string(), "sha256:three".to_string())].into_iter().collect();
+        let cache = HashCache::open(&d.path().join("h.sqlite")).unwrap();
+        let record = TakenRecord::open(&d.path().join("taken.sqlite")).unwrap();
+        let p = plan_synced(&src, &synced_to(Some("2019/11")), &[], &known, &sizes, &cache, &record, &mut |_| {});
+
+        let by = |suffix: &str| p.files.iter().find(|f| f.src.ends_with(suffix)).unwrap();
+        assert_eq!(by("IMG_1.JPG").target, "2026/08/Phone-photos/IMG_1.JPG");
+        assert_eq!(by("IMG_1.MOV").target, "2026/08/Phone-videos/IMG_1.MOV");
+        assert_eq!(by("IMG_1.AAE").target, "2026/08/Phone-photos/IMG_1.AAE");
+        assert_eq!(by("IMG_2.JPG").action, Action::Duplicate { of: "2026/08/Phone-photos/IMG_2.JPG".into() });
+        assert!(matches!(&by("IMG_3.JPG").action, Action::Conflict { .. }));
+        assert_eq!((p.copy_files, p.duplicates, p.conflicts, p.older, p.read, p.taken_before), (4, 1, 1, 1, 4, 0));
+        assert!(p.synced && p.from_month.as_deref() == Some("2019/11"));
+
+        // what was taken is skipped without reading; a file that changed counts again
+        for f in &p.files {
+            record.record(Path::new(&f.src)).unwrap();
+        }
+        fs::write(src.join("2026/08/IMG_3.JPG"), b"changed on the phone").unwrap();
+        let again = plan_synced(&src, &synced_to(Some("2019/11")), &[], &known, &sizes, &cache, &record, &mut |_| {});
+        assert_eq!((again.taken_before, again.read, again.files.len()), (4, 1, 1));
+        // a new source takes every month
+        let all = plan_synced(&src, &synced_to(None), &[], &known, &sizes, &cache, &record, &mut |_| {});
+        assert_eq!(all.older, 0);
     }
 }

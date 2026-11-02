@@ -259,17 +259,34 @@ fn plan_source(paths: &Paths, path: &str, progress: &mut dyn FnMut(&import_plan:
     if let Some(p) = &f.problem {
         return Err(p.clone());
     }
-    let root = match f.kind {
-        "card" => PathBuf::from(&f.path).join("DCIM"),
-        "synced" => return Err("een gesynchroniseerde map komt in een volgende stap (F018/S06)".into()),
-        _ => PathBuf::from(&f.path),
-    };
     let folder = Path::new(&f.path).file_name().unwrap_or_default().to_string_lossy().into_owned();
     let set = import.sources.get(&folder).cloned().unwrap_or_default();
     let known = db.path_hashes()?;
     let cache = import_plan::HashCache::open(&paths.config.join("familylightbox-import.sqlite"))?;
+    if f.kind == "synced" {
+        // copied only, the month from its folders, what was taken recorded (S06)
+        let layout_of = |name: &str| layouts.get(name).copied().unwrap_or(sources::NEW);
+        let to = import_plan::SyncedTo {
+            photos: (f.name.clone(), layout_of(&f.name)),
+            videos: (f.videos.clone(), layout_of(&f.videos)),
+            from_month: match import.synced.iter().find(|x| x.path == f.path).map(|x| x.from.trim()).filter(|x| !x.is_empty()) {
+                Some(from) => Some(from.to_string()),
+                None => db.first_month(&f.name)?,
+            },
+        };
+        let record = import_plan::TakenRecord::open(&paths.config.join(SYNCED_FILE))?;
+        let sizes = db.path_sizes()?;
+        return Ok((import_plan::plan_synced(Path::new(&f.path), &to, &set.exclude, &known, &sizes, &cache, &record, progress), set));
+    }
+    let root = match f.kind {
+        "card" => PathBuf::from(&f.path).join("DCIM"),
+        _ => PathBuf::from(&f.path),
+    };
     Ok((import_plan::plan(&root, &f.name, f.layout, &set.exclude, &known, &cache, progress), set))
 }
+
+/// What imports took from synced folders (F018/S06).
+const SYNCED_FILE: &str = "familylightbox-synced.sqlite";
 
 /// Progress events at most five times a second, and the last one always.
 fn throttled<'a, T: serde::Serialize>(app: &'a tauri::AppHandle, event: &'a str, key: &'a str) -> impl FnMut(&T, bool) + 'a {
@@ -325,7 +342,8 @@ fn run_import(app: &tauri::AppHandle, paths: &Paths, job: &mut import_job::Job) 
     let found = mounts::find_shares(&mounts::system_mounts(), &settings);
     let share = mounts::NasMounts::chosen(&found.library).map(|m| PathBuf::from(&m.mount_point));
     let device = config::load_device(&paths.config).ok().flatten().map(|d| d.name).unwrap_or_else(|| "app".into());
-    let env = import_job::Env { library: &paths.library, share: share.as_deref(), device: &device, keep_from: import_job::keep_from(job.keep_months) };
+    let taken = paths.config.join(SYNCED_FILE);
+    let env = import_job::Env { library: &paths.library, share: share.as_deref(), device: &device, keep_from: import_job::keep_from(job.keep_months), taken: Some(&taken) };
     let duplicates = job.count(import_job::FileState::Duplicate);
     let id = job.id.clone();
     let mut emit = throttled(app, "import-progress", &id);

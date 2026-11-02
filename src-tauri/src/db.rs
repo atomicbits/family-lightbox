@@ -89,6 +89,24 @@ impl Db {
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
     }
 
+    /// Every path with its size (F018/S06), for the check by name and size.
+    pub fn path_sizes(&self) -> Result<std::collections::HashMap<String, u64>, String> {
+        let mut stmt = self.conn.prepare("SELECT path, size FROM items WHERE size IS NOT NULL").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u64))).map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
+    /// The first ordinary month a source has photos or videos in, `YYYY/MM` (F018/S06).
+    pub fn first_month(&self, source: &str) -> Result<Option<String>, String> {
+        self.conn
+            .query_row(
+                "SELECT min(month) FROM items WHERE source = ?1 AND kind IN ('photo', 'video') AND month GLOB '[0-9][0-9][0-9][0-9]/[0-9][0-9]'",
+                [source],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())
+    }
+
     /// Per source, the paths of its originals in ordinary month folders (F018/S03), for
     /// `sources::layouts`.
     pub fn source_paths(&self) -> Result<Vec<(String, String)>, String> {

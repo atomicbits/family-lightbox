@@ -16,6 +16,7 @@ const STEP: Record<string, string> = {
   nas: "naar de NAS",
   local: "in de werkkopie",
   source: "opruimen naar _imported",
+  taken: "onthouden wat genomen is",
 };
 
 /** "Hero13: naar de NAS 2/5", or the planning while it reads the files. */

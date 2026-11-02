@@ -15,6 +15,12 @@ export type SourcePlan = {
   months: Record<string, number>;
   not_from_file: Record<string, number>;
   problems: string[];
+  /** A synced folder (S06): copied only; what was taken is recorded. */
+  synced?: boolean;
+  taken_before?: number;
+  older?: number;
+  from_month?: string | null;
+  read?: number;
 };
 export type PlanProgress = { files_done: number; files_total: number; bytes_done: number; bytes_total: number };
 
@@ -51,4 +57,15 @@ export function actionText(a: Action): string {
 /** "1 234 / 5 000 bestanden · 1,2 / 93,0 GB". */
 export function progressText(p: PlanProgress): string {
   return `${count(p.files_done)} / ${count(p.files_total)} bestanden · ${gb(p.bytes_done)} / ${gb(p.bytes_total)} GB`;
+}
+
+/** For a synced folder (S06): "1 234 al eerder genomen · 3 456 ouder dan 2019/11 · 12 gelezen", or "". */
+export function syncedText(p: SourcePlan): string {
+  if (!p.synced) return "";
+  const parts = [
+    p.taken_before ? `${count(p.taken_before)} al eerder genomen` : null,
+    p.older && p.from_month ? `${count(p.older)} ouder dan ${p.from_month}` : null,
+    `${count(p.read ?? 0)} gelezen`,
+  ];
+  return parts.filter(Boolean).join(" · ");
 }

@@ -68,6 +68,10 @@ pub struct Synced {
     pub path: String,
     pub photos: String,
     pub videos: String,
+    /// The first month taken, `YYYY/MM`; empty: the first month the photos' source has in the
+    /// library (F018/S06).
+    #[serde(default)]
+    pub from: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
