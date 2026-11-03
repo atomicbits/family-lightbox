@@ -33,7 +33,7 @@ export default function ImportSettings({ value, onChange, version }: Props) {
   };
   const addSynced = async () => {
     const f = await pick("Map die een andere app gesynchroniseerd houdt");
-    if (f && !imp.synced.some((s) => s.path === f)) onChange({ ...imp, synced: [...imp.synced, { path: f, photos: "", videos: "", from: "" }] });
+    if (f && !imp.synced.some((s) => s.path === f)) onChange({ ...imp, synced: [...imp.synced, { path: f, photos: "", videos: "", from: "", skip_live: false }] });
   };
   const folderOf = (f: Found) => baseName(f.path);
 
@@ -79,6 +79,10 @@ export default function ImportSettings({ value, onChange, version }: Props) {
               <label className="flex items-center gap-2" title="oudere maanden worden nooit gelezen; leeg: vanaf de eerste maand van de bron in de bibliotheek">
                 <span className="text-neutral-500">Vanaf</span>
                 <input className={`${small} font-mono w-20`} value={s.from ?? ""} placeholder="JJJJ/MM" onChange={(e) => onChange({ ...imp, synced: imp.synced.map((x, j) => (j === i ? { ...x, from: e.target.value.trim() } : x)) })} />
+              </label>
+              <label className="flex items-center gap-1" title="de video van een Live Photo: een video met de naam van een foto in dezelfde map; de foto zelf komt wel mee">
+                <input type="checkbox" checked={s.skip_live ?? false} onChange={(e) => onChange({ ...imp, synced: imp.synced.map((x, j) => (j === i ? { ...x, skip_live: e.target.checked } : x)) })} />
+                <span className="text-neutral-500">Live Photo-clipjes overslaan</span>
               </label>
             </div>
             <p className="text-xs text-neutral-500">{syncedHint(s.photos, s.videos)}</p>

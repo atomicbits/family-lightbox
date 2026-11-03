@@ -26,5 +26,6 @@ describe("a synced folder's plan (S06)", () => {
     expect(syncedText(p)).toBe("");
     expect(syncedText({ ...p, synced: true, taken_before: 1234, older: 3456, from_month: "2019/11", read: 12 })).toBe("1 234 al eerder genomen · 3 456 ouder dan 2019/11 · 12 gelezen");
     expect(syncedText({ ...p, synced: true, taken_before: 0, older: 0, from_month: null, read: 0 })).toBe("0 gelezen");
+    expect(syncedText({ ...p, synced: true, live_skipped: 96, read: 153 })).toBe("96 Live Photo-clipjes overgeslagen · 153 gelezen");
   });
 });

@@ -72,6 +72,9 @@ pub struct Synced {
     /// library (F018/S06).
     #[serde(default)]
     pub from: String,
+    /// Leave out the clips of Live Photos: a video with the name of a photo in its folder (S06).
+    #[serde(default)]
+    pub skip_live: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

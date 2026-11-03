@@ -265,7 +265,7 @@ mod tests {
         fs::create_dir_all(volumes.join("Library")).unwrap(); // a NAS share, no DCIM
 
         let mut import = Import { drop_folders: vec![drop.display().to_string(), d.path().join("gone").display().to_string()], ..Default::default() };
-        import.synced.push(Synced { path: synced.display().to_string(), photos: "Phone-photos".into(), videos: "Phone-videos".into(), from: String::new() });
+        import.synced.push(Synced { path: synced.display().to_string(), photos: "Phone-photos".into(), videos: "Phone-videos".into(), from: String::new(), skip_live: false });
         import.sources.insert("camping".into(), SourceSettings { name: "camping-2026".into(), ignore: true, ..Default::default() });
         let layouts = layouts(&[p("Hero13", "2026/08/Hero13/2026-08-03/a.MP4"), p("Phone-photos", "2026/08/Phone-photos/a.HEIC")]);
         let found = discover(&import, &volumes, &layouts, &|c| if c == "GoPro HERO13 Black" { vec![("Hero13".into(), 81)] } else { vec![] });

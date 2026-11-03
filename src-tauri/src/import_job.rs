@@ -523,7 +523,7 @@ mod tests {
             fs::write(src.join(rel), b).unwrap();
         }
         let flat = Layout { split: false, day: false };
-        let to = crate::import_plan::SyncedTo { photos: ("Phone-photos".into(), flat), videos: ("Phone-videos".into(), flat), from_month: None };
+        let to = crate::import_plan::SyncedTo { photos: ("Phone-photos".into(), flat), videos: ("Phone-videos".into(), flat), from_month: None, skip_live: false };
         let cache = HashCache::open(&f.library.join("h.sqlite")).unwrap();
         let taken = f.library.join("taken.sqlite");
         let record = crate::import_plan::TakenRecord::open(&taken).unwrap();

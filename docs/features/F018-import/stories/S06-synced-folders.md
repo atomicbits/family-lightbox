@@ -46,6 +46,9 @@ What the two folders look like on Peter's Mac, and what `media import iphone` do
 - **Without reading**: a file whose month in the library has the same name with the same size in
   the photos or videos source is already there (as the CLI); only the other files are read and
   hashed, and they get the checks of S04 (duplicates by hash, `~<hash>` for a conflict).
+- **Without Live Photos' clips**, when the synced folder's setting says so: a video with the name
+  of a photo in its folder is left out, never read and not recorded, so turning the setting off
+  later brings them in.
 - **The plan** says how many files were taken before, how many are older than the first month,
   and how many it had to read; *Importeren* is possible when it found only files already in the
   library, so that they are recorded and not looked at again.
@@ -98,3 +101,12 @@ check by name and size, `Recents` left out, the first month, and recording what 
 - `cargo test` 196 passed (4 new: the folders, the plan, the first month, a whole import from a
   synced folder that leaves it as it was and skips everything the next time), `cargo clippy
   --all-targets` clean; `pnpm test` 144 passed (1 new), `tsc` clean.
+
+### [2026-11-03] Leaving out Live Photos' clips
+
+- Peter: maybe the Live Photos' clips shouldn't come in any more. In `iPhoneSync/2026/09` 96 of
+  the 99 videos are such clips (0.42 GB); the library has 11 229 of them (49 GB).
+- `Synced.skip_live` (*Live Photo-clipjes overslaan* in the settings, off by default):
+  `plan_synced` leaves out a video whose name, without extension, is that of a photo in the same
+  folder, and counts it as `live_skipped`; the plan says *… Live Photo-clipjes overgeslagen*.
+- `cargo test` 196 passed (the plan's test extended), `pnpm test` 144 passed.

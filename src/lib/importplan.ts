@@ -21,6 +21,7 @@ export type SourcePlan = {
   older?: number;
   from_month?: string | null;
   read?: number;
+  live_skipped?: number;
 };
 export type PlanProgress = { files_done: number; files_total: number; bytes_done: number; bytes_total: number };
 
@@ -65,6 +66,7 @@ export function syncedText(p: SourcePlan): string {
   const parts = [
     p.taken_before ? `${count(p.taken_before)} al eerder genomen` : null,
     p.older && p.from_month ? `${count(p.older)} ouder dan ${p.from_month}` : null,
+    p.live_skipped ? `${count(p.live_skipped)} Live Photo-clipjes overgeslagen` : null,
     `${count(p.read ?? 0)} gelezen`,
   ];
   return parts.filter(Boolean).join(" · ");

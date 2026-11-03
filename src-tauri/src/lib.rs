@@ -266,10 +266,12 @@ fn plan_source(paths: &Paths, path: &str, progress: &mut dyn FnMut(&import_plan:
     if f.kind == "synced" {
         // copied only, the month from its folders, what was taken recorded (S06)
         let layout_of = |name: &str| layouts.get(name).copied().unwrap_or(sources::NEW);
+        let synced = import.synced.iter().find(|x| x.path == f.path);
         let to = import_plan::SyncedTo {
             photos: (f.name.clone(), layout_of(&f.name)),
             videos: (f.videos.clone(), layout_of(&f.videos)),
-            from_month: match import.synced.iter().find(|x| x.path == f.path).map(|x| x.from.trim()).filter(|x| !x.is_empty()) {
+            skip_live: synced.is_some_and(|x| x.skip_live),
+            from_month: match synced.map(|x| x.from.trim()).filter(|x| !x.is_empty()) {
                 Some(from) => Some(from.to_string()),
                 None => db.first_month(&f.name)?,
             },

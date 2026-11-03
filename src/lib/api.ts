@@ -61,7 +61,7 @@ export type Shares = { library: string; previews: string; lists: string; exports
 export type Local = { library: string; previews: string; lists: string };
 /** Where new photos come from on this Mac (F018/S03). */
 export type SourceSettings = { name: string; exclude: string[]; ignore: boolean; delete_imported: boolean };
-export type Synced = { path: string; photos: string; videos: string; from?: string };
+export type Synced = { path: string; photos: string; videos: string; from?: string; skip_live?: boolean };
 export type Import = { drop_folders: string[]; synced: Synced[]; sources: Record<string, SourceSettings> };
 export type Layout = { split: boolean; day: boolean };
 export type Found = {

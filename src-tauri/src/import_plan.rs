@@ -65,6 +65,8 @@ pub struct SourcePlan {
     pub from_month: Option<String>,
     /// Of a synced folder: files that had to be read and hashed.
     pub read: usize,
+    /// Of a synced folder: clips of Live Photos left out by its setting.
+    pub live_skipped: usize,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -275,6 +277,8 @@ pub struct SyncedTo {
     pub videos: (String, Layout),
     /// The first month taken, `YYYY/MM`; older files are left alone.
     pub from_month: Option<String>,
+    /// Leave out the clips of Live Photos.
+    pub skip_live: bool,
 }
 
 fn is_number(s: &str, len: usize) -> bool {
@@ -373,9 +377,20 @@ pub fn plan_synced(
     };
     let (list, excluded) = synced_files(root, patterns);
     out.excluded = excluded;
+    // a Live Photo's clip: a video with the name of a photo in the same folder (feature 17)
+    let stills: std::collections::HashSet<(PathBuf, String)> = list
+        .iter()
+        .filter(|(p, _)| capture::kind_of(p) == "photo")
+        .map(|(p, _)| (p.parent().unwrap_or(p).to_path_buf(), p.file_stem().unwrap_or_default().to_string_lossy().to_uppercase()))
+        .collect();
+    let is_clip = |p: &Path| {
+        capture::kind_of(p) == "video" && stills.contains(&(p.parent().unwrap_or(p).to_path_buf(), p.file_stem().unwrap_or_default().to_string_lossy().to_uppercase()))
+    };
     let mut todo = Vec::new();
     for (p, month) in list {
-        if month.as_deref().zip(to.from_month.as_deref()).is_some_and(|(m, from)| m < from) {
+        if to.skip_live && is_clip(&p) {
+            out.live_skipped += 1;
+        } else if month.as_deref().zip(to.from_month.as_deref()).is_some_and(|(m, from)| m < from) {
             out.older += 1;
         } else if record.has(&p) {
             out.taken_before += 1;
@@ -544,7 +559,7 @@ mod tests {
 
     fn synced_to(from: Option<&str>) -> SyncedTo {
         let flat = Layout { split: false, day: false };
-        SyncedTo { photos: ("Phone-photos".into(), flat), videos: ("Phone-videos".into(), flat), from_month: from.map(str::to_string) }
+        SyncedTo { photos: ("Phone-photos".into(), flat), videos: ("Phone-videos".into(), flat), from_month: from.map(str::to_string), skip_live: false }
     }
 
     #[test]
@@ -607,5 +622,11 @@ mod tests {
         // a new source takes every month
         let all = plan_synced(&src, &synced_to(None), &[], &known, &sizes, &cache, &record, &mut |_| {});
         assert_eq!(all.older, 0);
+        // without the clips of Live Photos: IMG_1.MOV is left out, unread and not recorded
+        let skip = SyncedTo { skip_live: true, ..synced_to(None) };
+        let fresh = TakenRecord::open(&d.path().join("fresh.sqlite")).unwrap();
+        let no_clips = plan_synced(&src, &skip, &[], &known, &sizes, &cache, &fresh, &mut |_| {});
+        assert_eq!(no_clips.live_skipped, 1);
+        assert!(!no_clips.files.iter().any(|f| f.src.ends_with("IMG_1.MOV")));
     }
 }
