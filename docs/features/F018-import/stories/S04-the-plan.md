@@ -72,3 +72,10 @@ Before anything is copied, the app shows per source what an import would do, and
   counts and months as `media import offload -n`, now by content. Where the CLI took the GoPro
   files' dates from their modification time (exiftool found none), the app reads them from the
   files; the months and days come out the same.
+
+### [2026-11-03] A plan outlives the import view
+
+- Peter asked whether the view may be closed while a plan is made. It couldn't: the plans were
+  the view's state, so a plan made meanwhile was lost and *Plan maken* was free to start a second
+  one. `usePlans` (`importplans.ts`) keeps the plans, their progress and errors in the app, like
+  the running import; the view shows them, so closing and opening it again changes nothing.

@@ -1,47 +1,37 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { config, type Found } from "../lib/api";
-import { actionText, datesText, monthsText, planSummary, progressText, syncedText, type PlanProgress, type SourcePlan } from "../lib/importplan";
+import { actionText, datesText, monthsText, planSummary, progressText, syncedText } from "../lib/importplan";
 import { baseName, layoutText } from "../lib/sources";
 import { doneText, importLine, pendingText, type Importer } from "../lib/importjob";
 import { syncLine, type Sync } from "../lib/sync";
 import Progress from "./Progress";
+import type { Plans } from "../lib/importplans";
 
-type Props = { importer: Importer; sync: Sync; onClose: () => void; onOpenSettings: () => void };
+type Props = { importer: Importer; planner: Plans; sync: Sync; onClose: () => void; onOpenSettings: () => void };
 
 const button = "px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs disabled:opacity-40";
 
 /** The import (F018/S04, S05): the sources found, per source the plan of what an import would do,
  * and *Importeren*, which copies to the NAS and only then tidies the source. */
-export default function ImportView({ importer, sync, onClose, onOpenSettings }: Props) {
+export default function ImportView({ importer, planner, sync, onClose, onOpenSettings }: Props) {
   const [startError, setStartError] = useState<string | null>(null);
   // per source what a click on Importeren did or why it can't (F018/S05): never a silent button
   const [notes, setNotes] = useState<Record<string, string>>({});
   const note = (path: string, text: string | null) =>
     setNotes((n) => { const m = { ...n }; if (text) m[path] = text; else delete m[path]; return m; });
   const [found, setFound] = useState<Found[] | null>(null);
-  const [plans, setPlans] = useState<Record<string, SourcePlan>>({});
-  const [busy, setBusy] = useState<Record<string, PlanProgress | true>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  // the plans are the app's, so they go on and stay while this view is closed
+  const { plans, busy, make: makePlan } = planner;
+  const [listError, setListError] = useState<string | null>(null);
+  const errors: Record<string, string> = { ...planner.errors, ...(listError ? { "": listError } : {}) };
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
-    config.importSources().then(setFound).catch((e) => setErrors({ "": String(e) }));
-    const off = listen<[string, PlanProgress]>("import-plan-progress", (e) => setBusy((b) => (e.payload[0] in b ? { ...b, [e.payload[0]]: e.payload[1] } : b)));
+    config.importSources().then(setFound).catch((e) => setListError(String(e)));
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } };
     window.addEventListener("keydown", onKey);
-    return () => { off.then((f) => f()); window.removeEventListener("keydown", onKey); };
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  const makePlan = (path: string) => {
-    setBusy((b) => ({ ...b, [path]: true }));
-    setErrors((e) => { const n = { ...e }; delete n[path]; return n; });
-    invoke<SourcePlan>("import_plan", { path })
-      .then((p) => setPlans((ps) => ({ ...ps, [path]: p })))
-      .catch((e) => setErrors((es) => ({ ...es, [path]: String(e) })))
-      .finally(() => setBusy((b) => { const n = { ...b }; delete n[path]; return n; }));
-  };
 
   const start = (f: Found) => {
     setStartError(null);

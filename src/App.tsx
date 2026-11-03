@@ -9,6 +9,7 @@ import DeviceSetup from "./components/DeviceSetup";
 import FirstStart from "./components/FirstStart";
 import ImportView from "./components/ImportView";
 import { doneText, importLine, useImporter } from "./lib/importjob";
+import { usePlans } from "./lib/importplans";
 import { firstStartSteps } from "./lib/firststart";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
@@ -78,6 +79,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const importer = useImporter(useCallback(() => {}, []));
+  const planner = usePlans();
   const nas = useNas();
   const sync = useSync();
   const index = useIndex();
@@ -1090,7 +1092,7 @@ export default function App() {
       {welcome && device && (
         <DeviceSetup nas={nas} device={device.device} onDone={(d) => setDevice({ ...device, device: d })} />
       )}
-      {showImport && <ImportView importer={importer} sync={sync} onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
+      {showImport && <ImportView importer={importer} planner={planner} sync={sync} onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
       {showSettings && (
         <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}
