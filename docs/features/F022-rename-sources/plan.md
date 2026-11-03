@@ -21,7 +21,7 @@ proposals and the folders on the NAS show one name per way photos come in.
   path hints in the list summaries do, and those are rewritten at the next merge.
 - Since feature 19 `Library` and `Previews` are folders of one share, on one file-system volume:
   moving a file between sources is a rename, not a copy. Renaming the largest candidate
-  (`iPhone-fotos`, 4 597 files in 125 months) is minutes of work over SMB.
+  (`iPhone-fotos`, 4 597 files in 109 months) is minutes of work over SMB.
 - The copy on Google Drive (`media-drive-push.py`, contract section 8) copies and never deletes:
   for Drive a renamed file is a new one. It uploads it again at its new path and the old path stays
   on Drive. On Peter's library the candidates are about 90 GB, most of it `Hero7`'s videos (72 GB):
@@ -68,7 +68,7 @@ proposals and the folders on the NAS show one name per way photos come in.
 
 ## Acceptance criteria
 
-- Peter merges `iPhone-fotos` into `iPhone-photos`: the plan shows 4 597 files in 125 months, the
+- Peter merges `iPhone-fotos` into `iPhone-photos`: the plan shows 4 597 files in 109 months, the
   names that clash, and about 9.5 GB for Drive; after *Uitvoeren* every file is under
   `iPhone-photos` on the NAS and on this Mac, the manifests say so, the grid and the lists are the
   same as before, and the source filter has one source fewer.
