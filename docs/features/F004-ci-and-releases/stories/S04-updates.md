@@ -207,3 +207,12 @@ With F018/S01–S05 (import from a drop folder), F019/S01, S03 and the app's par
 layout file, app versions per device), the tolerant sync and the `fsync` before renames on
 `Lists`. All three jobs green at once; checked after download as before: the `.dmg` notarized,
 its ticket valid, `latest.json` 0.5.0. Lynn updates to it before the library moves to one share.
+
+### [2026-11-03] v0.6.0 released
+
+With F018/S06 (importing from synced folders, Live Photos' clips left out on request, new sources
+without day folders), F002/S05 (the source filter), F021/S01 (the settings on tabs), F008/S04 (a
+quiet start), F007/S07 (counting previews only where something can be new), F006/S08 (reconnecting
+quietly and syncing once the NAS is there), and the import's progress on the footer. All three
+jobs green; the release has the `.dmg`, the update payload and `latest.json` 0.6.0. To be tried on
+Lynn's Mac, which ran v0.5.0.
