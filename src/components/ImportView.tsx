@@ -107,7 +107,7 @@ export default function ImportView({ importer, sync, onClose, onOpenSettings }: 
                 <span className="flex-1" />
                 <span className="text-xs text-neutral-500">
                   naar <span className="font-mono">{f.name || "?"}</span>
-                  {f.videos ? <> en <span className="font-mono">{f.videos}</span></> : null} · {f.known ? layoutText(f.layout) : "nieuwe bron, met dagmap"}
+                  {f.videos ? <> en <span className="font-mono">{f.videos}</span></> : null} · {f.known ? layoutText(f.layout) : "nieuwe bron, zonder dagmap"}
                 </span>
               </div>
               <div className="flex items-center gap-2">

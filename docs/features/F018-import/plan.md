@@ -56,10 +56,10 @@ keeps file names unique (two iPhones both make `IMG_0955.JPG`).
     remembers what it took, so it doesn't look through years each time;
   - a **card or device**: a mounted volume with `DCIM/`; copied, never erased; the app offers to
     eject it afterwards.
-- **One layout rule** for new sources: `<year>/<month>/<source>/<day>/<file>`. The two
-  deviations of this library (`EOSR` with `photos/` and `videos/`; the iPhone sources without
-  day folders) stay, for those sources only, as historical rules in the data contract, like the
-  `MM.<name>` folders before 2022. There are no layout settings.
+- **One layout rule** for new sources: `<year>/<month>/<source>/<file>`, without day folders
+  (since 2026-11-03, decision 5). The sources that have day folders (`Hero13`, `Max2`, …) and
+  `EOSR` with `photos/` and `videos/` keep their layout, as historical rules in the data contract,
+  like the `MM.<name>` folders before 2022. There are no layout settings.
 - **The source's name comes from the library.** For a card, the app looks in the index under
   which source the photos of that camera already are (`GoPro HERO13 Black` → `Hero13`) and
   proposes that; for a camera that is nowhere yet, a name from the model, to confirm or change.
@@ -138,8 +138,9 @@ Taken with Peter on 2026-10-30, while discussing this plan:
 3. **Emptying `_imported/`** after verification on the NAS is a setting per source, on or off.
 4. **`<year>/<month>/<source>/` stays**, because the source tells which way a photo came in and
    keeps names unique; the camera is metadata (F011) and never a folder.
-5. **New sources always get a day folder.** No layout settings; the existing deviations (`EOSR`
-   split, iPhone sources without day folders) are historical rules for those sources.
+5. **New sources have no day folder** (changed by Peter on 2026-11-03: all photos of one source
+   and one month in one folder; before, new sources got a day folder). No layout settings; the
+   sources with day folders and `EOSR`'s split keep their layout, as historical rules.
 6. **No shared file of sources.** A source's name comes from the library itself (which camera's
    photos are under which source), so it can't drift from what is on the NAS.
 

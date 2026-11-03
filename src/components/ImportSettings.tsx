@@ -99,7 +99,7 @@ export default function ImportSettings({ value, onChange, version }: Props) {
                   <span className="text-neutral-400 w-14">{f.kind === "drop" ? "submap" : f.kind === "synced" ? "sync" : "kaart"}</span>
                   <span className="font-mono truncate flex-1" title={f.path}>{f.kind === "card" ? `${folder}${f.camera ? ` · ${f.camera}` : ""}` : folder}</span>
                   <span className="text-neutral-500" title={f.known ? "zo staat deze bron in de bibliotheek" : "nieuw in de bibliotheek"}>
-                    {f.known ? layoutText(f.layout) : "nieuw, met dagmap"}
+                    {f.known ? layoutText(f.layout) : "nieuw, zonder dagmap"}
                   </span>
                 </div>
                 {f.kind === "drop" && (

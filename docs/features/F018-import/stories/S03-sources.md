@@ -81,3 +81,12 @@ folders, and cards or devices with `DCIM/`; each with a source name and its few 
   voor de foto's* and *Bron voor de video's*, with an example as placeholder, and a line below
   them (`syncedHint`) says what a source is and where the files go (`<jaar>/<maand>/<bron>/`), or
   which of the two is still missing. `pnpm test` 139 passed (1 new).
+
+### [2026-11-03] New sources without day folders
+
+- Peter: day folders make the folder tree too busy; all photos of one source and one month in one
+  folder. `sources::NEW` has no day folder; the sources that have day folders keep them (read from
+  the library, as before). Data contract 3.1 (1.4 addition) and decision 5 of the plan follow.
+- The name proposed for a card looked only among sources with day folders, to keep a phone's
+  stream out. Now first those, then the largest source no synced folder fills; a test for a new
+  flat source.

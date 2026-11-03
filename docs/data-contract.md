@@ -64,15 +64,15 @@ Each laptop has its own NAS user (`peter`, `lynn`) with read and write rights on
 ### 3.1 Path rules
 
 ```
-<year>/<month>/<source>/<day>/<file>                   standard
+<year>/<month>/<source>/<file>                         standard (from 1.4), and the iPhone sources
+<year>/<month>/<source>/<day>/<file>                   sources with day folders (historical)
 <year>/<month>/<source>/<photos|videos>/<day>/<file>   sources with split (EOSR)
-<year>/<month>/<source>/<file>                         iPhone sources (historical, no day folder)
 <year>/<subfolder>/.manifest.json                      manifest of that year subfolder
 ```
 
 - The folder directly below the year is called the **year subfolder**. From 2022 on it is always `<month>` = `MM`. Before 2022 the old layout exists: `MM.<name>` or `MM-DD.<name>` (for example `2012/07.Trouw`, `2007/04-07.Within Temptation`); the month is then the first two digits. Such folders are historical and read-only: nothing writes in them, nothing renames them, and below such a folder no source or day rules apply (`source` is `null` in the manifest). A year subfolder that matches neither form (for example `2012/scans Peter`, `2019/02.Ski.fcpbundle`) does get a manifest, with `month` `null`, and is on the clean-up list of phase 4.
 - `<year>` is `YYYY`, `<month>` is `MM`, `<day>` is `YYYY-MM-DD` and MUST fall within that month.
-- `<source>` matches `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`. Known sources: `EOSR` (split), `Hero13`, `Max2`, `Insta360-X5`, `flowtrack`, `DVD`, `extra`, and the iPhone sources `iPhone-photos`, `iPhone-videos`, `iPhone-photos-<Name>`, `iPhone-videos-<Name>`. A new source is simply a new name and gets day folders (`<source>/<day>/`). An existing source keeps the layout it has in the library: whether its files are under `photos/` and `videos/` (split) and whether under a day folder is read from where most of its files are (FamilyLightbox F018/S03); the CLI names its deviations (`split`, no day folder) in its own configuration.
+- `<source>` matches `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`. Known sources: `EOSR` (split), `Hero13`, `Max2`, `Insta360-X5`, `flowtrack`, `DVD`, `extra`, and the iPhone sources `iPhone-photos`, `iPhone-videos`, `iPhone-photos-<Name>`, `iPhone-videos-<Name>`. A new source is simply a new name and has no day folders: all its files of a month are in `<source>/` (from 1.4; before, a new source got day folders `<source>/<day>/`, and the sources that have them keep them). An existing source keeps the layout it has in the library: whether its files are under `photos/` and `videos/` (split) and whether under a day folder is read from where most of its files are (FamilyLightbox F018/S03); the CLI names its deviations (`split`, no day folder) in its own configuration.
 - Year and month come from the capture date (section 3.4), not from the import date.
 - File names stay as the device gave them. Nothing renames an original, except the conflict rule in 3.3.
 
@@ -382,6 +382,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 | Version | Date | What |
 |---|---|---|
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
+| 1.4 (addition) | 2026-11-03 | Section 3.1: a new source has no day folders; the sources with day folders keep them (FamilyLightbox F018, at Peter's request). |
 | 1.4 | 2026-10-31 | Section 2: the locations in `familylightbox.json` on the NAS (FamilyLightbox F019); without it, the four shares as before. |
 | 1.3 (addition) | 2026-10-30 | Section 3.5: `camera` without the make's company form or a trailing `DIGITAL CAMERA` (LibraryLocal F011/S03). Manifests with the long names stay valid and are rewritten. |
 | 1.3 | 2026-10-30 | Section 3.5: the field `camera`, make and model from the original's metadata, written by `media-manifest-nas.py` and the CLI (LibraryLocal F011); manifests of 1.2 stay valid and are rewritten with it. |

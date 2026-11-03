@@ -1,11 +1,12 @@
 //! Where new photos come from on this Mac (F018/S03): the subfolders of a drop folder, folders
 //! another app keeps in sync, and cards. No source names are in the code: a source's name and
-//! its layout come from the library itself (decision 6), and a new source gets day folders.
+//! its layout come from the library itself (decision 6), and a new source has no day folders
+//! (decision 5, since 2026-11-03).
 
 use crate::capture;
 use crate::config::Import;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -19,7 +20,7 @@ pub struct Layout {
 }
 
 /// What a source the library doesn't have yet gets.
-pub const NEW: Layout = Layout { split: false, day: true };
+pub const NEW: Layout = Layout { split: false, day: false };
 
 fn is_day(s: &str) -> bool {
     let b = s.as_bytes();
@@ -81,11 +82,14 @@ pub fn name_from_model(camera: &str) -> String {
 }
 
 /// The source to propose for a card's camera: where the library has most of that camera's files,
-/// among sources with day folders (as a card's are), else a name from the model.
-pub fn propose(camera: &str, sources: &[(String, i64)], layouts: &HashMap<String, Layout>) -> String {
+/// first among sources with day folders (as a card's were until 2026-11-03), then among the
+/// sources that no synced folder fills (`streams`, a phone's); else a name from the model.
+pub fn propose(camera: &str, sources: &[(String, i64)], layouts: &HashMap<String, Layout>, streams: &HashSet<String>) -> String {
+    let day = |s: &String| layouts.get(s).is_some_and(|l| l.day);
     sources
         .iter()
-        .find(|(s, _)| layouts.get(s).is_some_and(|l| l.day))
+        .find(|(s, _)| day(s))
+        .or_else(|| sources.iter().find(|(s, _)| !streams.contains(s)))
         .map(|(s, _)| s.clone())
         .unwrap_or_else(|| name_from_model(camera))
 }
@@ -157,7 +161,8 @@ pub fn discover(import: &Import, volumes: &Path, layouts: &HashMap<String, Layou
     cards.sort();
     for card in cards {
         let camera = card_camera(&card.join("DCIM"));
-        let name = camera.as_deref().map(|c| propose(c, &camera_sources(c), layouts)).unwrap_or_default();
+        let streams: HashSet<String> = import.synced.iter().flat_map(|s| [s.photos.clone(), s.videos.clone()]).collect();
+        let name = camera.as_deref().map(|c| propose(c, &camera_sources(c), layouts, &streams)).unwrap_or_default();
         let problem = if name.is_empty() { Some("geen camera herkend: kies een naam".into()) } else { source_name_problem(&name) };
         out.push(Found { kind: "card", path: card.display().to_string(), layout: layout(&name), known: layouts.contains_key(&name), name, videos: String::new(), camera, ignore: false, problem });
     }
@@ -234,9 +239,14 @@ mod tests {
         }
         let layouts = layouts(&[p("Hero13", "2026/08/Hero13/2026-08-03/a.MP4"), p("Phone", "2026/08/Phone/a.MP4")]);
         let sources = vec![("Phone".to_string(), 50), ("Hero13".to_string(), 10)];
+        let streams: HashSet<String> = ["Phone".to_string()].into();
         // a card goes where the camera's files with day folders are, not to a phone's stream
-        assert_eq!(propose("GoPro HERO13 Black", &sources, &layouts), "Hero13");
-        assert_eq!(propose("GoPro HERO13 Black", &sources[..1], &layouts), "GoPro-HERO13-Black");
+        assert_eq!(propose("GoPro HERO13 Black", &sources, &layouts, &streams), "Hero13");
+        assert_eq!(propose("GoPro HERO13 Black", &sources[..1], &layouts, &streams), "GoPro-HERO13-Black");
+        // a source without day folders (new since 2026-11-03), when no synced folder fills it
+        let flat = vec![("Phone".to_string(), 50), ("NewCam".to_string(), 10)];
+        assert_eq!(propose("Cam X", &flat, &layouts, &streams), "NewCam");
+        assert_eq!(propose("Cam X", &flat, &layouts, &HashSet::new()), "Phone");
     }
 
     #[test]

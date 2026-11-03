@@ -18,6 +18,6 @@ fn main() {
         println!("{:>6}  split={:<5} day={:<5} {s}", counts[s.as_str()], l.split, l.day);
     }
     for camera in &a[1..] {
-        println!("{camera} → {}", sources::propose(camera, &db.sources_of_camera(camera).unwrap(), &layouts));
+        println!("{camera} → {}", sources::propose(camera, &db.sources_of_camera(camera).unwrap(), &layouts, &Default::default()));
     }
 }
