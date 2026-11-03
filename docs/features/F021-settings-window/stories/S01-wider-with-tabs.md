@@ -54,3 +54,10 @@ From Peter: the settings are too narrow (scrolling sideways) and have become har
   tab. Long paths and share names break instead of widening the window; the share rows wrap.
 - `ImportSettings.tsx`: its heading left out, the tab names it.
 - `pnpm test` 138 passed (2 new), `tsc` and `vite build` clean.
+
+### [2026-11-03] *Importeren*: each source once
+
+- Peter: the synced folders at the top and the found sources below were confusing, as a synced
+  folder showed in both. Now each source shows once, with its settings: every drop folder with its
+  subfolders (the sources) inside it, every synced folder with its settings and any problem, and
+  *Kaarten* only when a card is in. `pnpm test` 146 passed, `tsc` and `vite build` clean.
