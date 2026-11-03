@@ -94,3 +94,12 @@ folder's new files onto the NAS, verified, with previews, and tidies up after it
   and while it is imported; at the top while a sync with the NAS runs, with *importeren kan
   daarna*, and *Importeren* disabled meanwhile. The footer's sync line has the spinner too.
 - `pnpm test` 140 passed (1 new), `tsc` and `vite build` clean.
+
+### [2026-11-03] The progress on the footer's *Importeren*
+
+- Peter: show the progress in the footer too, on the *Importeren* button, and tell users the
+  import view may be closed. While a plan is made or an import runs, *Importeren* turns blue with
+  the spinner, a short text (*plan Max2: 25%*, *importeren Hero13: naar de NAS 2/5*) and a small
+  bar; a click opens the import view (`importActivity` in `importplans.ts`). The import's line on
+  the left of the footer, which said the same, is gone; its result stays there. The import view
+  says it may be closed meanwhile. `pnpm test` 149 passed (3 new).

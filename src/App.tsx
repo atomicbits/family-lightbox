@@ -8,8 +8,9 @@ import Lightbox from "./components/Lightbox";
 import DeviceSetup from "./components/DeviceSetup";
 import FirstStart from "./components/FirstStart";
 import ImportView from "./components/ImportView";
-import { doneText, importLine, useImporter } from "./lib/importjob";
-import { usePlans } from "./lib/importplans";
+import { doneText, useImporter } from "./lib/importjob";
+import { importActivity, usePlans } from "./lib/importplans";
+import { Spinner } from "./components/Progress";
 import { firstStartSteps } from "./lib/firststart";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
@@ -80,6 +81,8 @@ export default function App() {
   const [showImport, setShowImport] = useState(false);
   const importer = useImporter(useCallback(() => {}, []));
   const planner = usePlans();
+  // a plan being made or an import running, on the footer's Importeren (F018/S05)
+  const activity = importActivity(planner.busy, importer.running, importer.progress, importer.planProgress);
   const nas = useNas();
   const sync = useSync();
   const index = useIndex();
@@ -997,9 +1000,6 @@ export default function App() {
             </button>
           )}
           <UpdateLine update={update} syncing={!!sync.state?.running} />
-          {importer.running && (
-            <button className="text-blue-600" onClick={() => setShowImport(true)}>{importLine(importer.running.name, importer.progress, importer.planProgress)}</button>
-          )}
           {!importer.running && importer.last && (
             <button className={importer.last.error || importer.last.failed ? "text-amber-600" : "text-neutral-500"} onClick={() => setShowImport(true)}>{doneText(importer.last)}</button>
           )}
@@ -1018,11 +1018,23 @@ export default function App() {
         {hasDevice && <NasIndicator nas={nas} onOpenSettings={() => setShowSettings(true)} />}
         {hasDevice && (
           <button
-            className="px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
-            title="nieuwe foto's binnenhalen"
+            className={"px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 " + (activity ? "text-blue-600" : "text-neutral-500")}
+            title={activity ? `${activity.text}: klik om het importscherm te openen` : "nieuwe foto's binnenhalen"}
             onClick={() => setShowImport(true)}
           >
-            ⇣ Importeren
+            {activity ? <Spinner /> : "⇣"} Importeren
+            {activity && (
+              <>
+                <span className="tabular-nums max-w-64 truncate">{activity.text}</span>
+                <span className="w-12 h-1 rounded bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+                  {activity.done === null ? (
+                    <span className="block h-full w-1/3 rounded bg-current animate-[slide_1.2s_ease-in-out_infinite_alternate]" />
+                  ) : (
+                    <span className="block h-full rounded bg-current transition-[width] duration-300" style={{ width: `${Math.max(4, activity.done * 100)}%` }} />
+                  )}
+                </span>
+              </>
+            )}
           </button>
         )}
         <button

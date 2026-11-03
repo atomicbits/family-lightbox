@@ -58,6 +58,7 @@ export default function ImportView({ importer, planner, sync, onClose, onOpenSet
         </div>
         <p className="text-xs text-neutral-500">
           Eerst een plan: welke bestanden nieuw zijn, waar ze komen, en wat de bibliotheek al heeft (op inhoud, onder welke naam ook). Er verandert nog niets.
+          Je mag dit scherm sluiten terwijl een plan of een import loopt: het werk gaat verder, de voortgang staat onderaan bij <span className="text-blue-600">Importeren</span>, en een klik daarop brengt je hier terug.
         </p>
         {errors[""] && <div className="text-red-600 text-xs">{errors[""]}</div>}
         {sync.state?.running && (
