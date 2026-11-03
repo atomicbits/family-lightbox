@@ -110,3 +110,10 @@ check by name and size, `Recents` left out, the first month, and recording what 
   `plan_synced` leaves out a video whose name, without extension, is that of a photo in the same
   folder, and counts it as `live_skipped`; the plan says *… Live Photo-clipjes overgeslagen*.
 - `cargo test` 196 passed (the plan's test extended), `pnpm test` 144 passed.
+
+### [2026-11-03] The plan's progress moves from the start
+
+- Peter: the plan stayed at *0 / 1 224 bestanden · 0,0 / 11,8 GB* for a long time. Before hashing,
+  `plan_synced` read every file's date, which makes Drive download it, without reporting progress.
+  Now it hashes first, reporting every file, and reads the dates afterwards from the files Drive
+  has downloaded by then.

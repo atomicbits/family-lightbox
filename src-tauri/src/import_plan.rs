@@ -425,23 +425,25 @@ pub fn plan_synced(
     out.read = to_read.len();
     let mut pr = Progress { files_total: to_read.len(), bytes_total: to_read.iter().map(|(p, _)| size_of(p)).sum(), ..Default::default() };
     progress(&pr);
-    let paths: Vec<PathBuf> = to_read.iter().map(|(p, _)| p.clone()).collect();
+    // hashing first, with progress: reading a file is what makes Drive download it, after which
+    // its date is read from the local copy at once
+    let mut hashed: Vec<(&PathBuf, &Option<String>, u64, String)> = Vec::new();
+    for (p, month) in &to_read {
+        let size = size_of(p);
+        match cache.hash(p) {
+            Ok(h) => hashed.push((p, month, size, h)),
+            Err(e) => out.problems.push(e),
+        }
+        pr.files_done += 1;
+        pr.bytes_done += size;
+        progress(&pr);
+    }
+    let paths: Vec<PathBuf> = hashed.iter().map(|(p, ..)| (*p).clone()).collect();
     let dates = capture::resolve_with(&paths, |p| capture::read(p).date);
     let by_hash: HashMap<&str, &str> = known.iter().map(|(p, h)| (h.as_str(), p.as_str())).collect();
     let mut seen: HashMap<String, String> = HashMap::new();
     let mut taken_targets: HashMap<String, String> = HashMap::new();
-    for (p, month) in &to_read {
-        let size = size_of(p);
-        let h = match cache.hash(p) {
-            Ok(h) => h,
-            Err(e) => {
-                out.problems.push(e);
-                continue;
-            }
-        };
-        pr.files_done += 1;
-        pr.bytes_done += size;
-        progress(&pr);
+    for (p, month, size, h) in hashed {
         let kind = capture::kind_of(p);
         let file = p.file_name().unwrap_or_default().to_string_lossy().into_owned();
         let (taken, how) = dates[p];
