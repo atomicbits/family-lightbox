@@ -14,7 +14,7 @@ import { Spinner } from "./components/Progress";
 import { firstStartSteps } from "./lib/firststart";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
-import { nasSummary, useNas } from "./lib/nas";
+import { nasSummary, shouldConnect, shouldSync, syncSettled, useNas } from "./lib/nas";
 import { useSync } from "./lib/sync";
 import SyncLine from "./components/SyncLine";
 import UpdateLine from "./components/UpdateLine";
@@ -131,28 +131,57 @@ export default function App() {
   useEffect(() => {
     if (!hasDevice) return;
     lastRefresh.current = Date.now();
-    // Then sync from the NAS in the background, once Library is connected (F007/S05).
-    nas.start().then((m) => {
+    nas.start().then(() => {
       // the shares may have connected just now: lists, stars and hearts from the NAS, changeable
       lists.refresh();
-      if (m?.library.some((x) => x.chosen)) sync.start("all", false, true).catch(() => {});
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice]);
 
-  // Back in the app: look again (at most every 30 s), so a share ejected in the Finder shows up.
+  // The sync from the NAS (F007/S05) as soon as Library is connected, until one finished well:
+  // at start, after a quiet reconnect, after Verbinden (F006/S08).
+  const [syncedWell, setSyncedWell] = useState(false);
+  const launchSync = useRef(true);
+  // a failed sync is tried again only with other mounts (a reconnect), never in a loop
+  const triedWith = useRef<typeof nas.mounts>(null);
+  useEffect(() => {
+    if (sync.state && syncSettled(sync.state)) setSyncedWell(true);
+  }, [sync.state]);
+  useEffect(() => {
+    if (!hasDevice || !shouldSync(nas.mounts, syncedWell, !!sync.state?.running) || triedWith.current === nas.mounts) return;
+    triedWith.current = nas.mounts;
+    // the first is the sync at start; a later one is a quiet one with the same scope (F007/S07)
+    const atLaunch = launchSync.current;
+    launchSync.current = false;
+    sync.start("all", false, atLaunch).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDevice, nas.mounts, syncedWell]);
+  // a share that came back after Verbinden or a reconnect: the lists from the NAS again
+  const libraryUp = !!nas.mounts?.library.some((m) => m.chosen);
+  useEffect(() => { if (hasDevice && libraryUp) lists.refresh(); }, [hasDevice, libraryUp]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Back in the app (at most every 30 s), when the network comes back, and every minute while a
+  // share is missing: connect quietly, as after the Mac slept (F006/S08); otherwise look again,
+  // so a share ejected in the Finder shows up.
   useEffect(() => {
     if (!hasDevice) return;
-    const onFocus = () => {
-      if (Date.now() - lastRefresh.current < 30_000) return;
+    const again = (force: boolean) => {
+      if (!force && Date.now() - lastRefresh.current < 30_000) return;
       lastRefresh.current = Date.now();
-      nas.refresh();
+      if (shouldConnect(nas.mounts, nas.busy)) nas.start();
+      else nas.refresh();
+    };
+    const onFocus = () => {
+      again(false);
       // Peter may have imported or pushed with the CLI meanwhile (F008/S02)
       index.rebuild({ visible: false, onlyIfStale: true }).catch(() => {});
     };
+    const onOnline = () => again(true);
+    const timer = setInterval(() => { if (shouldConnect(nas.mounts, nas.busy)) again(true); }, 60_000);
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [hasDevice, nas.refresh, index.rebuild]);
+    window.addEventListener("online", onOnline);
+    return () => { clearInterval(timer); window.removeEventListener("focus", onFocus); window.removeEventListener("online", onOnline); };
+  }, [hasDevice, nas.mounts, nas.busy, nas.start, nas.refresh, index.rebuild]);
 
   const [waitingForIndex, setWaitingForIndex] = useState(false);
   // Bumped on every reload after a rebuild, so answers to older requests are dropped.

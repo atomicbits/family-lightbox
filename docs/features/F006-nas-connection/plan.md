@@ -92,6 +92,7 @@ registered device to write as. Without the NAS the app keeps working on what is 
 | [S05](stories/S05-connection-indicator.md) | Connection indicator and *Verbinden* in the UI | Done on Peter's Mac; Lynn's Mac deferred | S03, S04 |
 | [S06](stories/S06-nas-first-then-who.md) | First start without built-in names: the NAS first (signing in with your own account), then who you are, proposed from the NAS | Built; to check on Lynn's Mac | S01–S04 |
 | [S07](stories/S07-choose-the-local-folder.md) | Choosing the local folder at first start (working copy, previews, copy of `Lists`), with a proposal | Built; to check on Lynn's Mac | S06 |
+| [S08](stories/S08-staying-connected.md) | Staying connected: reconnecting quietly after sleep or a network change, and syncing once the NAS is there | In progress: built, to check on Lynn's Mac | S03, S05 |
 
 ## Contract changes
 

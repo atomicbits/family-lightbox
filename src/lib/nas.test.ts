@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Access, Attempt, Mount, NasCheck, NasMounts } from "./api";
-import { layoutSourceText, locationText, nasSummary } from "./nas";
+import { layoutSourceText, locationText, nasSummary, shouldConnect, shouldSync, syncSettled } from "./nas";
 
 const m: Mount = { mount_point: "/Volumes/X", fs_type: "smbfs", server: "raven", user: "lynn", chosen: true };
 const all: NasMounts = { library: [m], previews: [m], lists: [m], exports: [m] };
@@ -56,5 +56,27 @@ describe("the layout in the settings (F019/S03)", () => {
     expect(layoutSourceText(null)).toBe("nog niet gelezen");
     expect(locationText({ share: "Photos", path: "Library" })).toBe("Photos / Library");
     expect(locationText({ share: "Lists", path: "" })).toBe("Lists");
+  });
+});
+
+describe("staying connected (F006/S08)", () => {
+  const share = (chosen: boolean) => [{ mount_point: "/Volumes/Photos", server: "raven", user: "lynn", fs_type: "smbfs", chosen }];
+  const up = { host: "raven", library: share(true), previews: share(true), lists: share(true), exports: share(true) };
+  const down = { host: "raven", library: [], previews: [], lists: [], exports: [] };
+  it("connects quietly only while a share is missing", () => {
+    expect(shouldConnect(null, false)).toBe(false);
+    expect(shouldConnect(down, false)).toBe(true);
+    expect(shouldConnect(down, true)).toBe(false);
+    expect(shouldConnect(up, false)).toBe(false);
+  });
+  it("syncs when Library is there and no sync settled it", () => {
+    expect(shouldSync(up, false, false)).toBe(true);
+    expect(shouldSync(up, true, false)).toBe(false);
+    expect(shouldSync(up, false, true)).toBe(false);
+    expect(shouldSync(down, false, false)).toBe(false);
+  });
+  it("is settled by done, the confirmation or a cancel, not by a failure", () => {
+    expect(["done", "awaiting_confirmation", "cancelled", "failed"].map((phase) => syncSettled({ running: false, phase }))).toEqual([true, true, true, false]);
+    expect(syncSettled({ running: true, phase: "done" })).toBe(false);
   });
 });

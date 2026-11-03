@@ -132,3 +132,21 @@ export function layoutSourceText(source: LayoutSource | null): string {
 export function locationText(l: Location): string {
   return l.path ? `${l.share} / ${l.path}` : l.share;
 }
+
+/** Whether to connect quietly now (F006/S08): only while a share is missing, and not while a
+ * connect runs; never before the mounts were looked up once. */
+export function shouldConnect(mounts: NasMounts | null, busy: boolean): boolean {
+  return mounts !== null && !busy && anyMissing(mounts);
+}
+
+/** Whether to start the sync now (F006/S08): `Library` connected, no sync finished well since the
+ * app started, and none running. */
+export function shouldSync(mounts: NasMounts | null, syncedWell: boolean, running: boolean): boolean {
+  return !!mounts?.library.some((m) => m.chosen) && !syncedWell && !running;
+}
+
+/** Whether a sync that ended settles it until the next start: done, waiting for the
+ * confirmation, or cancelled by hand; a failure doesn't (F006/S08). */
+export function syncSettled(s: { running: boolean; phase: string }): boolean {
+  return !s.running && ["done", "awaiting_confirmation", "cancelled"].includes(s.phase);
+}

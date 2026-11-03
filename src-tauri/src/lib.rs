@@ -806,7 +806,8 @@ fn sync_jobs(paths: &Paths, scope: runner::Scope) -> runner::Jobs {
 /// Start a sync in the background: `kind` is "all" (manifests, then previews) or "previews"
 /// (after the confirmation dialog). Progress arrives as `sync-progress`, the end as `sync-done`.
 /// `at_launch` is the window's own sync at start: only once per process, so reloading the window
-/// (⌘R, or the dev server) doesn't sync again and interrupt the previews being made.
+/// (⌘R, or the dev server) doesn't sync again and interrupt the previews being made; `Some(false)`
+/// is the window's quiet sync after a reconnect (F006/S08).
 #[tauri::command]
 fn sync_start(
     kind: String,
@@ -837,7 +838,8 @@ fn sync_start(
     // the sync at start counts the previews only where something can be new, and every year once a
     // week; Synchroniseren in the settings always every year (F007/S07)
     let last_full = config::load_state(&paths.config).previews_full_at;
-    let scope = if at_launch == Some(true) && !runner::full_due(last_full.as_deref(), chrono::Local::now().fixed_offset()) {
+    // `at_launch: Some(false)` is a quiet later sync, after a reconnect (F006/S08): the same scope
+    let scope = if at_launch.is_some() && !runner::full_due(last_full.as_deref(), chrono::Local::now().fixed_offset()) {
         runner::Scope::WhereNew { index: paths.index(), record: paths.config.join(previews_plan::RECORD_FILE) }
     } else {
         runner::Scope::Full
