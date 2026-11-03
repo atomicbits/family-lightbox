@@ -103,3 +103,16 @@ folder's new files onto the NAS, verified, with previews, and tidies up after it
   bar; a click opens the import view (`importActivity` in `importplans.ts`). The import's line on
   the left of the footer, which said the same, is gone; its result stays there. The import view
   says it may be closed meanwhile. `pnpm test` 149 passed (3 new).
+
+### [2026-11-03] The NAS step's own progress
+
+- Peter, during Lynn's import (1 223 files, 11.8 GB): the NAS step showed no progress; the bar
+  stayed on the staging's 1 223/1 223. It reported once per month, after the whole month was
+  copied and verified. Now it reports at once (*naar de NAS 0/1 223*), then per file of the job
+  with the bytes (`push::push_folder_with`), and the bar follows the bytes.
+- The filter's cameras and sources sometimes failed with *database is locked* while previews
+  were marked in the index: a reader now waits up to 15 s instead of 3 s.
+- `cargo test` 198 passed (the synced import's test checks the NAS step's progress), `pnpm test`
+  150 passed (1 new).
+- Lynn's import, checked on the NAS: 2026/08 738, 2026/09 437, 2026/10 496 files of hers, each in
+  its month's manifest, none missing, all with previews on the NAS and in the index, and locally.

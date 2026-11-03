@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { count } from "./sync";
+import { count, gb } from "./sync";
 import type { PlanProgress } from "./importplan";
 
 export type Step = "stage" | "nas" | "local" | "source" | "done";
-export type JobProgress = { step: string; done: number; total: number };
+export type JobProgress = { step: string; done: number; total: number; bytes_done?: number; bytes_total?: number };
 export type ImportDone = { id: string; name: string; step: Step; copied: number; duplicates: number; failed: number; problems: string[]; error: string | null };
 export type PendingJob = { id: string; name: string; source: string; step: Step; created: string };
 
@@ -21,6 +21,7 @@ const STEP: Record<string, string> = {
 
 /** "Hero13: naar de NAS 2/5", or the planning while it reads the files. */
 export function importLine(name: string, p: JobProgress | null, plan: PlanProgress | null): string {
+  if (p?.bytes_total) return `importeren ${name}: ${STEP[p.step] ?? p.step} ${count(p.done)}/${count(p.total)} · ${gb(p.bytes_done ?? 0)}/${gb(p.bytes_total)} GB`;
   if (p) return `importeren ${name}: ${STEP[p.step] ?? p.step} ${count(p.done)}/${count(p.total)}`;
   if (plan) return `importeren ${name}: bestanden lezen ${count(plan.files_done)}/${count(plan.files_total)}`;
   return `importeren ${name}…`;

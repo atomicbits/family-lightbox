@@ -104,6 +104,12 @@ pub struct Pushed {
 /// copy, read back, verify, merge with the NAS's manifest, write it on the share and under
 /// `local`. The share's manifest is written only after every copy has been tried.
 pub fn push_folder(local: &Path, share: &Path, local_manifest: &Value) -> Result<Pushed, String> {
+    push_folder_with(local, share, local_manifest, &mut |_, _| {})
+}
+
+/// As `push_folder`, telling `copied` the path and size of every original or sidecar it handled,
+/// for the import's progress (F018/S05).
+pub fn push_folder_with(local: &Path, share: &Path, local_manifest: &Value, copied: &mut dyn FnMut(&str, u64)) -> Result<Pushed, String> {
     let folder = local_manifest["folder"].as_str().ok_or("manifest without folder")?;
     let mut out = Pushed::default();
     for row in local_manifest["files"].as_array().into_iter().flatten() {
@@ -117,6 +123,7 @@ pub fn push_folder(local: &Path, share: &Path, local_manifest: &Value) -> Result
                 Ok(Copied::Conflict) => {}
                 Err(e) => out.failed.push(e),
             }
+            copied(p, fs::metadata(local.join(p)).map(|m| m.len()).unwrap_or(0));
         }
     }
     let sizes = manifest::sizes(share, folder);

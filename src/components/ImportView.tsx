@@ -130,8 +130,8 @@ export default function ImportView({ importer, planner, sync, onClose, onOpenSet
               {importer.running?.path === f.path && (
                 <Progress
                   text={importLine(importer.running.name, importer.progress, importer.planProgress)}
-                  done={importer.progress?.done ?? importer.planProgress?.bytes_done}
-                  total={importer.progress?.total ?? importer.planProgress?.bytes_total}
+                  done={importer.progress ? (importer.progress.bytes_total ? importer.progress.bytes_done : importer.progress.done) : importer.planProgress?.bytes_done}
+                  total={importer.progress ? (importer.progress.bytes_total || importer.progress.total) : importer.planProgress?.bytes_total}
                 />
               )}
               {notes[f.path] && !progress && <div className="text-xs text-amber-600">{notes[f.path]}</div>}

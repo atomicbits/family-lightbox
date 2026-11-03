@@ -49,7 +49,9 @@ export function importActivity(
   planProgress: PlanProgress | null,
 ): { text: string; done: number | null } | null {
   if (running) {
-    const done = progress ? fraction(progress.done, progress.total) : planProgress ? fraction(planProgress.bytes_done, planProgress.bytes_total) : null;
+    const done = progress
+      ? progress.bytes_total ? fraction(progress.bytes_done, progress.bytes_total) : fraction(progress.done, progress.total)
+      : planProgress ? fraction(planProgress.bytes_done, planProgress.bytes_total) : null;
     return { text: importLine(running.name, progress, planProgress), done };
   }
   const paths = Object.keys(busy);

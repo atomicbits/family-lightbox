@@ -194,8 +194,9 @@ impl Db {
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
         .map_err(|e| format!("index openen mislukt: {e}"))?;
-        // the app may be replacing the index at this moment (the rename is atomic)
-        conn.busy_timeout(Duration::from_secs(3)).map_err(|e| e.to_string())?;
+        // the app may be replacing the index at this moment (the rename is atomic), or marking the
+        // previews it just made, which waits for long reads and holds new ones meanwhile
+        conn.busy_timeout(Duration::from_secs(15)).map_err(|e| e.to_string())?;
         let table = |name: &str| -> Result<bool, String> {
             conn.query_row("SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?1", [name], |r| r.get::<_, i64>(0))
                 .map(|n| n > 0)

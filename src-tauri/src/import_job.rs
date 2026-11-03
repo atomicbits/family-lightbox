@@ -151,6 +151,9 @@ pub struct Progress {
     pub step: String,
     pub done: usize,
     pub total: usize,
+    /// For the NAS step, which copies gigabytes; 0 otherwise.
+    pub bytes_done: u64,
+    pub bytes_total: u64,
 }
 
 /// Copies `from` to `to` through a temporary name, keeping its modification time. Only the
@@ -277,7 +280,7 @@ fn stage(job: &mut Job, staging: &Path, progress: &mut dyn FnMut(&Progress)) -> 
             }
         }
         done += 1;
-        progress(&Progress { step: "stage".into(), done, total });
+        progress(&Progress { step: "stage".into(), done, total, ..Default::default() });
     }
     Ok(())
 }
@@ -290,8 +293,12 @@ fn folders(job: &Job, state: FileState) -> BTreeSet<String> {
 fn nas(job: &mut Job, staging: &Path, env: &Env, progress: &mut dyn FnMut(&Progress)) -> Result<(), String> {
     let share = env.share.ok_or("de NAS is niet verbonden: de import gaat verder zodra hij dat is")?;
     let months = folders(job, FileState::Staged);
-    let total = months.len();
-    for (n, folder) in months.iter().enumerate() {
+    // the progress per file and in bytes: a month of a phone is gigabytes (F018/S05)
+    let staged: Vec<&JobFile> = job.files.iter().filter(|f| f.state == FileState::Staged).collect();
+    let (total, bytes_total) = (staged.len(), staged.iter().map(|f| f.size).sum::<u64>());
+    let (mut done, mut bytes_done) = (0usize, 0u64);
+    progress(&Progress { step: "nas".into(), done, total, bytes_done, bytes_total });
+    for folder in months.iter() {
         // the hashes known already, so building the manifest reads no file twice
         let rows: Vec<Value> = job
             .files
@@ -304,7 +311,15 @@ fn nas(job: &mut Job, staging: &Path, env: &Env, progress: &mut dyn FnMut(&Progr
             .collect();
         let existing = json!({ "files": rows });
         let m = manifest::build(staging, folder, env.device, Some(&existing))?;
-        let out = push::push_folder(staging, share, &m)?;
+        let originals: HashSet<String> = job.files.iter().filter(|f| f.state == FileState::Staged).map(|f| f.target.clone()).collect();
+        let out = push::push_folder_with(staging, share, &m, &mut |path, size| {
+            // a sidecar in the manifest that this job didn't bring counts in neither
+            if originals.contains(path) {
+                done += 1;
+                bytes_done += size;
+                progress(&Progress { step: "nas".into(), done, total, bytes_done, bytes_total });
+            }
+        })?;
         // verified: a row that isn't missing or in conflict, and its sidecars that aren't missing
         let bad: HashSet<&str> = out.missing.iter().chain(&out.conflicts).map(String::as_str).collect();
         let mut ok: HashSet<&str> = HashSet::new();
@@ -319,7 +334,7 @@ fn nas(job: &mut Job, staging: &Path, env: &Env, progress: &mut dyn FnMut(&Progr
         for p in out.missing.iter().chain(&out.conflicts).chain(&out.failed) {
             job.problems.push(format!("NAS: {p}"));
         }
-        progress(&Progress { step: "nas".into(), done: n + 1, total });
+
     }
     // what didn't reach the NAS stays in the source
     for f in job.files.iter_mut().filter(|f| f.state == FileState::Staged) {
@@ -362,7 +377,7 @@ fn record_taken(job: &mut Job, env: &Env, progress: &mut dyn FnMut(&Progress)) -
             Ok(()) => f.state = FileState::Done,
             Err(e) => job.problems.push(e),
         }
-        progress(&Progress { step: "taken".into(), done: i + 1, total });
+        progress(&Progress { step: "taken".into(), done: i + 1, total, ..Default::default() });
     }
     Ok(())
 }
@@ -384,7 +399,7 @@ fn source(job: &mut Job, progress: &mut dyn FnMut(&Progress)) {
             Ok(()) => f.state = FileState::Done,
             Err(e) => job.problems.push(format!("{}: {e}", f.src)),
         }
-        progress(&Progress { step: "source".into(), done: i + 1, total });
+        progress(&Progress { step: "source".into(), done: i + 1, total, ..Default::default() });
     }
     prune(Path::new(&job.source));
 }
@@ -540,9 +555,17 @@ mod tests {
         assert!(j.synced);
         let env = Env { taken: Some(&taken), ..env(&f, true) };
         let mut steps = Vec::new();
-        run(&mut j, &env, &mut |pr| steps.push(pr.step.clone()), None).unwrap();
+        let mut nas = Vec::new();
+        run(&mut j, &env, &mut |pr| {
+            steps.push(pr.step.clone());
+            if pr.step == "nas" {
+                nas.push((pr.done, pr.total, pr.bytes_done > 0, pr.bytes_done == pr.bytes_total));
+            }
+        }, None).unwrap();
         assert!(j.problems.is_empty(), "{:?}", j.problems);
         assert_eq!(j.count(FileState::Done), 2);
+        // the NAS step shows at once, then every file, in bytes too
+        assert_eq!(nas, [(0, 2, false, false), (1, 2, true, false), (2, 2, true, true)]);
         assert!(f.share.join("2026/08/Phone-photos/IMG_1.JPG").is_file());
         assert!(f.share.join("2026/08/Phone-videos/IMG_1.MOV").is_file());
         // the synced folder is as it was: nothing moved, no _imported
