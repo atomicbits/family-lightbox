@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_IMPORT, baseName, layoutText, patterns, withSource, syncedHint } from "./sources";
+import { NO_IMPORT, baseName, layoutText, patterns, withSource, syncedHint, dayChoice, dayFromChoice } from "./sources";
 
 describe("import sources (F018/S03)", () => {
   it("says how a source is laid out", () => {
@@ -25,5 +25,17 @@ describe("the hint under a synced folder", () => {
     expect(syncedHint("", "Phone-videos")).toContain("Geef ook de bron voor de foto's");
     expect(syncedHint("Phone", "Phone")).toBe("Foto's en video's komen samen in <jaar>/<maand>/Phone/.");
     expect(syncedHint("Phone-photos", "Phone-videos")).toBe("Foto's komen in <jaar>/<maand>/Phone-photos/, video's in <jaar>/<maand>/Phone-videos/.");
+  });
+});
+
+describe("a source's day folders (S03)", () => {
+  it("are chosen as the last import, on or off", () => {
+    expect([dayChoice(undefined), dayChoice(null), dayChoice(true), dayChoice(false)]).toEqual(["last", "last", "day", "flat"]);
+    expect(["last", "day", "flat"].map(dayFromChoice)).toEqual([null, true, false]);
+  });
+  it("leave a source without settings when back to the last import", () => {
+    const imp = withSource(NO_IMPORT, "Hero13", { day: false });
+    expect(imp.sources.Hero13.day).toBe(false);
+    expect(withSource(imp, "Hero13", { day: null }).sources.Hero13).toBeUndefined();
   });
 });

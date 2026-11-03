@@ -2,7 +2,7 @@
 import type { Import, Layout, SourceSettings } from "./api";
 
 export const NO_IMPORT: Import = { drop_folders: [], synced: [], sources: {} };
-const NO_SOURCE: SourceSettings = { name: "", exclude: [], ignore: false, delete_imported: false };
+const NO_SOURCE: SourceSettings = { name: "", exclude: [], ignore: false, delete_imported: false, day: null };
 
 /** "met dagmap", "foto's en video's apart, met dagmap", "zonder dagmap". */
 export function layoutText(l: Layout): string {
@@ -38,3 +38,7 @@ export function syncedHint(photos: string, videos: string): string {
   if (photos.trim() === videos.trim()) return `Foto's en video's komen samen in ${at(photos)}.`;
   return `Foto's komen in ${at(photos)}, video's in ${at(videos)}.`;
 }
+
+/** The day-folder choice of a source's settings, for its menu: "last", "day" or "flat". */
+export const dayChoice = (day: boolean | null | undefined): "last" | "day" | "flat" => (day == null ? "last" : day ? "day" : "flat");
+export const dayFromChoice = (c: string): boolean | null => (c === "day" ? true : c === "flat" ? false : null);

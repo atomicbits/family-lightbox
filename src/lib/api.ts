@@ -60,7 +60,8 @@ export type Shares = { library: string; previews: string; lists: string; exports
 /** The local folders (F006/S07); empty strings until chosen or adopted. */
 export type Local = { library: string; previews: string; lists: string };
 /** Where new photos come from on this Mac (F018/S03). */
-export type SourceSettings = { name: string; exclude: string[]; ignore: boolean; delete_imported: boolean };
+/** `day`: day folders for the next imports; null or missing: as the source's last import (F018/S03). */
+export type SourceSettings = { name: string; exclude: string[]; ignore: boolean; delete_imported: boolean; day?: boolean | null };
 export type Synced = { path: string; photos: string; videos: string; from?: string; skip_live?: boolean };
 export type Import = { drop_folders: string[]; synced: Synced[]; sources: Record<string, SourceSettings> };
 export type Layout = { split: boolean; day: boolean };

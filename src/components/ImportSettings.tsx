@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { config, type Found, type Import } from "../lib/api";
-import { NO_IMPORT, baseName, layoutText, patterns, syncedHint, withSource } from "../lib/sources";
+import { NO_IMPORT, baseName, dayChoice, dayFromChoice, layoutText, patterns, syncedHint, withSource } from "../lib/sources";
 
 type Props = {
   value: Import | undefined;
@@ -110,6 +110,16 @@ export default function ImportSettings({ value, onChange, version }: Props) {
                   <div className="flex items-center gap-2 pl-16 flex-wrap">
                     <span className="text-neutral-500">bron</span>
                     <input className={`${small} font-mono w-36`} value={set?.name ?? ""} placeholder={folder} onChange={(e) => onChange(withSource(imp, folder, { name: e.target.value.trim() }))} />
+                    <select
+                      className={small}
+                      value={dayChoice(set?.day)}
+                      title="waar de volgende imports komen; wat al in de bibliotheek staat blijft zoals het is"
+                      onChange={(e) => onChange(withSource(imp, folder, { day: dayFromChoice(e.target.value) }))}
+                    >
+                      <option value="last">dagmap zoals de laatste import</option>
+                      <option value="day">met dagmap</option>
+                      <option value="flat">zonder dagmap</option>
+                    </select>
                     <label className="flex items-center gap-1"><input type="checkbox" checked={set?.ignore ?? false} onChange={(e) => onChange(withSource(imp, folder, { ignore: e.target.checked }))} />negeren</label>
                     <label className="flex items-center gap-1" title="na een import die op de NAS nagekeken is"><input type="checkbox" checked={set?.delete_imported ?? false} onChange={(e) => onChange(withSource(imp, folder, { delete_imported: e.target.checked }))} />_imported leegmaken</label>
                     <input className={`${small} font-mono flex-1 min-w-24`} defaultValue={(set?.exclude ?? []).join(", ")} placeholder="uitsluiten, bv. *-mask.png" onBlur={(e) => onChange(withSource(imp, folder, { exclude: patterns(e.target.value) }))} />

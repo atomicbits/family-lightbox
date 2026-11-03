@@ -139,8 +139,10 @@ Taken with Peter on 2026-10-30, while discussing this plan:
 4. **`<year>/<month>/<source>/` stays**, because the source tells which way a photo came in and
    keeps names unique; the camera is metadata (F011) and never a folder.
 5. **New sources have no day folder** (changed by Peter on 2026-11-03: all photos of one source
-   and one month in one folder; before, new sources got a day folder). No layout settings; the
-   sources with day folders and `EOSR`'s split keep their layout, as historical rules.
+   and one month in one folder; before, new sources got a day folder). A source goes on as its
+   last import did (its most recent month in the library), and its settings on this Mac can
+   choose with or without day folders for the next imports; what is in the library stays as it
+   is, so one source can have both. `EOSR`'s split stays.
 6. **No shared file of sources.** A source's name comes from the library itself (which camera's
    photos are under which source), so it can't drift from what is on the NAS.
 

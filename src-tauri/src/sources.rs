@@ -27,27 +27,42 @@ fn is_day(s: &str) -> bool {
     b.len() == 10 && b[4] == b'-' && b[7] == b'-' && b.iter().enumerate().all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit())
 }
 
-/// The layout of each source, by what most of its files do; `paths` are `(source, path)`.
+/// The layout of each source, by what most of its files do in its most recent month, so that a
+/// source whose imports changed layout (day folders until 2026-11, none since) goes on as its last
+/// import did; `paths` are `(source, path)`.
 pub fn layouts(paths: &[(String, String)]) -> HashMap<String, Layout> {
-    let mut count: HashMap<&str, (usize, usize, usize)> = HashMap::new();
+    // per source: its latest month, and in it the files, the split ones and those in a day folder
+    let mut count: HashMap<&str, (&str, usize, usize, usize)> = HashMap::new();
     for (source, path) in paths {
         let parts: Vec<&str> = path.split('/').collect();
         // <year>/<month>/<source>/…/<file>
         if parts.len() < 4 || parts[2] != source {
             continue;
         }
+        let month = &path[..parts[0].len() + 1 + parts[1].len()];
         let mut middle = &parts[3..parts.len() - 1];
         let split = matches!(middle.first(), Some(&"photos") | Some(&"videos"));
         if split {
             middle = &middle[1..];
         }
         let day = middle.first().is_some_and(|d| is_day(d));
-        let c = count.entry(source).or_default();
-        c.0 += 1;
-        c.1 += split as usize;
-        c.2 += day as usize;
+        let c = count.entry(source).or_insert((month, 0, 0, 0));
+        if month > c.0 {
+            *c = (month, 0, 0, 0);
+        } else if month < c.0 {
+            continue;
+        }
+        c.1 += 1;
+        c.2 += split as usize;
+        c.3 += day as usize;
     }
-    count.into_iter().map(|(s, (n, split, day))| (s.to_string(), Layout { split: split * 2 > n, day: day * 2 > n })).collect()
+    count.into_iter().map(|(s, (_, n, split, day))| (s.to_string(), Layout { split: split * 2 > n, day: day * 2 > n })).collect()
+}
+
+/// The day folder a source's settings ask for, by the source's name in the library; `None`: as
+/// its last import (F018/S03).
+pub fn day_setting(import: &Import, name: &str) -> Option<bool> {
+    import.sources.iter().find(|(folder, set)| (if set.name.is_empty() { folder.as_str() } else { set.name.as_str() }) == name).and_then(|(_, set)| set.day)
 }
 
 /// `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$` (data contract 3.1); none when fine.
@@ -120,7 +135,13 @@ pub const IMPORTED: &str = "_imported";
 /// and the cards mounted under `volumes` (a folder with `DCIM`). `camera_sources` gives, for a
 /// camera, the sources it is under in the library.
 pub fn discover(import: &Import, volumes: &Path, layouts: &HashMap<String, Layout>, camera_sources: &dyn Fn(&str) -> Vec<(String, i64)>) -> Vec<Found> {
-    let layout = |name: &str| layouts.get(name).copied().unwrap_or(NEW);
+    let layout = |name: &str| {
+        let mut l = layouts.get(name).copied().unwrap_or(NEW);
+        if let Some(day) = day_setting(import, name) {
+            l.day = day;
+        }
+        l
+    };
     let mut out = Vec::new();
     for folder in &import.drop_folders {
         let Ok(rd) = fs::read_dir(folder) else {
@@ -230,6 +251,23 @@ mod tests {
     }
 
     #[test]
+    fn the_layout_follows_the_last_import() {
+        // day folders for years, none in the latest month: the next import goes on without
+        let paths = [
+            p("Cam", "2025/03/Cam/2025-03-01/a.MP4"),
+            p("Cam", "2025/03/Cam/2025-03-02/b.MP4"),
+            p("Cam", "2026/10/Cam/c.MP4"),
+            p("Cam", "2026/09/Cam/2026-09-01/d.MP4"),
+        ];
+        assert_eq!(layouts(&paths)["Cam"], Layout { split: false, day: false });
+        // and a setting decides for the next import, by the source's name in the library
+        let mut import = Import::default();
+        import.sources.insert("Hero13".into(), SourceSettings { day: Some(false), ..Default::default() });
+        import.sources.insert("folder".into(), SourceSettings { name: "Cam".into(), day: Some(true), ..Default::default() });
+        assert_eq!((day_setting(&import, "Hero13"), day_setting(&import, "Cam"), day_setting(&import, "folder")), (Some(false), Some(true), None));
+    }
+
+    #[test]
     fn names_and_proposals() {
         assert_eq!(name_from_model("GoPro HERO13 Black"), "GoPro-HERO13-Black");
         assert_eq!(name_from_model("  Insta360 X5 (2) "), "Insta360-X5-2");
@@ -267,13 +305,15 @@ mod tests {
         let mut import = Import { drop_folders: vec![drop.display().to_string(), d.path().join("gone").display().to_string()], ..Default::default() };
         import.synced.push(Synced { path: synced.display().to_string(), photos: "Phone-photos".into(), videos: "Phone-videos".into(), from: String::new(), skip_live: false });
         import.sources.insert("camping".into(), SourceSettings { name: "camping-2026".into(), ignore: true, ..Default::default() });
+        import.sources.insert("Hero13".into(), SourceSettings { day: Some(false), ..Default::default() });
         let layouts = layouts(&[p("Hero13", "2026/08/Hero13/2026-08-03/a.MP4"), p("Phone-photos", "2026/08/Phone-photos/a.HEIC")]);
         let found = discover(&import, &volumes, &layouts, &|c| if c == "GoPro HERO13 Black" { vec![("Hero13".into(), 81)] } else { vec![] });
 
         let names: Vec<(&str, &str)> = found.iter().map(|f| (f.kind, f.name.as_str())).collect();
         assert_eq!(names, [("drop", "Downloads 2026"), ("drop", "Hero13"), ("drop", "camping-2026"), ("drop", ""), ("synced", "Phone-photos"), ("card", "Hero13")]);
         assert!(found[0].problem.is_some(), "a space isn't allowed in a source name");
-        assert_eq!((found[1].known, found[1].layout), (true, Layout { split: false, day: true }));
+        // Hero13 has day folders in the library, its setting says none from now on
+        assert_eq!((found[1].known, found[1].layout), (true, Layout { split: false, day: false }));
         assert!(found[2].ignore && !found[2].known && found[2].layout == NEW);
         assert_eq!(found[3].problem.as_deref(), Some("map niet gevonden"));
         assert_eq!((found[4].videos.as_str(), found[4].layout.day), ("Phone-videos", false));

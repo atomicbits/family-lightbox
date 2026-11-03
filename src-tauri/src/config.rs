@@ -87,6 +87,10 @@ pub struct SourceSettings {
     pub ignore: bool,
     /// After an import verified on the NAS, delete from `_imported/` (off by default).
     pub delete_imported: bool,
+    /// Day folders for the next imports: on, off, or `None` as the source's last import
+    /// (F018/S03, since 2026-11-03).
+    #[serde(default)]
+    pub day: Option<bool>,
 }
 
 impl Settings {

@@ -90,3 +90,16 @@ folders, and cards or devices with `DCIM/`; each with a source name and its few 
 - The name proposed for a card looked only among sources with day folders, to keep a phone's
   stream out. Now first those, then the largest source no synced folder fills; a test for a new
   flat source.
+
+### [2026-11-03] Day folders per source, and the layout of the last import
+
+- Peter wants `EOSR`, `Hero13` and `Max2` without day folders from now on, without moving what is
+  in the library (that would mean uploading about 860 GB to Drive again; `Hero13` and `Max2` may be
+  flattened later with feature 22).
+- `sources::layouts` reads a source's layout from its most recent month instead of all its files:
+  after one import without day folders, every Mac goes on without them, with no shared setting.
+- `SourceSettings.day` (`null`: as the last import; `true`, `false`), chosen per source in the
+  settings (*dagmap zoals de laatste import*, *met dagmap*, *zonder dagmap*); `day_setting` finds
+  it by the source's name in the library and `discover` applies it.
+- Data contract 3.1 (1.4 addition): a source may have months with and months without day folders.
+- `cargo test` 197 passed (1 new), `pnpm test` 146 passed (2 new).
