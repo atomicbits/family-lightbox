@@ -153,7 +153,10 @@ pub struct Progress {
     pub total: usize,
 }
 
-/// Copies `from` to `to` through a temporary name, keeping its modification time.
+/// Copies `from` to `to` through a temporary name, keeping its modification time. Only the
+/// content: `fs::copy` would also copy the source's mode and flags, and a synced folder's files
+/// can be read-only and locked (`uchg`, Drive's shared folders), which leaves a copy that can't be
+/// written to or moved (F018/S06).
 fn copy_with_time(from: &Path, to: &Path) -> std::io::Result<()> {
     if let Some(d) = to.parent() {
         fs::create_dir_all(d)?;
@@ -161,11 +164,15 @@ fn copy_with_time(from: &Path, to: &Path) -> std::io::Result<()> {
     let mut name = to.file_name().unwrap_or_default().to_os_string();
     name.push(format!(".{}.tmp", std::process::id()));
     let tmp = to.with_file_name(name);
-    let r = fs::copy(from, &tmp).and_then(|_| {
+    let r = (|| {
         let t = fs::metadata(from)?.modified()?;
-        fs::File::options().write(true).open(&tmp)?.set_modified(t)?;
+        let mut out = fs::File::create(&tmp)?;
+        std::io::copy(&mut fs::File::open(from)?, &mut out)?;
+        out.sync_all()?;
+        out.set_modified(t)?;
+        drop(out);
         fs::rename(&tmp, to)
-    });
+    })();
     if r.is_err() {
         let _ = fs::remove_file(&tmp);
     }
@@ -544,5 +551,29 @@ mod tests {
         assert!(steps.contains(&"taken".to_string()) && !steps.contains(&"source".to_string()));
         let again = crate::import_plan::plan_synced(&src, &to, &[], &none, &HashMap::new(), &cache, &record, &mut |_| {});
         assert_eq!((again.taken_before, again.read, again.copy_files), (2, 0, 0));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_locked_read_only_source_is_copied_as_an_ordinary_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let src = d.path().join("IMG_0001.JPG");
+        fs::write(&src, b"a photo in a shared Drive folder").unwrap();
+        let t = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_788_000_000);
+        fs::File::options().write(true).open(&src).unwrap().set_modified(t).unwrap();
+        fs::set_permissions(&src, fs::Permissions::from_mode(0o400)).unwrap();
+        let c = std::ffi::CString::new(src.as_os_str().as_encoded_bytes()).unwrap();
+        // SAFETY: a valid NUL-terminated path; the flag is cleared again below
+        assert_eq!(unsafe { libc::chflags(c.as_ptr(), libc::UF_IMMUTABLE as _) }, 0);
+        let to = d.path().join("staging/2026/08/IMG_0001.JPG");
+        let r = copy_with_time(&src, &to);
+        unsafe { libc::chflags(c.as_ptr(), 0) };
+        r.unwrap();
+        assert_eq!(fs::read(&to).unwrap(), b"a photo in a shared Drive folder");
+        assert_eq!(fs::metadata(&to).unwrap().modified().unwrap(), t);
+        // an ordinary file: it can be moved on and removed
+        move_file(&to, &d.path().join("local/IMG_0001.JPG")).unwrap();
+        fs::remove_file(d.path().join("local/IMG_0001.JPG")).unwrap();
     }
 }

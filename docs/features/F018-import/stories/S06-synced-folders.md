@@ -117,3 +117,13 @@ check by name and size, `Recents` left out, the first month, and recording what 
   `plan_synced` read every file's date, which makes Drive download it, without reporting progress.
   Now it hashes first, reporting every file, and reads the dates afterwards from the files Drive
   has downloaded by then.
+
+### [2026-11-03] Fix: a shared Drive folder's files couldn't be staged
+
+- Lynn's first import: 436 already in the library, 1 223 failed with *Operation not permitted*.
+  The files of her shared Drive folder are read-only and locked (`uchg`) on Peter's Mac; reading
+  them works (the plan did), but `fs::copy` gave the staged copy the same mode and flag, so setting
+  its time and renaming it were refused.
+- `copy_with_time` copies only the content into a new file and sets its time; a test with a
+  read-only, locked source. The 436 are recorded as taken; a new plan reads the 1 223 again, from
+  Drive's local copies and the hash cache.
