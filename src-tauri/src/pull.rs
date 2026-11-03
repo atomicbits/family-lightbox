@@ -185,7 +185,17 @@ pub struct PreviewsSummary {
     pub needs_confirmation: bool,
 }
 
-pub fn summarize(plan: &sync::Plan, free: Option<u64>, state: &config::AppState) -> PreviewsSummary {
+/// Below this a previews pass never asks, also not the first time on a Mac: only a new Mac's whole
+/// library is worth a question (Peter, 2026-11-03).
+pub const CONFIRM_ABOVE: u64 = 5_000_000_000;
+
+/// Whether a previews pass asks first: something to copy, more than `above` (`CONFIRM_ABOVE`), and
+/// never confirmed on this Mac.
+pub fn asks_confirmation(copy_files: u64, copy_bytes: u64, confirmed_before: bool, above: u64) -> bool {
+    copy_files > 0 && copy_bytes > above && !confirmed_before
+}
+
+pub fn summarize(plan: &sync::Plan, free: Option<u64>, state: &config::AppState, above: u64) -> PreviewsSummary {
     PreviewsSummary {
         copy_files: plan.copy_files,
         copy_bytes: plan.copy_bytes,
@@ -193,7 +203,7 @@ pub fn summarize(plan: &sync::Plan, free: Option<u64>, state: &config::AppState)
         skipped: plan.skipped.clone(),
         free,
         problem: if plan.copy_files == 0 { None } else { space_check(plan.copy_bytes, free).err() },
-        needs_confirmation: plan.copy_files > 0 && state.previews_confirmed_at.is_none(),
+        needs_confirmation: asks_confirmation(plan.copy_files, plan.copy_bytes, state.previews_confirmed_at.is_some(), above),
     }
 }
 
@@ -217,22 +227,25 @@ pub struct PreviewsOutcome {
 
 /// Copies a counted plan. Refused without confirmation the first time, or when it doesn't fit
 /// (free space measured again now). A given confirmation is recorded before copying starts.
+#[allow(clippy::too_many_arguments)]
 pub fn run_previews(
     job: &Job,
     plan: &sync::Plan,
     confirmed: bool,
     config_dir: &Path,
     free_now: Option<u64>,
+    above: u64,
     progress: &mut dyn FnMut(&Progress),
     cancel: &AtomicBool,
 ) -> Result<PreviewsOutcome, String> {
     let mut state = config::load_state(config_dir);
     if plan.copy_files > 0 {
-        if state.previews_confirmed_at.is_none() && !confirmed {
+        let asks = asks_confirmation(plan.copy_files, plan.copy_bytes, state.previews_confirmed_at.is_some(), above);
+        if asks && !confirmed {
             return Err("bevestiging nodig".into());
         }
         space_check(plan.copy_bytes, free_now)?;
-        if state.previews_confirmed_at.is_none() {
+        if asks {
             state.previews_confirmed_at = Some(crate::nas::now_local());
             config::save_state(config_dir, &state)?;
         }
@@ -348,28 +361,28 @@ mod tests {
     }
 
     #[test]
-    fn confirmation_the_first_time_only() {
+    fn confirmation_only_for_a_large_first_pass() {
+        let gb = 1_000_000_000;
+        assert!(asks_confirmation(100_000, 29 * gb, false, CONFIRM_ABOVE), "a new Mac's whole library");
+        assert!(!asks_confirmation(100_000, 29 * gb, true, CONFIRM_ABOVE), "confirmed before on this Mac");
+        assert!(!asks_confirmation(800, CONFIRM_ABOVE, false, CONFIRM_ABOVE), "a few months, the first time");
+        assert!(!asks_confirmation(0, 0, false, CONFIRM_ABOVE), "nothing to copy");
+    }
+
+    #[test]
+    fn a_small_first_pass_copies_without_asking() {
         let (r, l, cfg) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
         put(r.path(), "2023/01/a.JPG.jpg", "a");
         put(r.path(), "2023/01/a.JPG.t.jpg", "t");
         let (j, p) = previews_plan(r.path(), l.path());
         let free = Some(RESERVE * 2);
         let st = config::load_state(cfg.path());
-        assert!(summarize(&p, free, &st).needs_confirmation);
+        assert!(!summarize(&p, free, &st, CONFIRM_ABOVE).needs_confirmation);
         let no = AtomicBool::new(false);
-        assert_eq!(run_previews(&j, &p, false, cfg.path(), free, &mut |_| {}, &no).unwrap_err(), "bevestiging nodig");
-        assert!(!l.path().join("2023").exists(), "nothing copied without confirmation");
-        let out = run_previews(&j, &p, true, cfg.path(), free, &mut |_| {}, &no).unwrap();
+        let out = run_previews(&j, &p, false, cfg.path(), free, CONFIRM_ABOVE, &mut |_| {}, &no).unwrap();
         assert_eq!((out.copied, out.bytes), (2, 2));
-        let st = config::load_state(cfg.path());
-        assert!(st.previews_confirmed_at.is_some(), "confirmation recorded");
-        put(r.path(), "2023/02/b.JPG.jpg", "b");
-        let (j2, p2) = previews_plan(r.path(), l.path());
-        assert!(!summarize(&p2, free, &st).needs_confirmation, "a second run doesn't ask");
-        assert_eq!(run_previews(&j2, &p2, false, cfg.path(), free, &mut |_| {}, &no).unwrap().copied, 1);
-        let (_, p3) = previews_plan(r.path(), l.path());
-        let fresh_state = config::AppState::default();
-        assert!(!summarize(&p3, free, &fresh_state).needs_confirmation, "nothing to copy needs no confirmation");
+        // a small pass doesn't count as the confirmation of a large one
+        assert!(config::load_state(cfg.path()).previews_confirmed_at.is_none());
     }
 
     #[test]
@@ -378,8 +391,8 @@ mod tests {
         put(r.path(), "2023/01/a.JPG.jpg", "abcd");
         let (j, p) = previews_plan(r.path(), l.path());
         let tight = Some(RESERVE + 3);
-        assert!(summarize(&p, tight, &config::AppState::default()).problem.unwrap().contains("tekort"));
-        let err = run_previews(&j, &p, true, cfg.path(), tight, &mut |_| {}, &AtomicBool::new(false)).unwrap_err();
+        assert!(summarize(&p, tight, &config::AppState::default(), CONFIRM_ABOVE).problem.unwrap().contains("tekort"));
+        let err = run_previews(&j, &p, true, cfg.path(), tight, CONFIRM_ABOVE, &mut |_| {}, &AtomicBool::new(false)).unwrap_err();
         assert!(err.contains("tekort"), "{err}");
         assert!(!l.path().join("2023").exists());
         assert_eq!(config::load_state(cfg.path()), config::AppState::default(), "no confirmation recorded on a refusal");

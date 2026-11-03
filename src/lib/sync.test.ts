@@ -18,7 +18,9 @@ describe("sync line", () => {
   });
 
   it("asks for confirmation, shows failures in amber, and ends quietly when nothing changed", () => {
-    expect(syncLine({ ...base, phase: "awaiting_confirmation" })).toMatchObject({ text: "Previews ophalen…", confirm: true });
+    expect(syncLine({ ...base, phase: "awaiting_confirmation" })).toMatchObject({ text: "previews klaar om op te halen", confirm: true });
+    const summary = { copy_files: 120_000, copy_bytes: 29.1e9, kept: 0, skipped: [], free: null, problem: null, needs_confirmation: true };
+    expect(syncLine({ ...base, phase: "awaiting_confirmation", summary })?.text).toBe("29,1 GB previews klaar om op te halen");
     expect(syncLine({ ...base, phase: "failed", message: "nodig 29,1 GB, vrij 35,2 GB, reserve 20 GB: 13,9 GB tekort" }))
       .toMatchObject({ tone: "amber", text: expect.stringContaining("tekort") });
     expect(syncLine({ ...base, phase: "done" })).toBeNull();

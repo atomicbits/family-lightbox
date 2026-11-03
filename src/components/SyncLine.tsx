@@ -11,9 +11,12 @@ export default function SyncLine({ sync, onConfirm }: Props) {
   return (
     <span className={`flex items-center gap-1.5 ${tone}`}>
       {l.confirm ? (
-        <button className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700" onClick={onConfirm}>
-          {l.text}
-        </button>
+        <>
+          <span className="tabular-nums">{l.text}</span>
+          <button className="text-blue-600 hover:underline" onClick={onConfirm} title="hoeveel en hoe lang, en dan ophalen of later">
+            Ophalen…
+          </button>
+        </>
       ) : (
         <>
           {sync.state?.running && <Spinner />}

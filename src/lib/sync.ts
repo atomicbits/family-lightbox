@@ -88,7 +88,8 @@ export function syncLine(s: SyncState | null): SyncLine | null {
         cancellable: true,
       };
     case "awaiting_confirmation":
-      return { ...base, text: "Previews ophalen…", confirm: true };
+      // a large first pass on this Mac waits for a click (F007/S04, over 5 GB since 2026-11-03)
+      return { ...base, text: s.summary ? `${gb(s.summary.copy_bytes)} GB previews klaar om op te halen` : "previews klaar om op te halen", confirm: true };
     case "failed":
       return { ...base, tone: "amber", text: s.message ?? "synchroniseren mislukt" };
     case "cancelled":

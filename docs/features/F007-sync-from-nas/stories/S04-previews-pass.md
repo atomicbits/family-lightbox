@@ -157,3 +157,17 @@ once before it starts.
   - The test folder was removed afterwards.
 - At 6.3 MB/s, the full 29 GB is about 77 minutes on Lynn's Mac the first time. Counting alone takes
   about 2.5 minutes for all years.
+
+### [2026-11-03] Asking only for a large first pass
+
+- Peter, on Lynn's Mac after v0.6.0: *Previews ophalen…* waited for a click for a few hundred
+  previews, since that Mac had its previews from the CLI and never confirmed a pass in the app.
+  The question is meant for a new Mac's whole library (29 GB, over an hour).
+- `pull::asks_confirmation`: only when the pass copies more than `CONFIRM_ABOVE` (5 GB) and was
+  never confirmed on this Mac; a smaller pass copies at once and doesn't count as the
+  confirmation. The threshold travels in `runner::Jobs`, so the runner's tests keep a pass that
+  asks.
+- The line waiting for the click is quiet: *29,1 GB previews klaar om op te halen · Ophalen…*,
+  with the dialog as before.
+- `cargo test` 199 passed (2 new, 1 rewritten), `cargo clippy --all-targets` clean; `pnpm test`
+  153 passed, `vite build` clean.

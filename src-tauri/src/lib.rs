@@ -800,6 +800,7 @@ fn sync_jobs(paths: &Paths, scope: runner::Scope) -> runner::Jobs {
         config_dir: paths.config.clone(),
         free: pull::free_bytes,
         scope,
+        confirm_above: pull::CONFIRM_ABOVE,
     }
 }
 

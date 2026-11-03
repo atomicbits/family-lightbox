@@ -150,6 +150,8 @@ pub struct Jobs {
     pub free: fn(&Path) -> Option<u64>,
     /// Which previews the pass counts (F007/S07).
     pub scope: Scope,
+    /// Above this the first previews pass on this Mac asks first (`pull::CONFIRM_ABOVE`).
+    pub confirm_above: u64,
 }
 
 /// Every year of the previews, or at start only where something can be new (F007/S07).
@@ -368,7 +370,7 @@ impl SyncRunner {
                 }
             }
         };
-        let summary = pull::summarize(&plan, (jobs.free)(&job.local), &config::load_state(&jobs.config_dir));
+        let summary = pull::summarize(&plan, (jobs.free)(&job.local), &config::load_state(&jobs.config_dir), jobs.confirm_above);
         self.update(|s| {
             s.summary = Some(summary.clone());
             for y in &summary.skipped {
@@ -390,7 +392,7 @@ impl SyncRunner {
                 let s = self.update(|s| s.phase = Phase::Copying);
                 sink.progress(&s);
                 let free = (jobs.free)(&job.local);
-                match pull::run_previews(&job, &plan, confirmed, &jobs.config_dir, free, &mut |p| report(Phase::Copying, p), &self.cancel) {
+                match pull::run_previews(&job, &plan, confirmed, &jobs.config_dir, free, jobs.confirm_above, &mut |p| report(Phase::Copying, p), &self.cancel) {
                     Err(e) => self.finish(sink, Phase::Failed, Some(e)),
                     Ok(o) => {
                         self.update(|s| {
@@ -493,6 +495,8 @@ mod tests {
             config_dir: cfg.into(),
             free: plenty,
             scope: Scope::Full,
+            // the tests' files are bytes: every first pass asks, as a large one would
+            confirm_above: 0,
         }
     }
 
