@@ -216,3 +216,11 @@ quiet start), F007/S07 (counting previews only where something can be new), F006
 quietly and syncing once the NAS is there), and the import's progress on the footer. All three
 jobs green; the release has the `.dmg`, the update payload and `latest.json` 0.6.0. Lynn's Mac
 updated from v0.5.0 with *Bijwerken*, and Peter's test there was OK (2026-11-04).
+
+### [2026-11-04] v0.6.1 released
+
+With F012's previews for GoPro's `.LRV` and `.360` and `.xvpics` thumbnails left out, F007/S04's
+confirmation only for a first pass over 5 GB in a quiet line, and an import leaving no record when
+it went well. Pushed over HTTPS with `gh`'s token while GitHub refused the SSH keys during its
+outage that day; all three jobs green; the release has the `.dmg`, the update payload and
+`latest.json` 0.6.1. F020 (changes without the NAS) came after the tag and isn't in it.
