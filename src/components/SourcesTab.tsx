@@ -1,23 +1,23 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { lastUsedLabel, sourceLabel, type CameraCount } from "../lib/filter";
 import { renameSummary, toggleSource, type RenamePlan } from "../lib/rename";
 import Progress from "./Progress";
+import { renamingText, type Renamer } from "../lib/renamer";
 
 const button = "px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs disabled:opacity-40";
 const small = "px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent text-xs font-mono";
 
 /** The settings' *Bronnen* tab (F022/S05): the library's sources, and renaming or merging some of
  * them, with the plan first and a snapshot of today confirmed before anything moves. */
-export default function SourcesTab() {
+export default function SourcesTab({ renamer }: { renamer: Renamer }) {
   const [sources, setSources] = useState<CameraCount[] | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
   const [to, setTo] = useState("");
   const [plan, setPlan] = useState<RenamePlan | null>(null);
   const [planning, setPlanning] = useState(false);
   const [snapshot, setSnapshot] = useState(false);
-  const [running, setRunning] = useState<[number, number] | null>(null);
+  const running = renamer.running;
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [pending, setPending] = useState<[string[], string] | null>(null);
 
@@ -25,21 +25,17 @@ export default function SourcesTab() {
     invoke<CameraCount[]>("sources").then((s) => setSources(s.filter(([name]) => name !== ""))).catch(() => setSources([]));
     invoke<[string[], string] | null>("rename_pending").then(setPending).catch(() => {});
   };
+  useEffect(() => { load(); }, []);
+  // the end of a rename, also one started before this tab opened
   useEffect(() => {
+    const d = renamer.last;
+    if (!d) return;
+    setPlan(null);
+    setSnapshot(false);
+    setMessage(d.error ? { text: `hernoemen naar ${d.to} gestopt: ${d.error}`, error: true } : { text: `hernoemd naar ${d.to}`, error: false });
+    if (!d.error) setChosen([]);
     load();
-    const offs = [
-      listen<[number, number]>("rename-progress", (e) => setRunning(e.payload)),
-      listen<{ to: string; error: string | null }>("rename-done", (e) => {
-        setRunning(null);
-        setPlan(null);
-        setSnapshot(false);
-        setMessage(e.payload.error ? { text: `hernoemen naar ${e.payload.to} gestopt: ${e.payload.error}`, error: true } : { text: `hernoemd naar ${e.payload.to}`, error: false });
-        if (!e.payload.error) setChosen([]);
-        load();
-      }),
-    ];
-    return () => { offs.forEach((o) => o.then((f) => f())); };
-  }, []);
+  }, [renamer.last]);
 
   const makePlan = (from: string[], target: string) => {
     setPlanning(true);
@@ -51,9 +47,7 @@ export default function SourcesTab() {
   };
   const start = (from: string[], target: string) => {
     setMessage(null);
-    invoke("rename_start", { from, to: target, snapshotToday: snapshot })
-      .then(() => setRunning([0, plan?.months.length ?? 0]))
-      .catch((e) => setMessage({ text: String(e), error: true }));
+    renamer.start(from, target, snapshot, plan?.months.length ?? 0).catch((e) => setMessage({ text: String(e), error: true }));
   };
 
   return (
@@ -108,7 +102,9 @@ export default function SourcesTab() {
           </div>
         </div>
       )}
-      {running && <Progress text={`hernoemen: maand ${running[0]} van ${running[1]}`} done={running[0]} total={running[1]} />}
+      {running && (
+        <Progress text={`${renamingText(running)} · je mag dit venster sluiten en de app zelfs herstarten: het gaat verder, en onderbroken gaat het vanzelf verder`} done={running[0]} total={running[1]} />
+      )}
       {message && <div className={message.error ? "text-red-600 whitespace-pre-wrap" : "text-green-700 dark:text-green-500"}>{message.text}</div>}
     </section>
   );

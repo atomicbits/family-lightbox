@@ -10,6 +10,7 @@ import FirstStart from "./components/FirstStart";
 import ImportView from "./components/ImportView";
 import { doneText, useImporter } from "./lib/importjob";
 import { importActivity, usePlans } from "./lib/importplans";
+import { renamingText, useRenamer } from "./lib/renamer";
 import { Spinner } from "./components/Progress";
 import { firstStartSteps } from "./lib/firststart";
 import Settings from "./components/Settings";
@@ -81,6 +82,7 @@ export default function App() {
   const [showImport, setShowImport] = useState(false);
   const importer = useImporter(useCallback(() => {}, []));
   const planner = usePlans();
+  const renamer = useRenamer(useCallback(() => {}, []));
   // a plan being made or an import running, on the footer's Importeren (F018/S05)
   const activity = importActivity(planner.busy, importer.running, importer.progress, importer.planProgress);
   const nas = useNas();
@@ -170,6 +172,15 @@ export default function App() {
       .catch((e) => invoke("log_message", { level: "warn", source: "lijsten", text: `wachtende wijzigingen niet verzonden: ${e}` }).catch(() => {}));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice, listsUp, waiting, nas.mounts]);
+
+  // an interrupted rename of sources goes on by itself once the NAS is there (F022/S03)
+  const resumeTried = useRef(false);
+  useEffect(() => {
+    if (!hasDevice || resumeTried.current || !nas.mounts?.library.some((m) => m.chosen)) return;
+    resumeTried.current = true;
+    renamer.resume().catch((e) => invoke("log_message", { level: "warn", source: "bronnen", text: `hernoeming niet hervat: ${e}` }).catch(() => {}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDevice, nas.mounts]);
 
   // a share that came back after Verbinden or a reconnect: the lists from the NAS again
   const libraryUp = !!nas.mounts?.library.some((m) => m.chosen);
@@ -1049,6 +1060,11 @@ export default function App() {
           )}
           {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
           <PreviewsLine previews={previews} />
+          {renamer.running && (
+            <button className="text-blue-600 flex items-center gap-1.5" title="de instellingen openen" onClick={() => setShowSettings(true)}>
+              <Spinner /> {renamingText(renamer.running)}
+            </button>
+          )}
           {waitingText(waiting) && (
             <span className="text-neutral-500" title="ze gaan vanzelf naar de NAS zodra die verbonden is">{waitingText(waiting)}</span>
           )}
@@ -1153,7 +1169,7 @@ export default function App() {
       )}
       {showImport && <ImportView importer={importer} planner={planner} sync={sync} onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
       {showSettings && (
-        <Settings device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+        <Settings renamer={renamer} device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
       )}
       {confirming && sync.state?.summary && (
         <ConfirmPreviews

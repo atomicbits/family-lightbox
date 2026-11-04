@@ -1,7 +1,7 @@
 # Story S05: The tab *Bronnen* in the settings
 
 **Feature:** `F022-rename-sources`
-**Status:** In progress: built; to try in the app
+**Status:** Done (2026-11-04)
 **Depends on:** S01, S03
 
 ## Progress log
@@ -13,3 +13,7 @@
   snapshot van de NAS gemaakt*, *Uitvoeren* with its progress; an interrupted rename with
   *Doorgaan*. `rename.ts`: the plan's types, `renameSummary`, `toggleSource`.
 - `pnpm test` 156 passed (2 new), `tsc` and `vite build` clean.
+
+### [2026-11-04] Used
+
+Peter used it for the first rename. The progress moved to the app and the footer (see S03).

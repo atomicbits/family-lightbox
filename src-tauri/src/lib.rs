@@ -683,7 +683,11 @@ pub struct RenameDone {
 /// `rename-done`. One at a time, and not during an import or a sync.
 #[tauri::command]
 fn rename_start(from: Vec<String>, to: String, snapshot_today: bool, app: tauri::AppHandle, runner: State<ImportRunner>, sync: State<runner::SyncRunner>) -> Result<(), String> {
-    if !snapshot_today {
+    // a rename that was interrupted continues without asking again: its snapshot was confirmed
+    let mut sorted = from.clone();
+    sorted.sort();
+    let continuing = rename::Job::pending(&app.state::<Paths>().config).is_some_and(|j| j.record.from == sorted && j.record.to == to.trim());
+    if !snapshot_today && !continuing {
         return Err("maak eerst een snapshot van de NAS".into());
     }
     if sync.status().running {

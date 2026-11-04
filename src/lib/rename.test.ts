@@ -14,3 +14,11 @@ describe("renaming sources (F022/S05)", () => {
     expect(toggleSource(["Hero7"], "Hero7")).toEqual([]);
   });
 });
+
+import { renamingText } from "./renamer";
+describe("a rename running (F022)", () => {
+  it("is named in the footer", () => {
+    expect(renamingText([2, 4])).toBe("hernoemen: maand 2 van 4");
+    expect(renamingText([0, 0])).toBe("hernoemen…");
+  });
+});

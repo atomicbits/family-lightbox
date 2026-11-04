@@ -8,11 +8,12 @@ import UpdateLine from "./UpdateLine";
 import ImportSettings from "./ImportSettings";
 import MoveCheck from "./MoveCheck";
 import SourcesTab from "./SourcesTab";
+import type { Renamer } from "../lib/renamer";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
 import { TABS, changedTabs, loadTab, saveTab, type TabId } from "../lib/settingsTabs";
 
-type Props = { device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; previews: Previews; onShowMessages: () => void; onClose: () => void };
+type Props = { renamer: Renamer; device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; previews: Previews; onShowMessages: () => void; onClose: () => void };
 
 const SHARE_LABELS: [keyof Shares, string][] = [
   ["library", "Originelen"],
@@ -22,7 +23,7 @@ const SHARE_LABELS: [keyof Shares, string][] = [
 ];
 
 /** Settings panel (F021/S01): the topics on tabs, with one Bewaar for all of them. */
-export default function Settings({ device, nas, sync, index, update, previews, onShowMessages, onClose }: Props) {
+export default function Settings({ renamer, device, nas, sync, index, update, previews, onShowMessages, onClose }: Props) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [previewsError, setPreviewsError] = useState<string | null>(null);
   const making = previews.state?.running ?? false;
@@ -240,7 +241,7 @@ export default function Settings({ device, nas, sync, index, update, previews, o
           </>
         )}
 
-        {tab === "sources" && <SourcesTab />}
+        {tab === "sources" && <SourcesTab renamer={renamer} />}
         {tab === "library" && (
           <>
             <section className="space-y-1">
