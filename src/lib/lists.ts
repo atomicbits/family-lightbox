@@ -35,7 +35,8 @@ export const WATCH_MS = 15_000;
 export function changeBlocked(s: ListsState | null): string | null {
   if (!s) return "lijsten laden…";
   if (s.problem) return s.problem;
-  if (s.source !== "nas") return "lijsten wijzigen kan alleen met de NAS";
+  // without the NAS a change waits on this Mac (F020); without even a local copy there is nothing
+  if (s.source === "none") return "nog geen lijsten op deze Mac: verbind eerst één keer met de NAS";
   return null;
 }
 

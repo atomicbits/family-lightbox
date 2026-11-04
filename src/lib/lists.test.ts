@@ -17,8 +17,8 @@ describe("lists", () => {
 
   it("can change only from the NAS and without a problem", () => {
     expect(changeBlocked(state("nas"))).toBeNull();
-    expect(changeBlocked(state("local"))).toBe("lijsten wijzigen kan alleen met de NAS");
-    expect(changeBlocked(state("none"))).toBe("lijsten wijzigen kan alleen met de NAS");
+    expect(changeBlocked(state("local"))).toBeNull();
+    expect(changeBlocked(state("none"))).toBe("nog geen lijsten op deze Mac: verbind eerst één keer met de NAS");
     expect(changeBlocked(state("nas", "devices.json klopt niet"))).toBe("devices.json klopt niet");
     expect(changeBlocked(null)).toBe("lijsten laden…");
   });

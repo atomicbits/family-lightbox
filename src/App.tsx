@@ -35,7 +35,7 @@ import ShortcutsOverlay from "./components/ShortcutsOverlay";
 import MessagesOverlay from "./components/MessagesOverlay";
 import { useMessages } from "./lib/messages";
 import { isShortcutsKey } from "./lib/shortcuts";
-import { changeText, marksBlocked, newStackId, useMarks } from "./lib/marks";
+import { changeText, marksBlocked, newStackId, useMarks, waitingText } from "./lib/marks";
 import MarksBar from "./components/MarksBar";
 import { addToMonths, markMade, usePreviews, type Done } from "./lib/previews";
 import { listen } from "@tauri-apps/api/event";
@@ -156,6 +156,21 @@ export default function App() {
     sync.start("all", false, atLaunch).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice, nas.mounts, syncedWell]);
+  // Changes kept on this Mac without the NAS (F020/S03): counted for the footer, and sent once the
+  // Lists share is there; a failed send waits for other mounts, never in a loop.
+  const [waiting, setWaiting] = useState(0);
+  const listsUp = !!nas.mounts?.lists.some((m) => m.chosen);
+  useEffect(() => { invoke<number>("outbox_count").then(setWaiting).catch(() => {}); }, [marks.state, lists.state]);
+  const sentWith = useRef<typeof nas.mounts>(null);
+  useEffect(() => {
+    if (!hasDevice || !listsUp || waiting === 0 || sentWith.current === nas.mounts) return;
+    sentWith.current = nas.mounts;
+    invoke<number>("outbox_send")
+      .then((left) => { setWaiting(left); lists.refresh(); marks.reload().catch(() => {}); })
+      .catch((e) => invoke("log_message", { level: "warn", source: "lijsten", text: `wachtende wijzigingen niet verzonden: ${e}` }).catch(() => {}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDevice, listsUp, waiting, nas.mounts]);
+
   // a share that came back after Verbinden or a reconnect: the lists from the NAS again
   const libraryUp = !!nas.mounts?.library.some((m) => m.chosen);
   useEffect(() => { if (hasDevice && libraryUp) lists.refresh(); }, [hasDevice, libraryUp]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1034,6 +1049,9 @@ export default function App() {
           )}
           {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
           <PreviewsLine previews={previews} />
+          {waitingText(waiting) && (
+            <span className="text-neutral-500" title="ze gaan vanzelf naar de NAS zodra die verbonden is">{waitingText(waiting)}</span>
+          )}
         </div>
         {messages.list.length > 0 && (
           <button

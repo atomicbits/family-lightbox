@@ -1,6 +1,6 @@
 # Data contract
 
-*Version 1.3, 30 October 2026. This document sets down what the data shared by the CLI (`media`), the desktop app (FamilyLightbox) and the Lightroom plug-in looks like: folders, file names, manifests, previews, lists and local state. Everything stated here is binding for every component; anything not stated here is up to each component. Changes raise the version number and get a line in section 12.*
+*Version 1.5, 4 November 2026. This document sets down what the data shared by the CLI (`media`), the desktop app (FamilyLightbox) and the Lightroom plug-in looks like: folders, file names, manifests, previews, lists and local state. Everything stated here is binding for every component; anything not stated here is up to each component. Changes raise the version number and get a line in section 12.*
 
 *Moved into this repo, translated from Dutch, on 2026-10-26 (FamilyLightbox F007/S01). The section numbers are unchanged, so references such as "data contract 5.1" in code and documents stay valid. Operational details of the home network that a component doesn't need to follow the contract (SSH configuration, which account is denied which years, the name of the Drive mirror share) are kept in a private note outside this repo, `docs/nas-inrichting.md` in LibraryLocal.*
 
@@ -221,7 +221,7 @@ Writing rules:
 - A line MUST be written in one `write` call, followed by `fsync`, and end with `\n`. A reader ignores a last line without `\n` or with invalid JSON (half written).
 - An `add` for a list that has no `create` counts as an implicit `create` with the slug as name.
 - A `remove` of a photo that isn't in the list and an `add` of a photo that is already in it are allowed and have no effect; they stay in the history.
-- The writer preferably writes directly to the file on the NAS. If the NAS is unreachable, it refuses (working away from home is not a requirement) and says so.
+- The writer preferably writes directly to the file on the NAS. If the NAS is unreachable, or writing there fails, a writer MAY keep the change's lines on the device (FamilyLightbox keeps them in `outbox/` in its local state) and append them later, unchanged, with their original `ts` (from 1.5). It appends them in the order they were made, before any newer change of its own, writes no line twice (a line that is already in the file is left out), and keeps them until the file has every one. A list it created that way whose id another device created meanwhile gets the next free id (`-2`, `-3`, as in 5.4) before any of its lines is written. Only a device in `devices.json` may do this, as for any event.
 
 ### 5.3 Merging
 
@@ -265,7 +265,7 @@ Derived from 5.3, written by whoever merges last, atomically. Meant for people, 
 
 Stars are shared: a photo has at most one rating, 1 to 5, and whoever rates it last sets it. A heart belongs to a person (`who`): each person's heart is on or off per photo, and everyone sees whose hearts are on it. Hiding is shared like stars: a photo is hidden for everyone, and whoever hides or unhides it last decides; nothing is deleted. A stack groups near-identical photos; a photo is in at most one stack, and the last `stack` or `unstack` of it decides. All refer to the photo by its hash, like lists (FamilyLightbox features 13 and 14).
 
-One file per device, next to `events/`, written only by that device, only by appending, with the writing rules of 5.2 (one `write` and `fsync` per change, every line ending in `\n`, a reader ignores a half-written or invalid line and lines whose `dev` isn't the file's device). Only devices in `devices.json` count. They are separate from the list events on purpose: a reader of `events/` takes every line with a `list` field as a list event.
+One file per device, next to `events/`, written only by that device, only by appending, with the writing rules of 5.2 (one `write` and `fsync` per change, every line ending in `\n`, a reader ignores a half-written or invalid line and lines whose `dev` isn't the file's device, and lines kept while the NAS was away are appended later with their original `ts`). Only devices in `devices.json` count. They are separate from the list events on purpose: a reader of `events/` takes every line with a `list` field as a list event.
 
 ```json
 {"v":1,"ts":"2026-10-30T10:15:02+01:00","dev":"mbp-lynn","who":"lynn","op":"rate","photo":"sha256:9f3a…","stars":4}
@@ -383,6 +383,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 |---|---|---|
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
 | 1.4 (addition) | 2026-11-03 | Section 3.1: a new source has no day folders; the sources with day folders keep them (FamilyLightbox F018, at Peter's request). |
+| 1.5 | 2026-11-04 | Section 5.2 and 5.5: a change made while the NAS can't be written to MAY be kept on the device and appended later with its original `ts`, in order, never twice; a list id taken meanwhile gets the next free one (FamilyLightbox F020). The format of the events doesn't change. |
 | 1.4 (addition) | 2026-11-04 | Section 1: files below a folder whose name starts with `.` aren't photos or videos for a reader (FamilyLightbox F012). |
 | 1.4 (addition) | 2026-11-03 | Section 3.1: a source's layout is read from its most recent month; within one source, months with and without day folders are both valid (FamilyLightbox F018/S03). |
 | 1.4 | 2026-10-31 | Section 2: the locations in `familylightbox.json` on the NAS (FamilyLightbox F019); without it, the four shares as before. |

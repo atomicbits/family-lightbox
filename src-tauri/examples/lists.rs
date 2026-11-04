@@ -7,6 +7,6 @@ fn main() {
         eprintln!("usage: lists <Lists folder>");
         std::process::exit(2);
     };
-    let (state, _) = family_lightbox_lib::lists::load(Some(std::path::Path::new(&dir)), std::path::Path::new("/nonexistent"));
+    let (state, _) = family_lightbox_lib::lists::load(Some(std::path::Path::new(&dir)), std::path::Path::new("/nonexistent"), None);
     println!("{}", serde_json::to_string_pretty(&state).unwrap());
 }

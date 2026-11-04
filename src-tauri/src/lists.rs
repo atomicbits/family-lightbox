@@ -140,18 +140,40 @@ pub struct Read {
 
 /// Every event of the registered devices; files of other devices are not read.
 pub fn read(lists: &Path) -> Result<Read, String> {
+    read_with(lists, None)
+}
+
+/// As `read`, with `extra` = (this device, the lines of its outbox) read as if they stood at the
+/// end of its own file (F020/S01).
+pub fn read_with(lists: &Path, extra: Option<(&str, &str)>) -> Result<Read, String> {
     let devices = registered(lists)?;
     let mut out = Read::default();
     let dir = lists.join(EVENTS_DIR);
-    let Ok(entries) = fs::read_dir(&dir) else { return Ok(out) }; // no events yet
-    for entry in entries.flatten() {
+    let mut entries: Vec<fs::DirEntry> = fs::read_dir(&dir).map(|rd| rd.flatten().collect()).unwrap_or_default();
+    let mut texts: Vec<(String, String)> = Vec::new();
+    for entry in entries.drain(..) {
         let name = entry.file_name().to_string_lossy().into_owned();
         let Some(device) = name.strip_suffix(".jsonl") else { continue };
         if !devices.contains(device) {
             continue;
         }
         let bytes = fs::read(entry.path()).map_err(|e| format!("{name} niet leesbaar: {e}"))?;
-        let (events, ignored) = parse_file(&String::from_utf8_lossy(&bytes), device);
+        texts.push((device.to_string(), String::from_utf8_lossy(&bytes).into_owned()));
+    }
+    if let Some((device, lines)) = extra.filter(|(d, l)| devices.contains(*d) && !l.is_empty()) {
+        match texts.iter_mut().find(|(d, _)| d == device) {
+            // a last line without its newline is half written and stays ignored, as before
+            Some((_, text)) => {
+                if !text.is_empty() && !text.ends_with('\n') {
+                    text.push('\n');
+                }
+                text.push_str(lines)
+            }
+            None => texts.push((device.to_string(), lines.to_string())),
+        }
+    }
+    for (device, text) in &texts {
+        let (events, ignored) = parse_file(text, device);
         out.events.extend(events);
         out.ignored += ignored;
     }
@@ -263,7 +285,7 @@ pub struct ListsState {
 }
 
 /// The lists from the share when it is connected, else from the local copy.
-pub fn load(nas: Option<&Path>, local: &Path) -> (ListsState, BTreeMap<String, List>) {
+pub fn load(nas: Option<&Path>, local: &Path, extra: Option<(&str, &str)>) -> (ListsState, BTreeMap<String, List>) {
     let (source, dir) = match nas {
         Some(n) => (Source::Nas, n),
         None if local.join(DEVICES_FILE).is_file() => (Source::Local, local),
@@ -272,7 +294,7 @@ pub fn load(nas: Option<&Path>, local: &Path) -> (ListsState, BTreeMap<String, L
             return (state, BTreeMap::new());
         }
     };
-    match read(dir) {
+    match read_with(dir, extra) {
         Err(e) => (ListsState { source, lists: vec![], ignored: 0, problem: Some(e) }, BTreeMap::new()),
         Ok(r) => {
             let merged = merge(r.events);
@@ -656,10 +678,10 @@ mod tests {
         let r = read(dir.path()).unwrap();
         assert_eq!((r.events.len(), r.ignored), (6, 0));
 
-        let (state, _) = load(None, dir.path());
+        let (state, _) = load(None, dir.path(), None);
         assert_eq!((state.source, state.lists.len()), (Source::Local, 1));
         assert_eq!((state.lists[0].count, state.lists[0].list.archived), (1, true));
-        let (state, _) = load(Some(dir.path()), Path::new("/nowhere"));
+        let (state, _) = load(Some(dir.path()), Path::new("/nowhere"), None);
         assert_eq!(state.source, Source::Nas);
     }
 
@@ -667,9 +689,9 @@ mod tests {
     fn a_broken_devices_file_gives_a_problem_not_lists() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join(DEVICES_FILE), "{").unwrap();
-        let (state, _) = load(None, dir.path());
+        let (state, _) = load(None, dir.path(), None);
         assert!(state.problem.unwrap().contains("klopt niet"));
-        let (state, _) = load(None, &dir.path().join("nothing"));
+        let (state, _) = load(None, &dir.path().join("nothing"), None);
         assert_eq!(state.source, Source::None);
     }
 
@@ -685,7 +707,7 @@ mod tests {
         fs::create_dir(dir.path().join(EVENTS_DIR)).unwrap();
         fs::write(dir.path().join(DEVICES_FILE), r#"{"devices":[{"name":"a"}]}"#).unwrap();
         fs::write(dir.path().join("events/a.jsonl"), text).unwrap();
-        let ids: Vec<_> = load(None, dir.path()).0.lists.into_iter().map(|l| l.list.id).collect();
+        let ids: Vec<_> = load(None, dir.path(), None).0.lists.into_iter().map(|l| l.list.id).collect();
         assert_eq!(ids, vec!["2026/b", "2026/ski", "2025/zee"]);
     }
 

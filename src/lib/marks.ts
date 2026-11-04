@@ -2,6 +2,7 @@
 // when the lists' watch sees a change on the share, and writing a rating or a heart.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { count } from "./sync";
 
 export type Rating = { stars: number; by: string; at: string };
 
@@ -70,7 +71,8 @@ export const heartAfterClick = (state: "all" | "some" | "none"): boolean => stat
 /** Why stars and hearts can't be changed now, or null. */
 export function marksBlocked(s: MarksState, me: string | null): string | null {
   if (s.problem) return s.problem;
-  if (s.source !== "nas") return "sterren en hartjes wijzigen kan alleen met de NAS";
+  // without the NAS a change waits on this Mac (F020)
+  if (s.source === "none") return "nog geen sterren en hartjes op deze Mac: verbind eerst één keer met de NAS";
   if (!me) return "dit toestel heeft nog geen eigenaar";
   return null;
 }
@@ -216,4 +218,10 @@ export function useMarks(version: number, me: string | null, onError: (message: 
   }, [me, reload, onError]);
 
   return { state, reload, change };
+}
+
+/** The footer's line while changes wait in the outbox (F020/S03), or null. */
+export function waitingText(n: number): string | null {
+  if (n <= 0) return null;
+  return n === 1 ? "1 wijziging wacht op de NAS" : `${count(n)} wijzigingen wachten op de NAS`;
 }

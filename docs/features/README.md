@@ -169,6 +169,6 @@ no folder yet.
 | 17 | [Live Photos](F017-live-photos/plan.md): recognize the short videos of Live Photos and give them a symbol of their own | Done | 8 |
 | 18 | [Import](F018-import/plan.md): from a drop folder, a synced folder or a card, into the right month and source on the NAS, verified, with previews (the import and push part of 10) | In progress | 6, 8, 12 |
 | 19 | [The NAS layout in one file](F019-nas-layout/plan.md): where the library, previews, lists and exports are, in `familylightbox.json` on the NAS for all Macs; one share by default | In progress | 6, 7, 18 |
-| 20 | [Changes without the NAS](F020-offline-changes/plan.md): lists, stars, hearts, hiding and stacks changed offline, kept in an outbox and sent when the NAS is back | In design | 3, 13, 14, 15 |
+| 20 | [Changes without the NAS](F020-offline-changes/plan.md): lists, stars, hearts, hiding and stacks changed offline, kept in an outbox and sent when the NAS is back | In progress | 3, 13, 14, 15 |
 | 21 | [The settings window](F021-settings-window/plan.md): wider, the topics on tabs | Done | 6, 18, 19 |
 | 22 | [Renaming sources](F022-rename-sources/plan.md): rename a source or merge it into another, on the NAS, every Mac and in the manifests, to straighten out old names | In design | 2, 8, 18, 19 |

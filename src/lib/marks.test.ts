@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyLocal, newStackId, changeText, heartAfterClick, heartState, heartView, markSize, marksBlocked, marksLines, sharedStars, starsAfterClick, starsText, sameMarks, NO_MARKS } from "./marks";
+import { applyLocal, newStackId, changeText, heartAfterClick, heartState, heartView, markSize, marksBlocked, marksLines, sharedStars, starsAfterClick, starsText, sameMarks, waitingText, NO_MARKS } from "./marks";
 
 describe("marks on a tile", () => {
   it("scales with the tile within readable bounds", () => {
@@ -49,7 +49,8 @@ describe("setting marks for a selection", () => {
     expect([heartAfterClick("all"), heartAfterClick("some"), heartAfterClick("none")]).toEqual([false, true, true]);
   });
   it("is blocked without the NAS or an owner, and says what happened", () => {
-    expect(marksBlocked(NO_MARKS, "peter")).toBe("sterren en hartjes wijzigen kan alleen met de NAS");
+    expect(marksBlocked(NO_MARKS, "peter")).toBe("nog geen sterren en hartjes op deze Mac: verbind eerst één keer met de NAS");
+    expect(marksBlocked({ ...NO_MARKS, source: "local" }, "peter")).toBeNull();
     expect(marksBlocked({ ...NO_MARKS, source: "nas" }, null)).toBe("dit toestel heeft nog geen eigenaar");
     expect(marksBlocked({ ...NO_MARKS, source: "nas" }, "peter")).toBeNull();
     expect(changeText(12, { stars: 3 })).toBe("12 foto's: 3 sterren");
@@ -93,5 +94,13 @@ describe("marks read again", () => {
     expect(sameMarks(a, { ...a, hidden: { x: { by: "peter", at: "t" } } })).toBe(true);
     expect(sameMarks(a, { ...a, source: "nas" })).toBe(false);
     expect(sameMarks(a, { ...a, hidden: {} })).toBe(false);
+  });
+});
+
+describe("changes waiting for the NAS (F020/S03)", () => {
+  it("are named in the footer", () => {
+    expect(waitingText(0)).toBeNull();
+    expect(waitingText(1)).toBe("1 wijziging wacht op de NAS");
+    expect(waitingText(1234)).toBe("1 234 wijzigingen wachten op de NAS");
   });
 });

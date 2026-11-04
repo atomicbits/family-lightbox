@@ -17,6 +17,7 @@ pub mod manifest;
 pub mod marks;
 pub mod mounts;
 pub mod nas;
+pub mod outbox;
 #[cfg(target_os = "macos")]
 pub mod preview;
 #[cfg(target_os = "macos")]
@@ -866,12 +867,67 @@ fn sync_status(runner: State<runner::SyncRunner>) -> runner::SyncState {
     runner.status()
 }
 
+/// How many changes wait in the outbox for the NAS (F020/S03).
+#[tauri::command]
+fn outbox_count(paths: State<Paths>) -> usize {
+    outbox::count(&paths.config)
+}
+
+/// Sends what waits in the outbox, when the `Lists` share is there (F020/S02); answers how many
+/// changes still wait. The summaries of the lists it touched are written afterwards.
+#[tauri::command]
+async fn outbox_send(app: tauri::AppHandle) -> Result<usize, String> {
+    on_blocking(move || {
+        let paths = app.state::<Paths>().inner().clone();
+        let Some(share) = lists_share(&paths) else { return Ok(outbox::count(&paths.config)) };
+        if outbox::count(&paths.config) == 0 {
+            return Ok(0);
+        }
+        let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+        let touched: Vec<String> = outbox::text(&paths.config, outbox::Kind::Lists)
+            .lines()
+            .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()?["list"].as_str().map(str::to_string))
+            .collect();
+        outbox::send(&paths.config, &share, &device.name)?;
+        if let Ok(mut p) = app.state::<Summaries>().0.lock() {
+            p.extend(touched);
+        }
+        write_summaries(&app);
+        Ok(outbox::count(&paths.config))
+    })
+    .await
+}
+
 /// The lists from the `Lists` share, or from the local copy when it isn't connected (F003/S01).
 fn load_lists(paths: &Paths) -> (lists::ListsState, std::collections::BTreeMap<String, lists::List>) {
     let (settings, _) = config::load_settings(&paths.config);
     let found = mounts::find_shares(&mounts::system_mounts(), &settings);
     let nas = mounts::NasMounts::chosen(&found.lists).map(|m| PathBuf::from(&m.mount_point));
-    lists::load(nas.as_deref(), &paths.lists)
+    let (device, waiting) = outbox_of(paths, outbox::Kind::Lists);
+    lists::load(nas.as_deref(), &paths.lists, device.as_deref().map(|d| (d, waiting.as_str())))
+}
+
+/// This device's name and what its outbox keeps of one kind (F020/S01).
+fn outbox_of(paths: &Paths, kind: outbox::Kind) -> (Option<String>, String) {
+    let device = config::load_device(&paths.config).ok().flatten().map(|d| d.name);
+    (device, outbox::text(&paths.config, kind))
+}
+
+/// Writes a change's lines (F020/S01, S02): to the share when it is there, after what waits in
+/// the outbox, so the order stays; to the outbox when the share isn't there or refuses them, so
+/// nothing is lost. A Mac the local copy doesn't list as registered can't keep changes.
+fn write_change(paths: &Paths, kind: outbox::Kind, device: &str, text: &str) -> Result<(), String> {
+    let share_error = match lists_share(paths) {
+        Some(share) => match outbox::send(&paths.config, &share, device).and_then(|_| lists::append_lines(&share, kind.share_dir(), device, text)) {
+            Ok(()) => return Ok(()),
+            Err(e) => Some(e),
+        },
+        None => None,
+    };
+    if !lists::registered(&paths.lists).map(|d| d.contains(device)).unwrap_or(false) {
+        return Err(share_error.unwrap_or_else(|| "Lijsten is niet verbonden, en dit toestel werd nog nooit met de NAS geregistreerd".into()));
+    }
+    outbox::add(&paths.config, kind, text)
 }
 
 /// A fingerprint of the event files where the lists are read from, to notice the other Mac's
@@ -904,17 +960,26 @@ fn lists_share(paths: &Paths) -> Option<PathBuf> {
 #[tauri::command]
 async fn marks_state(paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
     let paths = paths.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || marks::load(lists_share(&paths).as_deref(), &paths.lists))
+    tauri::async_runtime::spawn_blocking(move || load_marks(&paths))
         .await
         .map_err(|e| e.to_string())
 }
 
 /// Writes a change to stars or hearts on the share and answers with the marks as they are now.
 fn change_marks(paths: &Paths, change: marks::Change) -> Result<marks::MarksState, String> {
-    let nas = lists_share(paths).ok_or("Lijsten is niet verbonden: sterren en hartjes wijzigen kan alleen met de NAS")?;
     let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
-    marks::append(&nas, &device.name, &device.owner, &change)?;
-    Ok(marks::load(Some(&nas), &paths.lists))
+    if let Some(why) = marks::refusal(&change) {
+        return Err(why);
+    }
+    let text = marks::lines(&change, &lists::now(), &device.name, &device.owner).concat();
+    write_change(paths, outbox::Kind::Marks, &device.name, &text)?;
+    Ok(load_marks(paths))
+}
+
+/// The marks from the share or the local copy, with what waits in the outbox (F020/S01).
+fn load_marks(paths: &Paths) -> marks::MarksState {
+    let (device, waiting) = outbox_of(paths, outbox::Kind::Marks);
+    marks::load(lists_share(paths).as_deref(), &paths.lists, device.as_deref().map(|d| (d, waiting.as_str())))
 }
 
 #[tauri::command]
@@ -1031,15 +1096,15 @@ pub struct ListChanged {
 /// share, or without a device, it refuses: changes are only written on the NAS (data contract 5.2).
 fn change_list(app: &tauri::AppHandle, make: impl FnOnce(&std::collections::BTreeMap<String, lists::List>) -> lists::Change) -> Result<ListChanged, String> {
     let paths = app.state::<Paths>().inner().clone();
-    let (settings, _) = config::load_settings(&paths.config);
-    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
-    let nas = mounts::NasMounts::chosen(&found.lists)
-        .map(|m| PathBuf::from(&m.mount_point))
-        .ok_or("Lijsten is niet verbonden: lijsten wijzigen kan alleen met de NAS")?;
     let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
-    let merged = lists::merge(lists::read(&nas)?.events);
+    // the lists as this Mac knows them, with what waits in the outbox (F020/S01)
+    let (_, merged) = load_lists(&paths);
     let change = make(&merged);
-    lists::append(&nas, &device.name, &device.owner, &change, &merged)?;
+    if let Some(why) = lists::refusal(&change, &merged) {
+        return Err(why);
+    }
+    let text = lists::lines(&change, &lists::now(), &device.name, &device.owner).concat();
+    write_change(&paths, outbox::Kind::Lists, &device.name, &text)?;
     let id = match &change {
         lists::Change::Create { list, .. }
         | lists::Change::Add { list, .. }
@@ -1055,7 +1120,7 @@ fn change_list(app: &tauri::AppHandle, make: impl FnOnce(&std::collections::BTre
         std::thread::sleep(SUMMARY_DELAY);
         write_summaries(&later);
     });
-    Ok(ListChanged { id, state: lists::load(Some(&nas), &paths.lists).0 })
+    Ok(ListChanged { id, state: load_lists(&paths).0 })
 }
 
 #[derive(serde::Serialize)]
@@ -1288,7 +1353,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())
@@ -1298,6 +1363,25 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn without_the_nas_a_change_waits_in_the_outbox_and_shows() {
+        let d = tempfile::tempdir().unwrap();
+        let paths = Paths { config: d.path().join("config"), previews: d.path().join("p"), library: d.path().join("l"), lists: d.path().join("lists") };
+        // no NAS in these settings; a Mac never registered can't keep changes
+        config::create_device(&paths.config, "mbp-test", "peter").unwrap();
+        let change = marks::Change::Rate { photos: vec!["sha256:a".into()], stars: 4 };
+        assert!(change_marks(&paths, change.clone()).unwrap_err().contains("nog nooit"));
+        assert_eq!(outbox::count(&paths.config), 0);
+        // registered once: the local copy lists it
+        std::fs::create_dir_all(&paths.lists).unwrap();
+        std::fs::write(paths.lists.join(lists::DEVICES_FILE), r#"{"devices": [{"name": "mbp-test", "owner": "peter"}]}"#).unwrap();
+        let state = change_marks(&paths, change).unwrap();
+        assert_eq!(state.marks.ratings["sha256:a"].stars, 4);
+        assert_eq!(outbox::count(&paths.config), 1);
+        // and after a restart, read again from the local copy with the outbox
+        assert_eq!(load_marks(&paths).marks.ratings["sha256:a"].stars, 4);
+    }
 
     #[test]
     fn safe_join_rejects_escapes() {

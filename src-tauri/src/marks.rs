@@ -189,17 +189,39 @@ pub struct Read {
 
 /// The marks of the registered devices. No `marks` folder yet means no marks.
 pub fn read(lists: &Path) -> Result<Read, String> {
+    read_with(lists, None)
+}
+
+/// As `read`, with `extra` = (this device, the lines of its outbox) read as if they stood at the
+/// end of its own file (F020/S01).
+pub fn read_with(lists: &Path, extra: Option<(&str, &str)>) -> Result<Read, String> {
     let devices = registered(lists)?;
     let mut out = Read::default();
-    let Ok(entries) = fs::read_dir(lists.join(MARKS_DIR)) else { return Ok(out) };
-    for entry in entries.flatten() {
+    let mut entries: Vec<fs::DirEntry> = fs::read_dir(lists.join(MARKS_DIR)).map(|rd| rd.flatten().collect()).unwrap_or_default();
+    let mut texts: Vec<(String, String)> = Vec::new();
+    for entry in entries.drain(..) {
         let name = entry.file_name().to_string_lossy().into_owned();
         let Some(device) = name.strip_suffix(".jsonl") else { continue };
         if !devices.contains(device) {
             continue;
         }
         let bytes = fs::read(entry.path()).map_err(|e| format!("{MARKS_DIR}/{name} niet leesbaar: {e}"))?;
-        let (events, ignored) = parse_file(&String::from_utf8_lossy(&bytes), device);
+        texts.push((device.to_string(), String::from_utf8_lossy(&bytes).into_owned()));
+    }
+    if let Some((device, lines)) = extra.filter(|(d, l)| devices.contains(*d) && !l.is_empty()) {
+        match texts.iter_mut().find(|(d, _)| d == device) {
+            // a last line without its newline is half written and stays ignored, as before
+            Some((_, text)) => {
+                if !text.is_empty() && !text.ends_with('\n') {
+                    text.push('\n');
+                }
+                text.push_str(lines)
+            }
+            None => texts.push((device.to_string(), lines.to_string())),
+        }
+    }
+    for (device, text) in &texts {
+        let (events, ignored) = parse_file(text, device);
         out.events.extend(events);
         out.ignored += ignored;
     }
@@ -291,14 +313,14 @@ pub struct MarksState {
 }
 
 /// The marks from the share when it is connected, else from the local copy.
-pub fn load(nas: Option<&Path>, local: &Path) -> MarksState {
+pub fn load(nas: Option<&Path>, local: &Path, extra: Option<(&str, &str)>) -> MarksState {
     use crate::lists::Source;
     let (source, dir) = match nas {
         Some(n) => (Source::Nas, n),
         None if local.join(DEVICES_FILE).is_file() => (Source::Local, local),
         None => return MarksState { source: Source::None, marks: Marks::default(), ignored: 0, problem: None },
     };
-    match read(dir) {
+    match read_with(dir, extra) {
         Ok(r) => MarksState { source, marks: merge(r.events), ignored: r.ignored, problem: None },
         Err(e) => MarksState { source, marks: Marks::default(), ignored: 0, problem: Some(e) },
     }
@@ -390,12 +412,12 @@ mod tests {
         let text = fs::read_to_string(dir.path().join("marks/mbp-lynn.jsonl")).unwrap();
         assert_eq!(text.lines().count(), 3);
         assert!(text.lines().next().unwrap().ends_with(r#""op":"rate","photo":"h1","stars":4}"#));
-        let s = load(Some(dir.path()), Path::new("/nowhere"));
+        let s = load(Some(dir.path()), Path::new("/nowhere"), None);
         assert_eq!((s.marks.ratings.len(), s.marks.ratings["h2"].stars, s.marks.ratings["h2"].by.as_str()), (2, 4, "lynn"));
         assert!(s.marks.hearts["h1"].contains_key("lynn"));
         // a stranger's file is not read
         fs::write(dir.path().join("marks/stranger.jsonl"), line("2026-10-30T10:00:00+01:00", "stranger", "s", "heart", "h2", "")).unwrap();
-        assert!(!load(None, dir.path()).marks.hearts.contains_key("h2"));
+        assert!(!load(None, dir.path(), None).marks.hearts.contains_key("h2"));
     }
 
     #[test]
@@ -438,7 +460,7 @@ mod tests {
         let dir = registered_dir(&["mbp-lynn"]);
         append(dir.path(), "mbp-lynn", "lynn", &Change::Hide { photos: vec!["a".into(), "b".into()], hidden: true }).unwrap();
         append(dir.path(), "mbp-lynn", "lynn", &Change::Hide { photos: vec!["b".into()], hidden: false }).unwrap();
-        let s = load(Some(dir.path()), Path::new("/nowhere"));
+        let s = load(Some(dir.path()), Path::new("/nowhere"), None);
         assert_eq!(s.marks.hidden.keys().collect::<Vec<_>>(), vec!["a"]);
         assert!(append(dir.path(), "mbp-lynn", "lynn", &Change::Hide { photos: vec![], hidden: true }).is_err());
     }
@@ -470,7 +492,7 @@ mod tests {
         assert!(id.starts_with("mbp-lynn-20"), "{id}");
         append(dir.path(), "mbp-lynn", "lynn", &Change::Stack { photos: vec!["a".into(), "b".into(), "c".into()], stack: id.clone() }).unwrap();
         append(dir.path(), "mbp-lynn", "lynn", &Change::Unstack { photos: vec!["c".into()] }).unwrap();
-        let s = load(Some(dir.path()), Path::new("/nowhere"));
+        let s = load(Some(dir.path()), Path::new("/nowhere"), None);
         assert_eq!((s.marks.stacks.len(), s.marks.stacks["a"].as_str()), (2, id.as_str()));
         let empty = Change::Stack { photos: vec!["a".into()], stack: " ".into() };
         assert!(append(dir.path(), "mbp-lynn", "lynn", &empty).is_err());
@@ -481,7 +503,7 @@ mod tests {
         let dir = registered_dir(&["mbp-lynn"]);
         append(dir.path(), "mbp-lynn", "lynn", &Change::Color { stack: "s".into(), color: "groen".into() }).unwrap();
         append(dir.path(), "mbp-lynn", "lynn", &Change::Color { stack: "s".into(), color: "roze".into() }).unwrap();
-        let s = load(Some(dir.path()), Path::new("/nowhere"));
+        let s = load(Some(dir.path()), Path::new("/nowhere"), None);
         assert_eq!(s.marks.stack_colors["s"], "roze");
         assert!(append(dir.path(), "mbp-lynn", "lynn", &Change::Color { stack: "s".into(), color: "rood".into() }).unwrap_err().contains("onbekende kleur"));
         let unknown = r#"{"v":1,"ts":"2026-10-30T10:00:00+01:00","dev":"a","who":"x","op":"color","stack":"s","color":"rood"}"#.to_string() + "\n";

@@ -1,6 +1,6 @@
 # Feature 20: Changes without the NAS
 
-**Status:** In design
+**Status:** In progress (plan accepted 2026-11-04)
 **Depends on:** Feature 3 (lists), feature 13 (stars and hearts), feature 14 (hiding), feature 15
 (stacks)
 **Folder:** `F020-offline-changes`
@@ -73,16 +73,17 @@ wijzigen kan alleen met de NAS*, *sterren en hartjes wijzigen kan alleen met de 
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | The outbox: writing a change there when the share isn't connected, and reading the lists and marks with it | Planned | — |
-| S02 | Sending the outbox: on connect, in order, read back, without duplicates; the id of a list taken meanwhile | Planned | S01 |
-| S03 | In the window: no refusal offline, *wijzigingen wachten op de NAS* in the footer, a message when sending fails | Planned | S01 |
-| S04 | The data contract: writing later with the original moment (5.2, 5.5), version 1.5 | Planned | S02 |
+| [S01](stories/S01-the-outbox.md) | The outbox: writing a change there when the share isn't connected, and reading the lists and marks with it | Built, to check in the app | — |
+| [S02](stories/S02-sending.md) | Sending the outbox: on connect, in order, read back, without duplicates; the id of a list taken meanwhile | Built, to check in the app | S01 |
+| [S03](stories/S03-in-the-window.md) | In the window: no refusal offline, *wijzigingen wachten op de NAS* in the footer, a message when sending fails | Built, to check in the app | S01 |
+| [S04](stories/S04-data-contract.md) | The data contract: writing later with the original moment (5.2, 5.5), version 1.5 | Done | S02 |
 
-## Open points, to decide with Peter
+## Decisions
 
-1. **Also when the NAS answers but writing fails** (a full disk, a lost connection halfway):
-   proposal yes, into the outbox, so no change is lost; the footer says so.
-2. **Where the outbox is**: proposal the app's local state (`~/.config/media/outbox/`), not the
-   local copy of `Lists`, which the sync overwrites.
-3. **The other Mac's changes while offline**: you see them only after the next sync; proposal no
-   extra warning, the footer's line says your own changes are waiting.
+Taken with Peter on 2026-11-04, as proposed:
+
+1. **Also when the NAS answers but writing fails**: the change goes to the outbox, and the footer
+   says it waits.
+2. **The outbox** is in the app's local state (`~/.config/media/outbox/`), not in the local copy
+   of `Lists`, which the sync overwrites.
+3. **No extra warning** about the other Mac's changes while offline; they come at the next sync.
