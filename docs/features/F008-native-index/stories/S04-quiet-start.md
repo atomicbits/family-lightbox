@@ -1,7 +1,7 @@
 # Story S04: A quiet start: the grid loads once
 
 **Feature:** `F008-native-index`
-**Status:** In progress: built and tested; the start in the app still to check
+**Status:** Done (2026-11-04)
 **Depends on:** S02
 
 ## Goal
@@ -84,3 +84,7 @@ From Peter's observation that the previews seemed to wait for the NAS at start.
   bumped the grid's generation meanwhile. Until now the rebuild at start always fetched them
   again; since it no longer counts when nothing changed, they never came. The months at start now
   have a generation of their own (`monthsGen`), bumped only when a rebuild reloads the months.
+
+### [2026-11-04] Checked in the app
+
+Peter checked it in the app: OK.

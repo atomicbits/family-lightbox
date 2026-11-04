@@ -1,7 +1,7 @@
 # Story S05: The source in the filter bar
 
 **Feature:** `F002-filters`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-04)
 **Depends on:** S03, S04
 
 ## Goal
@@ -57,3 +57,7 @@ At Peter's request, after the first one-off source.
 - On Peter's index: 23 sources and about 45 000 files without one (the folders before 2022).
 - `cargo test` 189 passed (2 new), `cargo clippy --all-targets` clean; `pnpm test` 143 passed (3
   new), `tsc` and `vite build` clean.
+
+### [2026-11-04] Checked in the app
+
+Peter checked it in the app: OK.

@@ -1,6 +1,6 @@
 # Feature 7: Sync manifests and previews from the NAS
 
-**Status:** In progress (S01–S04 done, S05 built; in-app check owed)
+**Status:** Done (2026-11-04)
 **Depends on:** Feature 6 (a connected, readable NAS)
 **Folder:** `F007-sync-from-nas`
 
@@ -110,9 +110,9 @@ moves towards (D13).
 | [S02](stories/S02-sync-engine.md) | Sync engine: plan per folder, atomic copy with the remote time, exclusions, unreadable folders | Done | — |
 | [S03](stories/S03-manifests-pass.md) | Manifests pass from `Library` | Done | S02 |
 | [S04](stories/S04-previews-pass.md) | Previews pass with size count, 20 GB reserve and confirmation the first time | Done | S02 |
-| [S05](stories/S05-background-sync.md) | Running in the background: progress, cancel, when it runs, the line in the header | In progress: built, in-app check owed | S03, S04 |
-| [S06](stories/S06-one-file-failing.md) | One file that fails is retried once, then skipped; the sync goes on | In progress: built | S05 |
-| [S07](stories/S07-previews-where-new.md) | The previews pass at start looks only where something can be new; a full count weekly and by hand | In progress: built, to check at the next start | S04, S05 |
+| [S05](stories/S05-background-sync.md) | Running in the background: progress, cancel, when it runs, the line in the header | Done | S03, S04 |
+| [S06](stories/S06-one-file-failing.md) | One file that fails is retried once, then skipped; the sync goes on | Done | S05 |
+| [S07](stories/S07-previews-where-new.md) | The previews pass at start looks only where something can be new; a full count weekly and by hand | Done | S04, S05 |
 
 ## Open points
 

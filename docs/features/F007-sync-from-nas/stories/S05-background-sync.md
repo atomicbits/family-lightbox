@@ -1,7 +1,7 @@
 # Story S05: Running in the background: progress, cancel, when it runs, the line in the header
 
 **Feature:** `F007-sync-from-nas`
-**Status:** In progress: built and tested, runner checked on real data; the line, the dialog and Synchroniseren in the running app still to check
+**Status:** Done (2026-11-04)
 **Depends on:** S03, S04
 
 ## Goal
@@ -166,3 +166,7 @@ No index build is asked for while the working copy doesn't exist yet: coming bac
 asked for one every 30 seconds during the first sync, and logged "werkkopie niet gevonden" on a
 new Mac. `index_rebuild` and the sync's requests now skip it quietly until the first manifests
 made the folder.
+
+### [2026-11-04] Checked in the app
+
+Peter checked it in the app: OK.

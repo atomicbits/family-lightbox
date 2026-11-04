@@ -1,7 +1,7 @@
 # Story S03: The filter bar in the toolbar
 
 **Feature:** `F002-filters`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-04)
 **Depends on:** S02
 
 ## Goal
@@ -69,3 +69,7 @@ a set filter is clear at a glance and cleared with one click; it is kept after a
   `quietSelection`, and the grid doesn't scroll to it. A filter change remembers the month at the
   top and jumps back to it once the counts for that filter are in (or forgets it after 3 s when
   nothing changed).
+
+### [2026-11-04] Checked in the app
+
+Peter checked it in the app: OK.

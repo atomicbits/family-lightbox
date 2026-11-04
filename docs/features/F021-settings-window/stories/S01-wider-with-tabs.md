@@ -1,7 +1,7 @@
 # Story S01: A wider settings window with the topics on tabs
 
 **Feature:** `F021-settings-window`
-**Status:** In progress: built; to check in the app
+**Status:** Done (2026-11-04)
 **Depends on:** —
 
 ## Goal
@@ -61,3 +61,7 @@ From Peter: the settings are too narrow (scrolling sideways) and have become har
   folder showed in both. Now each source shows once, with its settings: every drop folder with its
   subfolders (the sources) inside it, every synced folder with its settings and any problem, and
   *Kaarten* only when a card is in. `pnpm test` 146 passed, `tsc` and `vite build` clean.
+
+### [2026-11-04] Checked in the app
+
+Peter checked it in the app: OK.

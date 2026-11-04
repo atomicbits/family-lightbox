@@ -1,7 +1,7 @@
 # Story S07: The previews pass at start looks only where something can be new
 
 **Feature:** `F007-sync-from-nas`
-**Status:** In progress: built and tested; to check at the next start
+**Status:** Done (2026-11-04)
 **Depends on:** S04, S05
 
 ## Goal
@@ -65,3 +65,7 @@ From Peter: *previews tellen…* shows very often, for old folders where nothing
 - `cargo test` 192 passed (3 new: the years to count, the week, and a start that counts nothing,
   then a changed year, then every year by hand), `cargo clippy --all-targets` clean.
 - The first start after this still counts in full, since no full count was recorded yet.
+
+### [2026-11-04] Checked in the app
+
+Peter checked it in the app: OK.

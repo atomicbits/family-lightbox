@@ -1,6 +1,6 @@
 # Feature 21: The settings window
 
-**Status:** In progress
+**Status:** Done (2026-11-04)
 **Depends on:** Feature 6 (the NAS settings), feature 18 (the import settings), feature 19 (the
 layout)
 **Folder:** `F021-settings-window`
@@ -36,4 +36,4 @@ into one narrow column that Peter has to scroll through, also sideways.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-wider-with-tabs.md) | A wider settings window with the topics on tabs | In progress: built, to check in the app | — |
+| [S01](stories/S01-wider-with-tabs.md) | A wider settings window with the topics on tabs | Done | — |

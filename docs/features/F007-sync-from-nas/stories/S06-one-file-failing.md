@@ -1,7 +1,7 @@
 # Story S06: One file that fails doesn't stop the sync
 
 **Feature:** `F007-sync-from-nas`
-**Status:** In progress: built and tested; to see on the next timeout
+**Status:** Done (2026-11-04)
 **Depends on:** S05
 
 ## Goal
@@ -42,3 +42,7 @@ sync tries it again. Only when the NAS stops answering altogether does the sync 
 - 3 Rust tests (a file failing once then copied, a file failing twice skipped with the rest
   copied, ten in a row stopping), with the copy and the pause injected; one vitest test for the
   line. 133 Rust and 100 vitest tests, clippy, `tsc` and `pnpm build` clean.
+
+### [2026-11-04] Checked in the app
+
+Peter checked it in the app: OK.

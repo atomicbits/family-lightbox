@@ -151,12 +151,12 @@ no folder yet.
 | # | Feature | Status | Depends on |
 |---|---|---|---|
 | 1 | [Browse the library](F001-browse-library/plan.md) | Done | CLI `index`, `previews` |
-| 2 | [Filters](F002-filters/plan.md): stars, hearts, kind and camera, in the toolbar, kept after a restart (was "Filter by source") | In progress | 13, 17, LibraryLocal F011 |
+| 2 | [Filters](F002-filters/plan.md): stars, hearts, kind and camera, in the toolbar, kept after a restart (was "Filter by source") | Done | 13, 17, LibraryLocal F011 |
 | 3 | [Lists](F003-lists/plan.md): create and fill lists together, native (data contract section 5) | In progress (S01–S03 and S05 done, S04 built; to check with Lynn's Mac) | 6, 8 |
 | 4 | [CI and signed releases](F004-ci-and-releases/plan.md), macOS first (reusing Atomic Bits' signing from `wikai`) | In progress (S01–S03 done; S04 built, v0.2.0 released) | 1 |
 | 5 | Start imports from the app via the CLI's `--json` output | Dropped: imports move into the app natively (D13), see 10 | — |
 | 6 | [Connect to the NAS](F006-nas-connection/plan.md): find or mount the shares (macOS first), register the device | Done on Peter's Mac; Lynn's Mac deferred | 1 |
-| 7 | [Sync manifests and previews from the NAS](F007-sync-from-nas/plan.md) (replaces passes 1–2 of `media pull`; moves the data contract here) | In progress | 6 |
+| 7 | [Sync manifests and previews from the NAS](F007-sync-from-nas/plan.md) (replaces passes 1–2 of `media pull`; moves the data contract here) | Done | 6 |
 | 8 | [Native index](F008-native-index/plan.md): build the app's own index from the manifests (replaces `media index` for the app) | In progress | 7 |
 | 9 | Open originals that are not on this laptop, from the NAS | Planned | 6 |
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |
@@ -170,5 +170,5 @@ no folder yet.
 | 18 | [Import](F018-import/plan.md): from a drop folder, a synced folder or a card, into the right month and source on the NAS, verified, with previews (the import and push part of 10) | In progress | 6, 8, 12 |
 | 19 | [The NAS layout in one file](F019-nas-layout/plan.md): where the library, previews, lists and exports are, in `familylightbox.json` on the NAS for all Macs; one share by default | In progress | 6, 7, 18 |
 | 20 | [Changes without the NAS](F020-offline-changes/plan.md): lists, stars, hearts, hiding and stacks changed offline, kept in an outbox and sent when the NAS is back | In design | 3, 13, 14, 15 |
-| 21 | [The settings window](F021-settings-window/plan.md): wider, the topics on tabs | In progress | 6, 18, 19 |
+| 21 | [The settings window](F021-settings-window/plan.md): wider, the topics on tabs | Done | 6, 18, 19 |
 | 22 | [Renaming sources](F022-rename-sources/plan.md): rename a source or merge it into another, on the NAS, every Mac and in the manifests, to straighten out old names | In design | 2, 8, 18, 19 |
