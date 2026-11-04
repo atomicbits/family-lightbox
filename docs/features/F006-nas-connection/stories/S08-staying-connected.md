@@ -1,7 +1,7 @@
 # Story S08: Staying connected: reconnecting quietly, and syncing once the NAS is there
 
 **Feature:** `F006-nas-connection`
-**Status:** In progress: built and tested; to check on Lynn's Mac after a release
+**Status:** Done (2026-11-04)
 **Depends on:** S03, S05, feature 7/S05
 
 ## Goal
@@ -69,3 +69,9 @@ From Peter, opening Lynn's laptop with v0.5.0.
   clippy --all-targets` clean.
 - Not yet known: whether the quiet connect on Lynn's Mac can use the Keychain's account at all
   (it needs the password saved there); if not, only *Verbinden* with its dialog connects.
+
+### [2026-11-04] Checked on Lynn's Mac
+
+With v0.6.0 on Lynn's Mac: after opening the lid the NAS connected by itself and the sync brought
+in what was new, without *Verbinden*; Peter: the test is OK. The previews' confirmation it still
+asked for there is gone after the next release (feature 7/S04, over 5 GB only).
