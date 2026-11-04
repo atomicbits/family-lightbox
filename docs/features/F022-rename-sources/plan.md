@@ -1,6 +1,6 @@
 # Feature 22: Renaming sources
 
-**Status:** In design
+**Status:** In progress (plan accepted 2026-11-04)
 **Depends on:** Feature 8 (the index), feature 18 (sources and their layout), feature 19 (one share),
 feature 2/S05 (sources in the filter)
 **Folder:** `F022-rename-sources`
@@ -37,9 +37,9 @@ proposals and the folders on the NAS show one name per way photos come in.
 
 - **Rename** a source (`X` → a name the library doesn't have) and **merge** a source into another
   (`X` → `Y`), for all its months or a range of months.
-- **The target's layout**: files take the layout `Y` has in the library (feature 18/S03): with or
-  without day folders, split or not; for a new name, the layout `X` has. A day folder comes from
-  the file's `taken`.
+- **The layout stays**: what is below the source (a day folder, `photos/`/`videos/`) stays as it
+  is; only the source's folder changes name. A source may have months with and without day
+  folders (data contract 3.1, 1.4), so a merge needs no reshuffling.
 - **A plan first, as a dry run**: per month what moves where, the names that exist in the target
   month already (a different file gets `~<hash>`, contract 3.3; the same content is a duplicate),
   the bytes Drive will upload again, and the months of the old layout (`MM.<name>`, before 2022),
@@ -83,21 +83,21 @@ proposals and the folders on the NAS show one name per way photos come in.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | The plan of a rename or merge, as a dry run: per month what moves where, clashes, duplicates, bytes for Drive | Planned | — |
+| [S01](stories/S01-the-plan.md) | The plan of a rename or merge, as a dry run: per month what moves where, clashes, duplicates, bytes for Drive | Done | — |
 | S02 | The data contract: a rename as an allowed operation, and the rename record every Mac applies | Planned | — |
 | S03 | Executing on the NAS: originals, sidecars, previews, manifests, per month, journaled and verified | Planned | S01, S02 |
 | S04 | Applying a rename record to this Mac's working copy and previews at the sync, also on the other Mac | Planned | S02, S03 |
 | S05 | The tab *Bronnen* in the settings: the sources, *Hernoemen…*, the plan, the confirmation of the snapshot | Planned | S01, S03 |
 
-## Open points, to decide with Peter
+## Decisions
 
-1. **Duplicates by content** in the target month (the same photo under both names): proposal leave
-   them under the old name and list them; removing them is a deletion, decided per case. The
-   alternative is a `_duplicates` folder in the same month, out of the source filter.
-2. **The old paths on Drive**: proposal leave them, as now, so nothing is deleted on Drive; the
-   alternative is a separate step that removes them on Drive once the new paths are there with the
-   same size, which costs a contract change and Peter's go each time.
-3. **Hero7 and GoProH7**: which name wins (the import proposes sources by camera, so the name that
-   stays is what a GoPro HERO7 card gets proposed).
-4. **The CLI**: proposal it only keeps reading (it reads the manifests, so it follows); its own
-   source table and `thin`'s plans are made again after a rename.
+Taken with Peter on 2026-11-04:
+
+1. **Duplicates by content** in the target month stay under their old name and are listed;
+   nothing is deleted.
+2. **The old paths on Drive** stay; nothing is deleted on Drive. The renamed files are uploaded
+   again by the daily copy.
+3. **`Hero7` and `GoProH7`** become **`GoPro-Hero7`**.
+4. **The CLI** only keeps reading; it follows through the manifests.
+5. **What is below the source stays as it is** (see *The layout stays*): simpler and safer than
+   moving files into the target's layout, now that a source may have both.

@@ -24,6 +24,7 @@ pub mod preview;
 pub mod previews_job;
 pub mod previews_plan;
 pub mod push;
+pub mod rename;
 pub mod sources;
 mod pull;
 mod runner;
