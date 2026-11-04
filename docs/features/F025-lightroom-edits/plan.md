@@ -1,6 +1,6 @@
 # Feature 25: Lightroom's edits visible in FamilyLightbox
 
-**Status:** Planned (an idea, to discuss)
+**Status:** In design (idea accepted 2026-11-04)
 **Depends on:** Feature 23 (the plug-in)
 **Folder:** `F025-lightroom-edits`
 
@@ -24,14 +24,23 @@ shows as a variant of its photo; so a list chosen in the app can be judged on th
   stack (feature 15). Exports (feature 24) can use the rendition at its size where it is large
   enough, or ask Lightroom for one.
 
+## Decisions
+
+Taken with Peter on 2026-11-04:
+
+1. **Shown in the grid and in lists**: an edited photo shows its edited rendition, and its
+   variants (the plain original, virtual copies) are shown like the members of a stack
+   (feature 15): folded to one, unfolded with a click.
+2. **One variant is chosen**: per photo, the variant that shows when folded and that an export
+   (feature 24) takes, chosen by hand (shared, like a stack's choice); by default the latest edited
+   one. The choice is a mark of the photo (data contract 5.5), kept for both Macs.
+
 ## Open points
 
-1. Instead of the preview, or next to it?
-2. Only the photos of lists, or every edited photo (Lightroom can find those by their develop
-   history)?
-3. Renditions at preview size (2 048 px) only, or also at export size, so feature 24 can make
+1. Every edited photo (Lightroom can find those by their develop history), or only those of lists?
+2. Renditions at preview size (2 048 px) only, or also at export size, so feature 24 can make
    edited prints without Lightroom open?
 
 ## Stories
 
-To be written when the idea is accepted.
+To be written when the open points are decided.
