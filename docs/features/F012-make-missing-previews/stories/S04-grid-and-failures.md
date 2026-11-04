@@ -74,3 +74,19 @@ reload. What couldn't be made is listed in the settings, with a way to try again
   after a sync that copied something) the month cache was emptied and the visible months fetched
   again afterwards, so for a moment every tile was an empty placeholder.
 - The months on screen are now fetched before the cache is replaced.
+
+### [2026-11-04] The previews that couldn't be made
+
+Peter: *Opnieuw proberen* in the settings failed again on the same files. Of the 107 failures on
+his Mac:
+
+- 46 are MP4 films under a camera's own extension: GoPro's `.LRV` (42) and `.360` (4).
+  AVFoundation goes by the extension, so `preview::as_mp4` opens `.lrv`, `.360` and `.insv`
+  through a link named `.mp4` in the temporary folder, removed afterwards; a test with both.
+- 50 are an old viewer's thumbnails in `.xvpics/` folders from 2004, listed in the manifests as
+  photos. Data contract 1 (1.4 addition): a file below a folder whose name starts with `.` is
+  never a photo or video for a reader. The index gives them kind `other`, so they are out of the
+  grid and need no preview; the settings list only failures of files that still lack a preview.
+- 2 are empty `CR3` files (0 bytes) and 9 are `MOV`s macOS can't open: they stay as failures.
+
+`cargo test` 201 passed (2 new), `cargo clippy --all-targets` clean.

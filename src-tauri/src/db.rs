@@ -238,6 +238,14 @@ impl Db {
             .map_err(|e| e.to_string())
     }
 
+    /// The photos and videos without a preview on this Mac, by path (F012/S04): what a failure in
+    /// the previews record still matters for.
+    pub fn without_preview(&self) -> Result<std::collections::HashSet<String>, String> {
+        let mut stmt = self.conn.prepare("SELECT path FROM items WHERE kind IN ('photo', 'video') AND NOT preview").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| r.get(0)).map_err(|e| e.to_string())?;
+        rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+    }
+
     /// How many photos and videos with these hashes each month has (F014/S02): the hidden ones,
     /// to leave out of the counts. One pass over the index.
     pub fn count_per_month(&self, hashes: &std::collections::HashSet<String>) -> Result<std::collections::HashMap<String, i64>, String> {

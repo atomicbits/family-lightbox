@@ -725,8 +725,16 @@ pub struct PreviewsOverview {
 /// For the settings: how many previews are missing and what failed (F012/S04).
 #[tauri::command]
 fn previews_overview(paths: State<Paths>) -> Result<PreviewsOverview, String> {
-    let missing = Db::open(&paths.index())?.missing_previews()?;
-    let failed = previews_plan::Record::open(&paths.config.join(previews_plan::RECORD_FILE))?.failures()?;
+    let db = Db::open(&paths.index())?;
+    let missing = db.missing_previews()?;
+    // a failure of a file that is no photo or video any more (below `.xvpics`), or has its preview
+    // by now, isn't shown
+    let still = db.without_preview()?;
+    let failed = previews_plan::Record::open(&paths.config.join(previews_plan::RECORD_FILE))?
+        .failures()?
+        .into_iter()
+        .filter(|f| still.contains(&f.path))
+        .collect();
     Ok(PreviewsOverview { missing, failed })
 }
 

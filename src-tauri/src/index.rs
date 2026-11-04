@@ -146,6 +146,11 @@ pub fn manifest_paths(library: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(out)
 }
 
+/// Whether a path is below a folder whose name starts with `.`.
+fn hidden_folder(path: &str) -> bool {
+    path.rsplit_once('/').is_some_and(|(dirs, _)| dirs.split('/').any(|d| d.starts_with('.')))
+}
+
 fn is_year(name: &str) -> bool {
     name.len() == 4 && name.bytes().all(|b| b.is_ascii_digit())
 }
@@ -232,7 +237,9 @@ fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Resu
             };
             let folder = man.folder.clone().filter(|f| !f.is_empty()).unwrap_or(rel);
             for r in &man.files {
-                let kind = r.kind.as_deref();
+                // below a hidden folder (`.xvpics`, an old viewer's thumbnails) nothing is a photo or
+                // video (data contract 1)
+                let kind = if hidden_folder(&r.path) { Some("other") } else { r.kind.as_deref() };
                 let media = matches!(kind, Some("photo" | "video"));
                 let local = library.join(&r.path).is_file();
                 let preview = media && previews.join(format!("{}.jpg", r.path)).is_file();
@@ -569,6 +576,25 @@ mod tests {
         assert_eq!(db.filtered_items("2026/07", &f1).unwrap().len(), 1);
         let unknown = crate::filter::Filter { cameras: vec!["".into()], ..Default::default() };
         assert_eq!(db.filtered_items("2026/07", &unknown).unwrap()[0].kind, "video");
+    }
+
+    #[test]
+    fn files_below_a_hidden_folder_are_no_photos() {
+        assert!(hidden_folder("2004/03-28.x/.xvpics/6.11.JPG") && !hidden_folder("2004/03-28.x/6.11.JPG"));
+        assert!(!hidden_folder(".hidden-file.jpg") && !hidden_folder("2004/03/a.b/x.jpg"));
+        let f = fixture();
+        manifest(
+            &f,
+            "2004/03-28.x",
+            json!({"month": "2004/03", "files": [
+                {"path": "2004/03-28.x/6.11.JPG", "size": 1, "hash": "sha256:p", "kind": "photo"},
+                {"path": "2004/03-28.x/.xvpics/6.11.JPG", "size": 1, "hash": "sha256:t", "kind": "photo"}]}),
+        );
+        build(&f.library, &f.previews, &f.target).unwrap();
+        let db = Db::open(&f.target).unwrap();
+        let items = db.items("2004/03").unwrap();
+        assert_eq!(items.iter().map(|i| i.path.as_str()).collect::<Vec<_>>(), ["2004/03-28.x/6.11.JPG"]);
+        assert!(!db.without_preview().unwrap().contains("2004/03-28.x/.xvpics/6.11.JPG"));
     }
 
     #[test]

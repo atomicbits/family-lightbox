@@ -58,6 +58,25 @@ pub fn fit_long(width: usize, height: usize, long: usize) -> (usize, usize) {
     (w, h)
 }
 
+/// MP4 files under a camera's own extension: GoPro's low-resolution copies (`.LRV`) and 360° films
+/// (`.360`), Insta360's films (`.insv`).
+const MP4_UNDER_ANOTHER_NAME: &[&str] = &["lrv", "360", "insv"];
+
+/// For such a file, a link to it named `.mp4` in the temporary folder, for AVFoundation; `None`
+/// for any other file, or when the link can't be made.
+fn as_mp4(src: &Path) -> Option<PathBuf> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    let ext = src.extension()?.to_string_lossy().to_lowercase();
+    if !MP4_UNDER_ANOTHER_NAME.contains(&ext.as_str()) {
+        return None;
+    }
+    let link = std::env::temp_dir().join(format!("familylightbox-{}-{}.mp4", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
+    let _ = std::fs::remove_file(&link);
+    std::os::unix::fs::symlink(src, &link).ok()?;
+    Some(link)
+}
+
 fn tmp(path: &Path) -> PathBuf {
     let mut name = path.file_name().unwrap_or_default().to_os_string();
     name.push(".tmp");
@@ -162,6 +181,19 @@ mod macos {
     /// The frame at `frame_time`, with the track's rotation applied; the first frame if that fails.
     #[allow(deprecated)] // copyCGImageAtTime is synchronous, which suits a worker thread
     fn video(src: &Path) -> Result<CFRetained<CGImage>, String> {
+        // AVFoundation goes by the extension: an MP4 under a camera's own one is opened through a
+        // link named `.mp4`, removed afterwards
+        let link = super::as_mp4(src);
+        let opened = link.as_deref().unwrap_or(src);
+        let result = video_at(opened);
+        if let Some(l) = &link {
+            let _ = std::fs::remove_file(l);
+        }
+        result
+    }
+
+    #[allow(deprecated)]
+    fn video_at(src: &Path) -> Result<CFRetained<CGImage>, String> {
         let url = NSURL::from_file_path(src).ok_or_else(|| format!("ongeldig pad: {}", src.display()))?;
         unsafe {
             let asset = AVAsset::assetWithURL(&url);
@@ -405,6 +437,25 @@ mod macos {
             assert_eq!((p.width, p.height, t.width, t.height), (240, 320, 240, 320));
             assert!(p.exif.contains(&("DateTimeOriginal".to_string(), "2026:07:30 16:58:12".to_string())));
             assert!(!p.exif.iter().any(|(k, _)| k == "OffsetTimeOriginal"));
+        }
+
+        #[test]
+        fn an_mp4_under_a_cameras_own_extension_gives_a_frame_and_leaves_no_link() {
+            let dir = tempfile::tempdir().unwrap();
+            let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/testsrc-rotated.mp4");
+            for name in ["GL010728.LRV", "GS010004.360"] {
+                let src = dir.path().join(name);
+                std::fs::copy(&fixture, &src).unwrap();
+                let (out, thumb) = outputs(dir.path(), name);
+                super::super::make(&src, Kind::Video, None, &out, &thumb).unwrap();
+                assert_eq!((read(&out).width, read(&out).height), (240, 320), "{name}");
+            }
+            let links = std::fs::read_dir(std::env::temp_dir())
+                .unwrap()
+                .flatten()
+                .filter(|e| e.file_name().to_string_lossy().starts_with(&format!("familylightbox-{}-", std::process::id())))
+                .count();
+            assert_eq!(links, 0);
         }
 
         #[test]

@@ -18,7 +18,7 @@ The words **MUST**, **MUST NOT**, **SHOULD** and **MAY** are meant as in RFC 211
 | Device name | `^[a-z][a-z0-9-]{1,31}$`, unique within `Lists/devices.json`. Examples: `mbp-peter`, `mbp-lynn`. |
 | List id | `YYYY/<slug>` with slug `^[a-z0-9][a-z0-9-]{0,63}$`, derived from the display name (lowercase, accents stripped, everything that isn't a letter or digit becomes `-`, no double or trailing `-`). `2026/herfstwandeling`. |
 | Writing | Every file that is written as a whole (manifest, summary, devices) MUST be written atomically: to a temporary file in the same folder, `fsync`, then rename. A reader never sees half a file. |
-| Exclusions | These names are ignored by every component and never copied or put in a manifest: `@eaDir`, `#recycle`, `#snapshot`, `.DS_Store`, `._*`, `Thumbs.db`, `.TemporaryItems`, `.Spotlight-V100`, `.fseventsd`, `*.tmp`, `*.partial`. |
+| Exclusions | These names are ignored by every component and never copied or put in a manifest: `@eaDir`, `#recycle`, `#snapshot`, `.DS_Store`, `._*`, `Thumbs.db`, `.TemporaryItems`, `.Spotlight-V100`, `.fseventsd`, `*.tmp`, `*.partial`. A file below a folder whose name starts with `.` (such as `.xvpics`, the thumbnails an old viewer left in some folders from 2004) MAY be in a manifest, but is never a photo or video: a reader leaves it out of what it shows and makes no preview for it (from 1.4). |
 | Deleting | No component deletes anything on the NAS or on Drive, except what this contract explicitly names as a deletion step (none). Deleting locally is only done by `media thin` under the rules of section 10. |
 | Overwriting | An existing original MUST NOT be overwritten, not even by a file with the same name. See 3.3. |
 
@@ -383,6 +383,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 |---|---|---|
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
 | 1.4 (addition) | 2026-11-03 | Section 3.1: a new source has no day folders; the sources with day folders keep them (FamilyLightbox F018, at Peter's request). |
+| 1.4 (addition) | 2026-11-04 | Section 1: files below a folder whose name starts with `.` aren't photos or videos for a reader (FamilyLightbox F012). |
 | 1.4 (addition) | 2026-11-03 | Section 3.1: a source's layout is read from its most recent month; within one source, months with and without day folders are both valid (FamilyLightbox F018/S03). |
 | 1.4 | 2026-10-31 | Section 2: the locations in `familylightbox.json` on the NAS (FamilyLightbox F019); without it, the four shares as before. |
 | 1.3 (addition) | 2026-10-30 | Section 3.5: `camera` without the make's company form or a trailing `DIGITAL CAMERA` (LibraryLocal F011/S03). Manifests with the long names stay valid and are rewritten. |
