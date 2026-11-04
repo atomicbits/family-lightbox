@@ -1,6 +1,6 @@
 # Data contract
 
-*Version 1.5, 4 November 2026. This document sets down what the data shared by the CLI (`media`), the desktop app (FamilyLightbox) and the Lightroom plug-in looks like: folders, file names, manifests, previews, lists and local state. Everything stated here is binding for every component; anything not stated here is up to each component. Changes raise the version number and get a line in section 12.*
+*Version 1.6, 4 November 2026. This document sets down what the data shared by the CLI (`media`), the desktop app (FamilyLightbox) and the Lightroom plug-in looks like: folders, file names, manifests, previews, lists and local state. Everything stated here is binding for every component; anything not stated here is up to each component. Changes raise the version number and get a line in section 12.*
 
 *Moved into this repo, translated from Dutch, on 2026-10-26 (FamilyLightbox F007/S01). The section numbers are unchanged, so references such as "data contract 5.1" in code and documents stay valid. Operational details of the home network that a component doesn't need to follow the contract (SSH configuration, which account is denied which years, the name of the Drive mirror share) are kept in a private note outside this repo, `docs/nas-inrichting.md` in LibraryLocal.*
 
@@ -19,7 +19,7 @@ The words **MUST**, **MUST NOT**, **SHOULD** and **MAY** are meant as in RFC 211
 | List id | `YYYY/<slug>` with slug `^[a-z0-9][a-z0-9-]{0,63}$`, derived from the display name (lowercase, accents stripped, everything that isn't a letter or digit becomes `-`, no double or trailing `-`). `2026/herfstwandeling`. |
 | Writing | Every file that is written as a whole (manifest, summary, devices) MUST be written atomically: to a temporary file in the same folder, `fsync`, then rename. A reader never sees half a file. |
 | Exclusions | These names are ignored by every component and never copied or put in a manifest: `@eaDir`, `#recycle`, `#snapshot`, `.DS_Store`, `._*`, `Thumbs.db`, `.TemporaryItems`, `.Spotlight-V100`, `.fseventsd`, `*.tmp`, `*.partial`. A file below a folder whose name starts with `.` (such as `.xvpics`, the thumbnails an old viewer left in some folders from 2004) MAY be in a manifest, but is never a photo or video: a reader leaves it out of what it shows and makes no preview for it (from 1.4). |
-| Deleting | No component deletes anything on the NAS or on Drive, except what this contract explicitly names as a deletion step (none). Deleting locally is only done by `media thin` under the rules of section 10. |
+| Deleting | No component deletes anything on the NAS or on Drive, except what this contract explicitly names as a deletion step (none). Renaming a source (3.6) moves files on the NAS; it deletes nothing. Deleting locally is only done by `media thin` under the rules of section 10, and by a Mac applying a rename (5.6) to a local copy that the sync already brought to its new place. |
 | Overwriting | An existing original MUST NOT be overwritten, not even by a file with the same name. See 3.3. |
 
 ## 2. Shares on the NAS
@@ -143,6 +143,17 @@ Rules:
 - `mtime` is informative; `size` and `hash` are normative.
 - The manifest is rewritten by the device that last pushes to that year subfolder or makes its manifest, as a merge of the existing manifest on the NAS and the files known locally: per `path` the entry with the most recent `generated_at` origin wins; an entry for a path that no longer exists on the NAS is removed, never the file.
 - A file only counts as "on the NAS" when (a) it is in the manifest, (b) the file exists on the NAS with the same `size`, and (c) for `media thin` in addition the hash has been recomputed in place or this device's rsync transfer with checksum succeeded (section 10).
+
+### 3.6 Renaming a source
+
+A source, or several merged into one, MAY get another name (FamilyLightbox F022, from 1.6). Only
+the source's folder below the month changes; what is below it (a day folder, `photos/`/`videos/`)
+stays. Year subfolders of the old layout (`MM.<name>`) are never touched. Per month, on the NAS:
+the originals and sidecars move (never over an existing file), then the previews and thumbnails,
+then the month's manifest is rewritten with the new paths, sidecars and `source`, and checked. A
+name the month has already with other content gets `~<hash>` (3.3); the same content there already
+is left where it is. Only when every month is done is the record of 5.6 written. Drive keeps the
+old paths (section 8 copies, it never deletes); the new ones are copied again.
 
 ## 4. Previews
 
@@ -285,6 +296,22 @@ One file per device, next to `events/`, written only by that device, only by app
 
 Merging: all lines of registered devices, sorted as in 5.3 (moment of `ts`, then `dev`, then line). For each photo the last `rate` gives its stars, with its `who` and `ts`; for each photo and `who` the last `heart` or `unheart` decides whether that person's heart is on it; for each photo the last `hide` or `unhide`, whoever wrote it, decides whether it is hidden; for each photo the last `stack` or `unstack` decides its stack. A stack is the photos whose last event names it; a stack of fewer than two photos counts as none. For each stack the last `color` gives its color; without one, a reader picks a color from the id. An `unheart` without a heart, or a rating of 0 without a rating, changes nothing.
 
+### 5.6 Renames: `Lists/renames/<id>.json`
+
+The record of a rename of 3.6, written once by the device that did it, atomically (a temporary
+name, then a rename), after the NAS is done. Every device applies it to its own working copy and
+previews after its next sync (the sync copies `renames/` with the rest of `Lists`), and remembers
+which it applied. What a device doesn't have under the old path is left; a local copy that the sync
+already brought to the new path makes the old one of the same size superfluous.
+
+```json
+{"v": 1, "id": "mbp-peter-20261104T150000", "ts": "2026-11-04T15:00:00+01:00", "dev": "mbp-peter", "who": "peter",
+ "from": ["GoProH7", "Hero7"], "to": "GoPro-Hero7",
+ "moves": [["2019/02/GoProH7/GX010107.MP4", "2019/02/GoPro-Hero7/GX010107.MP4"]]}
+```
+
+`moves` has every original and sidecar, relative to `Library`; previews follow their original.
+
 ## 6. Exports
 
 ```
@@ -383,6 +410,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 |---|---|---|
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
 | 1.4 (addition) | 2026-11-03 | Section 3.1: a new source has no day folders; the sources with day folders keep them (FamilyLightbox F018, at Peter's request). |
+| 1.6 | 2026-11-04 | Sections 3.6 and 5.6: renaming a source on the NAS, and its record in `Lists/renames/` that every device applies; section 1: a rename moves, it deletes nothing (FamilyLightbox F022). |
 | 1.5 | 2026-11-04 | Section 5.2 and 5.5: a change made while the NAS can't be written to MAY be kept on the device and appended later with its original `ts`, in order, never twice; a list id taken meanwhile gets the next free one (FamilyLightbox F020). The format of the events doesn't change. |
 | 1.4 (addition) | 2026-11-04 | Section 1: files below a folder whose name starts with `.` aren't photos or videos for a reader (FamilyLightbox F012). |
 | 1.4 (addition) | 2026-11-03 | Section 3.1: a source's layout is read from its most recent month; within one source, months with and without day folders are both valid (FamilyLightbox F018/S03). |

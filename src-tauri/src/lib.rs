@@ -611,8 +611,10 @@ impl runner::Sink for EventSink {
         if let (runner::Phase::Failed, Some(m)) = (state.phase, &state.message) {
             report(&self.0, log::Level::Error, "synchronisatie", m);
         }
+        // a rename of sources done on another Mac: the same moves here (F022/S04)
+        let renamed = apply_renames(&self.0);
         // What came in only shows in the grid once the index has it (F008/S02).
-        if state.manifests_copied > 0 || state.previews_copied > 0 {
+        if renamed > 0 || state.manifests_copied > 0 || state.previews_copied > 0 {
             self.rebuild_index();
         } else {
             start_making(&self.0);
@@ -626,6 +628,111 @@ impl runner::Sink for EventSink {
         // the months show before the previews are counted, which takes minutes on a new Mac
         self.rebuild_index();
     }
+}
+
+/// Applies the renames in the local copy of `Lists` this Mac hasn't applied yet (F022/S04);
+/// returns how many files moved. A failure is reported and tried again after the next sync.
+fn apply_renames(app: &tauri::AppHandle) -> usize {
+    let paths = app.state::<Paths>().inner().clone();
+    let mut state = config::load_state(&paths.config);
+    let mut moved = 0;
+    let todo: Vec<rename::Record> = rename::records(&paths.lists).into_iter().filter(|r| !state.renames_applied.contains(&r.id)).collect();
+    for rec in todo {
+        match rename::apply(&rec, &paths.library, &paths.previews) {
+            Ok(n) => {
+                moved += n.max(1);
+                state.renames_applied.push(rec.id.clone());
+                let _ = config::save_state(&paths.config, &state);
+            }
+            Err(e) => report(app, log::Level::Warn, "bronnen", &format!("hernoeming {} niet toegepast: {e}", rec.id)),
+        }
+    }
+    moved
+}
+
+/// What a rename would do (F022/S01), read from the NAS; nothing is written.
+#[tauri::command]
+async fn rename_plan(from: Vec<String>, to: String, paths: State<'_, Paths>) -> Result<rename::RenamePlan, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || {
+        let (library, previews, _) = rename_shares(&paths)?;
+        rename::plan(&library, &previews, &from, to.trim())
+    })
+    .await
+}
+
+/// The `Library`, `Previews` and `Lists` folders on the NAS, all three needed for a rename.
+fn rename_shares(paths: &Paths) -> Result<(PathBuf, PathBuf, PathBuf), String> {
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let at = |list: &[mounts::Mount], what: &str| {
+        mounts::NasMounts::chosen(list).map(|m| PathBuf::from(&m.mount_point)).ok_or(format!("{what} is niet verbonden: hernoemen kan alleen met de NAS"))
+    };
+    Ok((at(&found.library, "de bibliotheek")?, at(&found.previews, "Previews")?, at(&found.lists, "Lijsten")?))
+}
+
+/// How a rename ended, for the window.
+#[derive(Clone, serde::Serialize)]
+pub struct RenameDone {
+    pub to: String,
+    pub error: Option<String>,
+}
+
+/// Executes a rename on the NAS (F022/S03), then applies it here (S04); only after the window
+/// confirmed a snapshot of today. Progress as `rename-progress` (months done, of), the end as
+/// `rename-done`. One at a time, and not during an import or a sync.
+#[tauri::command]
+fn rename_start(from: Vec<String>, to: String, snapshot_today: bool, app: tauri::AppHandle, runner: State<ImportRunner>, sync: State<runner::SyncRunner>) -> Result<(), String> {
+    if !snapshot_today {
+        return Err("maak eerst een snapshot van de NAS".into());
+    }
+    if sync.status().running {
+        return Err("er loopt een synchronisatie: hernoemen kan daarna".into());
+    }
+    if runner.running.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return Err("er loopt een import of een hernoeming".into());
+    }
+    #[cfg(target_os = "macos")]
+    app.state::<previews_job::MakeRunner>().stop(false);
+    std::thread::spawn(move || {
+        let paths = app.state::<Paths>().inner().clone();
+        let to = to.trim().to_string();
+        let result = (|| -> Result<(), String> {
+            let (library, previews, lists) = rename_shares(&paths)?;
+            let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+            let mut job = match rename::Job::pending(&paths.config) {
+                Some(j) if j.record.to == to && j.record.from == { let mut f = from.clone(); f.sort(); f } => j,
+                Some(j) => return Err(format!("eerst de onderbroken hernoeming naar {} afwerken", j.record.to)),
+                None => rename::Job::new(&rename::plan(&library, &previews, &from, &to)?, &device.name, &device.owner),
+            };
+            let emit = app.clone();
+            rename::execute(&mut job, &library, &previews, &lists, &paths.config, &mut |n, t| { let _ = emit.emit("rename-progress", (n, t)); })?;
+            // here at once: the files, the months' manifests from the NAS, the record applied
+            rename::apply(&job.record, &paths.library, &paths.previews)?;
+            for month in &job.months {
+                let (nas, here) = (library.join(month).join(manifest::MANIFEST_NAME), paths.library.join(month).join(manifest::MANIFEST_NAME));
+                if here.exists() && let Some(m) = manifest::read(&nas) {
+                    manifest::write(&here, &m)?;
+                }
+            }
+            let mut state = config::load_state(&paths.config);
+            state.renames_applied.push(job.record.id.clone());
+            config::save_state(&paths.config, &state)
+        })();
+        app.state::<ImportRunner>().running.store(false, std::sync::atomic::Ordering::SeqCst);
+        if let Err(e) = &result {
+            report(&app, log::Level::Error, "bronnen", &format!("hernoemen naar {to}: {e}"));
+        }
+        let _ = app.emit("rename-done", RenameDone { to, error: result.err() });
+        EventSink(app.clone()).rebuild_index();
+    });
+    Ok(())
+}
+
+/// A rename this Mac started and didn't finish (F022/S03): its sources and target, to continue.
+#[tauri::command]
+fn rename_pending(paths: State<Paths>) -> Option<(Vec<String>, String)> {
+    rename::Job::pending(&paths.config).map(|j| (j.record.from, j.record.to))
 }
 
 impl EventSink {
@@ -1354,7 +1461,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

@@ -84,10 +84,10 @@ proposals and the folders on the NAS show one name per way photos come in.
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-the-plan.md) | The plan of a rename or merge, as a dry run: per month what moves where, clashes, duplicates, bytes for Drive | Done | — |
-| S02 | The data contract: a rename as an allowed operation, and the rename record every Mac applies | Planned | — |
-| S03 | Executing on the NAS: originals, sidecars, previews, manifests, per month, journaled and verified | Planned | S01, S02 |
-| S04 | Applying a rename record to this Mac's working copy and previews at the sync, also on the other Mac | Planned | S02, S03 |
-| S05 | The tab *Bronnen* in the settings: the sources, *Hernoemen…*, the plan, the confirmation of the snapshot | Planned | S01, S03 |
+| [S02](stories/S02-data-contract.md) | The data contract: a rename as an allowed operation, and the rename record every Mac applies | Done | — |
+| [S03](stories/S03-executing.md) | Executing on the NAS: originals, sidecars, previews, manifests, per month, journaled and verified | Built, the first rename waits for Peter | S01, S02 |
+| [S04](stories/S04-applying.md) | Applying a rename record to this Mac's working copy and previews at the sync, also on the other Mac | Built | S02, S03 |
+| [S05](stories/S05-the-tab.md) | The tab *Bronnen* in the settings: the sources, *Hernoemen…*, the plan, the confirmation of the snapshot | Built, to try in the app | S01, S03 |
 
 ## Decisions
 

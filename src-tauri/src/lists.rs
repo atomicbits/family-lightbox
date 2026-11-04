@@ -346,6 +346,8 @@ pub fn is_lists_file(rel: &str) -> bool {
     match parts.as_slice() {
         [f] => *f == DEVICES_FILE,
         [dir, f] if *dir == EVENTS_DIR || *dir == crate::marks::MARKS_DIR => f.ends_with(".jsonl") && f.len() > 6,
+        // the renames of sources every Mac applies (F022/S04)
+        [dir, f] if *dir == crate::rename::RENAMES_DIR => f.ends_with(".json") && !f.contains(".tmp"),
         [year, f] => year.len() == 4 && year.bytes().all(|b| b.is_ascii_digit()) && f.ends_with(".json"),
         _ => false,
     }

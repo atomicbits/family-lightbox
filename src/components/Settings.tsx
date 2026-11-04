@@ -7,6 +7,7 @@ import { hostProblem, shareProblem } from "../lib/device";
 import UpdateLine from "./UpdateLine";
 import ImportSettings from "./ImportSettings";
 import MoveCheck from "./MoveCheck";
+import SourcesTab from "./SourcesTab";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
 import { TABS, changedTabs, loadTab, saveTab, type TabId } from "../lib/settingsTabs";
@@ -239,6 +240,7 @@ export default function Settings({ device, nas, sync, index, update, previews, o
           </>
         )}
 
+        {tab === "sources" && <SourcesTab />}
         {tab === "library" && (
           <>
             <section className="space-y-1">

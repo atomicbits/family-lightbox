@@ -290,6 +290,9 @@ pub struct AppState {
     /// When the last full count of the previews finished (F007/S07); the sync at start counts only
     /// where something can be new while it is less than a week old.
     pub previews_full_at: Option<String>,
+    /// The renames of sources (F022) this Mac applied to its working copy and previews, by id.
+    #[serde(default)]
+    pub renames_applied: Vec<String>,
 }
 
 /// The state, or the default when it is missing or broken (a broken file is left alone).
