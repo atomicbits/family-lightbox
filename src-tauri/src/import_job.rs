@@ -255,6 +255,14 @@ pub fn run(job: &mut Job, env: &Env, progress: &mut dyn FnMut(&Progress), stop_a
     }
     // nothing of the job is left but its record; the staging folder goes when it is empty
     prune(&staging);
+    // an import without problems leaves nothing; one with problems keeps its record to look at
+    if job.problems.is_empty() && job.count(FileState::Failed) == 0 {
+        let only_record = fs::read_dir(&staging).map(|rd| rd.flatten().all(|e| e.file_name() == JOB_FILE)).unwrap_or(false);
+        if only_record {
+            let _ = fs::remove_file(staging.join(JOB_FILE));
+            let _ = fs::remove_dir(&staging);
+        }
+    }
     Ok(())
 }
 
@@ -469,9 +477,8 @@ mod tests {
             assert!(f.drop.join("_imported").join(rel).exists(), "{rel}");
         }
         assert!(f.drop.join("Cam").is_dir() && fs::read_dir(f.drop.join("Cam")).unwrap().count() == 0);
-        // nothing left in the staging folder but the job's record, which says done
-        let left: Vec<_> = fs::read_dir(Job::dir(&f.library, "20261031-120000")).unwrap().flatten().map(|e| e.file_name()).collect();
-        assert_eq!(left, [std::ffi::OsString::from(JOB_FILE)]);
+        // an import without problems leaves nothing in the staging folder, not even its record
+        assert!(!Job::dir(&f.library, "20261031-120000").exists());
         assert!(pending(&f.library).is_empty());
     }
 
@@ -526,6 +533,8 @@ mod tests {
         assert_eq!(j.count(FileState::Failed), 1);
         assert!(j.problems[0].contains("changed since the plan"));
         assert!(f.drop.join("Cam/100/IMG_2.JPG").exists() && !f.share.join("2016/02/Cam").exists());
+        // with a problem the job's record stays, to look at
+        assert!(Job::dir(&f.library, &j.id).join(JOB_FILE).is_file());
     }
 
     #[test]

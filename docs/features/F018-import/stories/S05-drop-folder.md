@@ -116,3 +116,12 @@ folder's new files onto the NAS, verified, with previews, and tidies up after it
   150 passed (1 new).
 - Lynn's import, checked on the NAS: 2026/08 738, 2026/09 437, 2026/10 496 files of hers, each in
   its month's manifest, none missing, all with previews on the NAS and in the index, and locally.
+
+### [2026-11-04] An import without problems leaves no record
+
+- Peter agreed: after an import without problems and without failed files, its `job.json` and
+  staging folder are removed; one with problems keeps its record to look at. The window's result
+  comes from the `import-done` event, not from the record. Tests: the whole import leaves nothing,
+  the one with a changed file keeps its record.
+- On Peter's Mac the four records of finished imports were removed; the one of Lynn's first,
+  failed attempt (fixed since) stays as such a record.
