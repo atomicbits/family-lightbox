@@ -16,7 +16,8 @@ export type RenamePlan = {
   conflicts: number;
 };
 
-/** "209 bestanden in 4 maanden (75,0 GB), 86 sidecars, 183 previews · Drive laadt 74,3 GB opnieuw op". */
+/** "209 bestanden in 4 maanden (75,0 GB), 86 sidecars, 183 previews". Which backup there is, is
+ * none of the app's business: the tab says in general that one by path copies them again. */
 export function renameSummary(p: RenamePlan): string {
   if (p.files === 0) return "niets te hernoemen";
   const parts = [
@@ -26,10 +27,13 @@ export function renameSummary(p: RenamePlan): string {
     p.duplicates ? `${count(p.duplicates)} dubbel, blijven staan` : null,
     p.conflicts ? `${count(p.conflicts)} naamconflicten` : null,
   ];
-  return `${parts.filter(Boolean).join(", ")} · Drive laadt ${gb(p.drive_bytes)} GB opnieuw op`;
+  return parts.filter(Boolean).join(", ");
 }
 
 /** Ticks or unticks a source. */
 export function toggleSource(chosen: string[], s: string): string[] {
   return chosen.includes(s) ? chosen.filter((x) => x !== s) : [...chosen, s];
 }
+
+/** How far, as "42%", from 0 to 1. */
+export const percent = (f: number): string => `${Math.floor(Math.min(1, Math.max(0, f)) * 100)}%`;

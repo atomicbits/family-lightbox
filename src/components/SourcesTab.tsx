@@ -85,6 +85,7 @@ export default function SourcesTab({ renamer }: { renamer: Renamer }) {
       {plan && (
         <div className="rounded border border-neutral-200 dark:border-neutral-800 p-2 space-y-1">
           <div>{renameSummary(plan)}</div>
+          <div className="text-neutral-500">Een back-up die bestanden per pad bijhoudt, ziet de verplaatste bestanden als nieuw en kopieert ze opnieuw.</div>
           <ul className="max-h-40 overflow-y-auto text-neutral-500 font-mono">
             {plan.months.map((m) => (
               <li key={m.month}>

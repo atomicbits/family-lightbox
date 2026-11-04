@@ -11,7 +11,8 @@ import ImportView from "./components/ImportView";
 import { doneText, useImporter } from "./lib/importjob";
 import { importActivity, usePlans } from "./lib/importplans";
 import { renamingText, useRenamer } from "./lib/renamer";
-import { Spinner } from "./components/Progress";
+import { saveTab } from "./lib/settingsTabs";
+import { MiniBar, Spinner } from "./components/Progress";
 import { firstStartSteps } from "./lib/firststart";
 import Settings from "./components/Settings";
 import NasIndicator from "./components/NasIndicator";
@@ -1061,8 +1062,9 @@ export default function App() {
           {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
           <PreviewsLine previews={previews} />
           {renamer.running && (
-            <button className="text-blue-600 flex items-center gap-1.5" title="de instellingen openen" onClick={() => setShowSettings(true)}>
+            <button className="text-blue-600 flex items-center gap-1.5" title="de bronnen in de instellingen openen" onClick={() => { saveTab("sources"); setShowSettings(true); }}>
               <Spinner /> {renamingText(renamer.running)}
+              <MiniBar done={renamer.running[1] ? renamer.running[0] / renamer.running[1] : null} />
             </button>
           )}
           {waitingText(waiting) && (
@@ -1089,13 +1091,7 @@ export default function App() {
             {activity && (
               <>
                 <span className="tabular-nums max-w-64 truncate">{activity.text}</span>
-                <span className="w-12 h-1 rounded bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
-                  {activity.done === null ? (
-                    <span className="block h-full w-1/3 rounded bg-current animate-[slide_1.2s_ease-in-out_infinite_alternate]" />
-                  ) : (
-                    <span className="block h-full rounded bg-current transition-[width] duration-300" style={{ width: `${Math.max(4, activity.done * 100)}%` }} />
-                  )}
-                </span>
+                <MiniBar done={activity.done} />
               </>
             )}
           </button>
