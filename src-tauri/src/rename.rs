@@ -94,7 +94,13 @@ pub fn plan(library: &Path, previews: &Path, from: &[String], to: &str) -> Resul
         // what the month has already, outside the sources that move: path → hash
         let staying: HashMap<&str, &str> =
             rows.iter().filter(|r| !ours(r)).filter_map(|r| Some((r["path"].as_str()?, r["hash"].as_str().unwrap_or("")))).collect();
-        let staying_by_hash: HashMap<&str, &str> = staying.iter().map(|(p, h)| (*h, *p)).filter(|(h, _)| !h.is_empty()).collect();
+        // a duplicate is the same content under the target already; under another source it is
+        // that source's business, and the file moves like any other
+        let staying_by_hash: HashMap<&str, &str> = rows
+            .iter()
+            .filter(|r| r["source"].as_str() == Some(to))
+            .filter_map(|r| Some((r["hash"].as_str().filter(|h| !h.is_empty())?, r["path"].as_str()?)))
+            .collect();
         let mut month = MonthPlan { month: folder.clone(), ..Default::default() };
         for r in rows.iter().filter(|r| ours(r)) {
             let Some(path) = r["path"].as_str() else { continue };
@@ -396,6 +402,9 @@ mod tests {
             row("2020/08/GoPro-Hero7/2020-08-09/CLASH.MP4", "GoPro-Hero7", "sha256:theirs", &[]),
             row("2020/08/GoPro-Hero7/x.MP4", "GoPro-Hero7", "sha256:same", &[]),
             row("2020/08/EOSR/photos/2020-08-09/a.CR3", "EOSR", "sha256:e", &[]),
+            // the same content in an unrelated source of the month: no duplicate, it moves
+            row("2020/08/Hero7/2020-08-09/ALSO.MP4", "Hero7", "sha256:shared", &[]),
+            row("2020/08/Trip/ALSO.MP4", "Trip", "sha256:shared", &[]),
         ]);
         put(&lib, "2020/08/Hero7/2020-08-09/GX01.THM", b"thumbnail");
         write_manifest(&lib, "2019/02", vec![row("2019/02/GoProH7/GX0107.MP4", "GoProH7", "sha256:g", &[])]);
@@ -412,9 +421,10 @@ mod tests {
         assert!(to("CLASH.MP4").unwrap().contains("CLASH~mine"));
         assert_eq!(aug.duplicates, [("2020/08/Hero7/2020-08-09/SAME.MP4".to_string(), "2020/08/GoPro-Hero7/x.MP4".to_string())]);
         assert!(aug.moves.iter().find(|m| m.from.ends_with("GX01.MP4")).unwrap().preview);
-        assert_eq!((p.files, p.sidecars, p.previews, p.duplicates, p.conflicts), (4, 1, 1, 1, 1));
+        assert_eq!(to("ALSO.MP4").as_deref(), Some("2020/08/GoPro-Hero7/2020-08-09/ALSO.MP4"));
+        assert_eq!((p.files, p.sidecars, p.previews, p.duplicates, p.conflicts), (5, 1, 1, 1, 1));
         // the LRV and the THM don't go to Drive
-        assert_eq!((p.bytes, p.drive_bytes), (10 * 4 + 9, 10 * 3));
+        assert_eq!((p.bytes, p.drive_bytes), (10 * 5 + 9, 10 * 4));
         assert!(!p.months.iter().any(|m| m.month.contains('.')));
     }
 

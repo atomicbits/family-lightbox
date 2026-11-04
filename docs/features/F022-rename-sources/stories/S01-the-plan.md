@@ -45,3 +45,12 @@ Before anything moves, Peter sees what a rename or merge would do, read from the
   films each, without day folders; 2020/08 291 moves into four day folders and one
   `Time Lapse 1` folder below one of them. Together 209 originals, 86 sidecars, 183 previews,
   75.0 GB, of which 74.3 GB go to Drive again; no duplicates, no clashes.
+
+### [2026-11-04] Fix: a duplicate is only one under the target
+
+- The dry run of `iPhone-fotos` → `iPhone-photos` counted 4 duplicates in 2019/06: the same photos
+  are in that month's `Zeilen-Wemeldinge` too. They would have stayed under `iPhone-fotos`, leaving
+  that source with 4 files. A duplicate is now only the same content under the target source;
+  under another source the file moves as any other. Test extended.
+- The dry run after the fix: 109 months, 4 597 originals, 4 597 previews, 9.5 GB (all of it to
+  Drive again), no duplicates, no clashes. Checked that the rename hadn't started yet.
