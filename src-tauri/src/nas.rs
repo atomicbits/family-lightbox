@@ -32,7 +32,7 @@ pub fn check_share(mount: &Path, write_test: Option<&str>) -> Access {
     let entries = match fs::read_dir(mount) {
         Ok(it) => it,
         Err(e) => {
-            a.problem = Some(format!("niet leesbaar: {e}"));
+            a.problem = Some(tr!("niet leesbaar: {e}", "not readable: {e}"));
             return a;
         }
     };
@@ -67,7 +67,7 @@ pub fn check_share(mount: &Path, write_test: Option<&str>) -> Access {
         Ok(()) => a.writable = Some(true),
         Err(e) => {
             a.writable = Some(false);
-            a.problem = Some(format!("niet schrijfbaar: {e}"));
+            a.problem = Some(tr!("niet schrijfbaar: {e}", "not writable: {e}"));
         }
     }
     a
@@ -95,22 +95,22 @@ pub fn merge_device(existing: Option<&str>, me: &Entry) -> Result<Option<String>
     let mut doc = match existing {
         None => json!({"contract_version": "1.0", "devices": []}),
         Some(text) => serde_json::from_str::<Value>(text)
-            .map_err(|e| format!("devices.json is geen geldige JSON: {e}"))?,
+            .map_err(|e| tr!("devices.json is geen geldige JSON: {e}", "devices.json is not valid JSON: {e}"))?,
     };
     let devices = doc
         .get_mut("devices")
         .and_then(Value::as_array_mut)
-        .ok_or("devices.json heeft geen lijst 'devices'")?;
+        .ok_or_else(|| tr!("devices.json heeft geen lijst 'devices'", "devices.json has no 'devices' list"))?;
     if let Some(d) = devices
         .iter_mut()
         .find(|d| d.get("name").and_then(Value::as_str) == Some(me.name.as_str()))
     {
         let owner = d.get("owner").and_then(Value::as_str).unwrap_or("?");
         if owner != me.owner {
-            return Err(format!("toestelnaam '{}' is al van {owner}", me.name));
+            return Err(tr!("toestelnaam '{}' is al van {owner}", "device name '{}' already belongs to {owner}", me.name));
         }
         if d.get("retired").is_some() {
-            return Err("dit toestel staat als buiten gebruik in devices.json".into());
+            return Err(tr!("dit toestel staat als buiten gebruik in devices.json", "this device is marked as retired in devices.json"));
         }
         if me.app.is_empty() || d.get("app").and_then(Value::as_str) == Some(me.app.as_str()) {
             return Ok(None);
@@ -188,7 +188,7 @@ pub fn register(lists: &Path, me: &Entry, before_rename: &dyn Fn()) -> Registrat
         }
     }
     Registration::Failed(
-        "devices.json werd tegelijk door een ander toestel gewijzigd; probeer opnieuw".into(),
+        tr!("devices.json werd tegelijk door een ander toestel gewijzigd; probeer opnieuw", "devices.json was changed by another device at the same time; try again"),
     )
 }
 

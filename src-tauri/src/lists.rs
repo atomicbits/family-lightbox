@@ -126,8 +126,8 @@ struct DeviceEntry {
 /// The devices that may write: all in `devices.json`, retired ones included (their events count).
 pub fn registered(lists: &Path) -> Result<HashSet<String>, String> {
     let path = lists.join(DEVICES_FILE);
-    let text = fs::read_to_string(&path).map_err(|e| format!("{} niet leesbaar: {e}", path.display()))?;
-    let d: Devices = serde_json::from_str(&text).map_err(|e| format!("{} klopt niet: {e}", path.display()))?;
+    let text = fs::read_to_string(&path).map_err(|e| tr!("{} niet leesbaar: {e}", "{} not readable: {e}", path.display()))?;
+    let d: Devices = serde_json::from_str(&text).map_err(|e| tr!("{} klopt niet: {e}", "{} is not valid: {e}", path.display()))?;
     Ok(d.devices.into_iter().map(|d| d.name).collect())
 }
 
@@ -157,7 +157,7 @@ pub fn read_with(lists: &Path, extra: Option<(&str, &str)>) -> Result<Read, Stri
         if !devices.contains(device) {
             continue;
         }
-        let bytes = fs::read(entry.path()).map_err(|e| format!("{name} niet leesbaar: {e}"))?;
+        let bytes = fs::read(entry.path()).map_err(|e| tr!("{name} niet leesbaar: {e}", "{name} not readable: {e}"))?;
         texts.push((device.to_string(), String::from_utf8_lossy(&bytes).into_owned()));
     }
     if let Some((device, lines)) = extra.filter(|(d, l)| devices.contains(*d) && !l.is_empty()) {
@@ -468,21 +468,21 @@ pub fn refusal(change: &Change, lists: &BTreeMap<String, List>) -> Option<String
     let name_problem = |name: &str| {
         let n = name.trim().chars().count();
         if n == 0 {
-            Some("de naam is leeg".to_string())
+            Some(tr!("de naam is leeg", "the name is empty"))
         } else if n > NAME_MAX {
-            Some(format!("de naam is langer dan {NAME_MAX} tekens"))
+            Some(tr!("de naam is langer dan {NAME_MAX} tekens", "the name is longer than {NAME_MAX} characters"))
         } else {
             None
         }
     };
     match change {
         Change::Create { list, name } => {
-            name_problem(name).or_else(|| (!valid_id(list)).then(|| format!("ongeldige lijst: {list}")))
+            name_problem(name).or_else(|| (!valid_id(list)).then(|| tr!("ongeldige lijst: {list}", "invalid list: {list}")))
         }
-        _ if !lists.contains_key(change.list()) => Some(format!("onbekende lijst: {}", change.list())),
+        _ if !lists.contains_key(change.list()) => Some(tr!("onbekende lijst: {}", "unknown list: {}", change.list())),
         Change::Rename { name, .. } => name_problem(name),
-        Change::Add { photos, .. } if photos.is_empty() => Some("geen foto's gekozen".into()),
-        Change::Remove { photos, .. } if photos.is_empty() => Some("geen foto's gekozen".into()),
+        Change::Add { photos, .. } if photos.is_empty() => Some(tr!("geen foto's gekozen", "no photos chosen")),
+        Change::Remove { photos, .. } if photos.is_empty() => Some(tr!("geen foto's gekozen", "no photos chosen")),
         _ => None,
     }
 }
@@ -501,18 +501,18 @@ pub fn append(lists: &Path, device: &str, owner: &str, change: &Change, merged: 
 pub fn append_lines(lists: &Path, dir: &str, device: &str, text: &str) -> Result<(), String> {
     use std::io::Write;
     if !registered(lists)?.contains(device) {
-        return Err(format!("dit toestel ({device}) staat niet in {DEVICES_FILE}"));
+        return Err(tr!("dit toestel ({device}) staat niet in {DEVICES_FILE}", "this device ({device}) is not in {DEVICES_FILE}"));
     }
     let dir = lists.join(dir);
-    fs::create_dir_all(&dir).map_err(|e| format!("{} maken mislukt: {e}", dir.display()))?;
+    fs::create_dir_all(&dir).map_err(|e| tr!("{} maken mislukt: {e}", "could not create {}: {e}", dir.display()))?;
     let path = dir.join(format!("{device}.jsonl"));
     let mut f = fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&path)
-        .map_err(|e| format!("{} openen mislukt: {e}", path.display()))?;
-    f.write_all(text.as_bytes()).map_err(|e| format!("lijst bijwerken mislukt: {e}"))?;
-    f.sync_all().map_err(|e| format!("lijst bijwerken mislukt: {e}"))
+        .map_err(|e| tr!("{} openen mislukt: {e}", "could not open {}: {e}", path.display()))?;
+    f.write_all(text.as_bytes()).map_err(|e| tr!("lijst bijwerken mislukt: {e}", "could not update the list: {e}"))?;
+    f.sync_all().map_err(|e| tr!("lijst bijwerken mislukt: {e}", "could not update the list: {e}"))
 }
 
 /// The summary of one list (data contract 5.4); `path_of` gives the current path of a hash from
@@ -549,9 +549,9 @@ pub fn write_synced(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 
 /// Writes `Lists/<year>/<slug>.json` through a temporary name of this device and a rename.
 pub fn write_summary(lists: &Path, device: &str, list: &List, path_of: &dyn Fn(&str) -> Option<String>) -> Result<(), String> {
-    let (year, slug) = list.id.split_once('/').ok_or_else(|| format!("ongeldige lijst: {}", list.id))?;
+    let (year, slug) = list.id.split_once('/').ok_or_else(|| tr!("ongeldige lijst: {}", "invalid list: {}", list.id))?;
     let dir = lists.join(year);
-    fs::create_dir_all(&dir).map_err(|e| format!("{} maken mislukt: {e}", dir.display()))?;
+    fs::create_dir_all(&dir).map_err(|e| tr!("{} maken mislukt: {e}", "could not create {}: {e}", dir.display()))?;
     let target = dir.join(format!("{slug}.json"));
     let tmp = dir.join(format!("{slug}.json.tmp-{device}"));
     let body = serde_json::to_string_pretty(&summary(list, path_of)).map_err(|e| e.to_string())? + "\n";
@@ -559,7 +559,7 @@ pub fn write_summary(lists: &Path, device: &str, list: &List, path_of: &dyn Fn(&
         .and_then(|_| fs::rename(&tmp, &target))
         .map_err(|e| {
             let _ = fs::remove_file(&tmp);
-            format!("samenvatting {} niet geschreven: {e}", target.display())
+            tr!("samenvatting {} niet geschreven: {e}", "summary {} not written: {e}", target.display())
         })
 }
 

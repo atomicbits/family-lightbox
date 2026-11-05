@@ -75,15 +75,15 @@ impl NasLayout {
 
 fn location_problem(what: &str, l: &Location) -> Option<String> {
     if l.share.trim().is_empty() || l.share.contains('/') {
-        return Some(format!("{what}: de gedeelde map '{}' is geen naam", l.share));
+        return Some(tr!("{what}: de gedeelde map '{}' is geen naam", "{what}: the shared folder '{}' is not a name", l.share));
     }
     let bad = l.path.starts_with('/') || l.path.contains('\\') || l.path.split('/').any(|c| c == "..");
-    bad.then(|| format!("{what}: het pad '{}' moet binnen de gedeelde map blijven, met '/'", l.path))
+    bad.then(|| tr!("{what}: het pad '{}' moet binnen de gedeelde map blijven, met '/'", "{what}: the path '{}' must stay inside the shared folder, with '/'", l.path))
 }
 
 /// The file's content, checked: every location a share and a path inside it.
 pub fn parse(text: &str) -> Result<NasLayout, String> {
-    let l: NasLayout = serde_json::from_str(text).map_err(|e| format!("{LAYOUT_FILE} is niet geldig: {e}"))?;
+    let l: NasLayout = serde_json::from_str(text).map_err(|e| tr!("{LAYOUT_FILE} is niet geldig: {e}", "{LAYOUT_FILE} is not valid: {e}"))?;
     for (what, loc) in l.locations() {
         if let Some(p) = location_problem(what, loc) {
             return Err(format!("{LAYOUT_FILE}: {p}"));
@@ -187,7 +187,7 @@ pub fn home_status(raw: &[RawMount], host: &str, home: &str) -> Home {
 
 fn written(e: std::io::Error, home: &str, what: &str) -> String {
     if e.kind() == std::io::ErrorKind::PermissionDenied {
-        format!("je account mag niet schrijven in '{home}': vraag schrijfrecht op die gedeelde map, of kies een andere")
+        tr!("je account mag niet schrijven in '{home}': vraag schrijfrecht op die gedeelde map, of kies een andere", "your account cannot write in '{home}': ask for write access to that shared folder, or choose another")
     } else {
         format!("{what} in '{home}': {e}")
     }
@@ -204,7 +204,7 @@ pub fn set_up(root: &Path, home: &str, layout: &NasLayout) -> Result<Vec<String>
     parse(&text)?;
     let file = root.join(LAYOUT_FILE);
     if file.exists() {
-        return Err(format!("in '{home}' staat al een {LAYOUT_FILE}: die wordt niet overschreven"));
+        return Err(tr!("in '{home}' staat al een {LAYOUT_FILE}: die wordt niet overschreven", "'{home}' already has a {LAYOUT_FILE}: it will not be overwritten"));
     }
     let mut made = Vec::new();
     for (_, loc) in layout.locations() {
@@ -269,7 +269,7 @@ pub fn dry_check(raw: &[RawMount], host: &str, share: &str) -> DryCheck {
     let mut out = DryCheck { problem: None, name: String::new(), found: Vec::new(), devices: Vec::new() };
     let list = mounts::mounts_of(raw, host, share);
     let Some(m) = mounts::NasMounts::chosen(&list) else {
-        out.problem = Some(format!("de gedeelde map '{share}' is niet verbonden"));
+        out.problem = Some(tr!("de gedeelde map '{share}' is niet verbonden", "the shared folder '{share}' is not connected"));
         return out;
     };
     let layout = match fs::read_to_string(Path::new(&m.mount_point).join(LAYOUT_FILE)).map_err(|e| format!("{LAYOUT_FILE} in '{share}': {e}")).and_then(|t| parse(&t)) {
@@ -283,19 +283,19 @@ pub fn dry_check(raw: &[RawMount], host: &str, share: &str) -> DryCheck {
     for (what, loc) in layout.locations() {
         let root = mounts::NasMounts::chosen(&mounts::mounts_of(raw, host, &loc.share)).map(|m| Path::new(&m.mount_point).join(&loc.path));
         let (note, ok) = match &root {
-            None => (format!("de gedeelde map '{}' is niet verbonden", loc.share), false),
-            Some(r) if !r.is_dir() => ("de map bestaat niet".to_string(), false),
+            None => (tr!("de gedeelde map '{}' is niet verbonden", "the shared folder '{}' is not connected", loc.share), false),
+            Some(r) if !r.is_dir() => (tr!("de map bestaat niet", "the folder does not exist"), false),
             Some(r) => match what {
                 "library" => {
                     let years = fs::read_dir(r).into_iter().flatten().flatten().filter(|e| {
                         let n = e.file_name().to_string_lossy().into_owned();
                         n.len() == 4 && n.bytes().all(|c| c.is_ascii_digit())
                     }).count();
-                    (format!("{years} jaarmappen"), years > 0)
+                    (tr!("{years} jaarmappen", "{years} year folders"), years > 0)
                 }
-                "lists" if r.join(crate::nas::DEVICES_FILE).is_file() => ("devices.json gevonden".into(), true),
-                "lists" => ("geen devices.json".into(), false),
-                _ => ("gevonden".into(), true),
+                "lists" if r.join(crate::nas::DEVICES_FILE).is_file() => (tr!("devices.json gevonden", "devices.json found"), true),
+                "lists" => (tr!("geen devices.json", "no devices.json"), false),
+                _ => (tr!("gevonden", "found"), true),
             },
         };
         if what == "lists"

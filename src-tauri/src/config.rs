@@ -156,7 +156,7 @@ pub fn adopt_local(dir: &Path, home: &Path) -> Option<Local> {
 /// written), then keeps it in the settings.
 pub fn choose_local(dir: &Path, folder: &Path) -> Result<Local, String> {
     if !folder.is_absolute() {
-        return Err(format!("{}: geen volledig pad", folder.display()));
+        return Err(tr!("{}: geen volledig pad", "{}: not a full path", folder.display()));
     }
     let err = |e: std::io::Error| format!("{}: {e}", folder.display());
     fs::create_dir_all(folder).map_err(err)?;
@@ -192,23 +192,23 @@ pub fn load_settings(dir: &Path) -> (Settings, Option<String>) {
 
 pub fn host_problem(host: &str) -> Option<String> {
     if host.is_empty() {
-        return Some("de naam van de NAS is leeg".into());
+        return Some(tr!("de naam van de NAS is leeg", "the name of the NAS is empty"));
     }
     if host.contains("://") {
-        return Some(format!("geef alleen de naam van de NAS, zonder '{}'", &host[..host.find("://").unwrap() + 3]));
+        return Some(tr!("geef alleen de naam van de NAS, zonder '{}'", "give only the name of the NAS, without '{}'", &host[..host.find("://").unwrap() + 3]));
     }
     if host.chars().any(|c| c == '/' || c.is_whitespace()) {
-        return Some("de naam van de NAS mag geen '/' of spaties bevatten".into());
+        return Some(tr!("de naam van de NAS mag geen '/' of spaties bevatten", "the name of the NAS cannot contain '/' or spaces"));
     }
     None
 }
 
 pub fn share_problem(share: &str) -> Option<String> {
     if share.is_empty() {
-        return Some("de naam van een gedeelde map is leeg".into());
+        return Some(tr!("de naam van een gedeelde map is leeg", "the name of a shared folder is empty"));
     }
     if share.contains('/') {
-        return Some(format!("'{share}': een gedeelde map mag geen '/' bevatten"));
+        return Some(tr!("'{share}': een gedeelde map mag geen '/' bevatten", "'{share}': a shared folder cannot contain '/'"));
     }
     None
 }
@@ -219,7 +219,7 @@ pub fn save_settings(dir: &Path, s: &Settings) -> Result<(), String> {
         return Err(p);
     }
     if !["", "en", "nl"].contains(&s.language.as_str()) {
-        return Err(format!("onbekende taal: {}", s.language));
+        return Err(tr!("onbekende taal: {}", "unknown language: {}", s.language));
     }
     let sh = &s.shares;
     for name in [&sh.library, &sh.previews, &sh.lists, &sh.exports] {
@@ -330,7 +330,7 @@ pub fn device_name_problem(name: &str) -> Option<String> {
     if ok_len && ok_first && ok_rest {
         None
     } else {
-        Some("2 tot 32 tekens: kleine letters, cijfers en '-', beginnend met een letter".into())
+        Some(tr!("2 tot 32 tekens: kleine letters, cijfers en '-', beginnend met een letter", "2 to 32 characters: lowercase letters, digits and '-', starting with a letter"))
     }
 }
 
@@ -342,7 +342,7 @@ pub fn owner_problem(owner: &str) -> Option<String> {
     if ok_len && ok_first && ok_rest {
         None
     } else {
-        Some("2 tot 32 tekens: kleine letters en cijfers, beginnend met een letter".into())
+        Some(tr!("2 tot 32 tekens: kleine letters en cijfers, beginnend met een letter", "2 to 32 characters: lowercase letters and digits, starting with a letter"))
     }
 }
 
@@ -360,23 +360,23 @@ pub fn load_device(dir: &Path) -> Result<Option<Device>, String> {
         (Some(name), Some(owner)) if device_name_problem(&name).is_none() && owner_problem(&owner).is_none() => {
             Ok(Some(Device { name, owner }))
         }
-        _ => Err(format!("{}: geen geldige 'name' en 'owner'", path.display())),
+        _ => Err(tr!("{}: geen geldige 'name' en 'owner'", "{}: no valid 'name' and 'owner'", path.display())),
     }
 }
 
 /// Creates `device.json`; refuses when one exists, so an identity is never replaced.
 pub fn create_device(dir: &Path, name: &str, owner: &str) -> Result<Device, String> {
     if let Some(p) = device_name_problem(name) {
-        return Err(format!("toestelnaam: {p}"));
+        return Err(tr!("toestelnaam: {p}", "device name: {p}"));
     }
     if let Some(p) = owner_problem(owner) {
-        return Err(format!("eigenaar: {p}"));
+        return Err(tr!("eigenaar: {p}", "owner: {p}"));
     }
     fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let path = dir.join(DEVICE_FILE);
     let mut f = fs::OpenOptions::new().write(true).create_new(true).open(&path).map_err(|e| {
         if e.kind() == std::io::ErrorKind::AlreadyExists {
-            format!("{} bestaat al; een toestel krijgt maar één keer een naam", path.display())
+            tr!("{} bestaat al; een toestel krijgt maar één keer een naam", "{} already exists; a device is named only once", path.display())
         } else {
             format!("{}: {e}", path.display())
         }

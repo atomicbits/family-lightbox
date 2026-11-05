@@ -214,7 +214,7 @@ pub fn read_with(lists: &Path, extra: Option<(&str, &str)>) -> Result<Read, Stri
         if !devices.contains(device) {
             continue;
         }
-        let bytes = fs::read(entry.path()).map_err(|e| format!("{MARKS_DIR}/{name} niet leesbaar: {e}"))?;
+        let bytes = fs::read(entry.path()).map_err(|e| tr!("{MARKS_DIR}/{name} niet leesbaar: {e}", "{MARKS_DIR}/{name} not readable: {e}"))?;
         texts.push((device.to_string(), String::from_utf8_lossy(&bytes).into_owned()));
     }
     if let Some((device, lines)) = extra.filter(|(d, l)| devices.contains(*d) && !l.is_empty()) {
@@ -259,13 +259,13 @@ pub fn refusal(change: &Change) -> Option<String> {
         | Change::Unstack { photos }
             if photos.is_empty() =>
         {
-            Some("geen foto's gekozen".into())
+            Some(tr!("geen foto's gekozen", "no photos chosen"))
         }
-        Change::Rate { stars, .. } if *stars > 5 => Some(format!("{stars} sterren kan niet: 0 tot 5")),
-        Change::Stack { stack, .. } | Change::Color { stack, .. } if stack.trim().is_empty() => Some("een reeks zonder naam".into()),
-        Change::Color { color, .. } if !COLORS.contains(&color.as_str()) => Some(format!("onbekende kleur: {color}")),
-        Change::Variant { photo, .. } if photo.trim().is_empty() => Some("geen foto gekozen".into()),
-        Change::Variant { variant, .. } if !variant.is_empty() && !crate::renditions::valid_variant(variant) => Some(format!("onbekende versie: {variant}")),
+        Change::Rate { stars, .. } if *stars > 5 => Some(tr!("{stars} sterren kan niet: 0 tot 5", "{stars} stars is not possible: 0 to 5")),
+        Change::Stack { stack, .. } | Change::Color { stack, .. } if stack.trim().is_empty() => Some(tr!("een reeks zonder naam", "a stack without a name")),
+        Change::Color { color, .. } if !COLORS.contains(&color.as_str()) => Some(tr!("onbekende kleur: {color}", "unknown color: {color}")),
+        Change::Variant { photo, .. } if photo.trim().is_empty() => Some(tr!("geen foto gekozen", "no photo chosen")),
+        Change::Variant { variant, .. } if !variant.is_empty() && !crate::renditions::valid_variant(variant) => Some(tr!("onbekende versie: {variant}", "unknown version: {variant}")),
         _ => None,
     }
 }
@@ -525,6 +525,15 @@ mod tests {
         assert!(append(dir.path(), "mbp-lynn", "lynn", &Change::Color { stack: "s".into(), color: "rood".into() }).unwrap_err().contains("onbekende kleur"));
         let unknown = r#"{"v":1,"ts":"2026-10-30T10:00:00+01:00","dev":"a","who":"x","op":"color","stack":"s","color":"rood"}"#.to_string() + "\n";
         assert_eq!(parse_file(&unknown, "a").1, 1);
+    }
+
+    #[test]
+    fn a_refusal_in_english() {
+        let dir = registered_dir(&["mbp-lynn"]);
+        let refuse = |c: &Change| append(dir.path(), "mbp-lynn", "lynn", c).unwrap_err();
+        let color = Change::Color { stack: "s".into(), color: "rood".into() };
+        assert_eq!(crate::i18n::in_english(|| refuse(&color)), "unknown color: rood");
+        assert_eq!(refuse(&color), "onbekende kleur: rood");
     }
 
     #[test]

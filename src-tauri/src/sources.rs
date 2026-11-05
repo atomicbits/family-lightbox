@@ -71,7 +71,7 @@ pub fn source_name_problem(name: &str) -> Option<String> {
         && name.len() <= 64
         && name.as_bytes()[0].is_ascii_alphanumeric()
         && name.bytes().all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c));
-    (!ok).then(|| format!("'{name}': letters, cijfers, '.', '_' en '-', beginnend met een letter of cijfer, hoogstens 64"))
+    (!ok).then(|| tr!("'{name}': letters, cijfers, '.', '_' en '-', beginnend met een letter of cijfer, hoogstens 64", "'{name}': letters, digits, '.', '_' and '-', starting with a letter or digit, at most 64"))
 }
 
 /// A synced folder's first month: empty, or `YYYY/MM` (S06).
@@ -79,7 +79,7 @@ pub fn from_problem(from: &str) -> Option<String> {
     let f = from.trim();
     let ok = f.is_empty()
         || (f.len() == 7 && f.as_bytes()[4] == b'/' && f[..4].bytes().all(|b| b.is_ascii_digit()) && matches!(f[5..].parse::<u8>(), Ok(1..=12)));
-    (!ok).then(|| format!("vanaf '{f}': een maand als 2026/01, of leeg"))
+    (!ok).then(|| tr!("vanaf '{f}': een maand als 2026/01, of leeg", "from '{f}': a month such as 2026/01, or empty"))
 }
 
 /// A source name from a camera's model: `GoPro HERO13 Black` → `GoPro-HERO13-Black`.
@@ -145,7 +145,7 @@ pub fn discover(import: &Import, volumes: &Path, layouts: &HashMap<String, Layou
     let mut out = Vec::new();
     for folder in &import.drop_folders {
         let Ok(rd) = fs::read_dir(folder) else {
-            out.push(Found { kind: "drop", path: folder.clone(), name: String::new(), videos: String::new(), layout: NEW, known: false, camera: None, ignore: false, problem: Some("map niet gevonden".into()) });
+            out.push(Found { kind: "drop", path: folder.clone(), name: String::new(), videos: String::new(), layout: NEW, known: false, camera: None, ignore: false, problem: Some(tr!("map niet gevonden", "folder not found")) });
             continue;
         };
         let mut subs: Vec<PathBuf> = rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
@@ -172,7 +172,7 @@ pub fn discover(import: &Import, volumes: &Path, layouts: &HashMap<String, Layou
     }
     for s in &import.synced {
         let problem = if !Path::new(&s.path).is_dir() {
-            Some("map niet gevonden".into())
+            Some(tr!("map niet gevonden", "folder not found"))
         } else {
             source_name_problem(&s.photos).or_else(|| source_name_problem(&s.videos)).or_else(|| from_problem(&s.from))
         };
@@ -184,7 +184,7 @@ pub fn discover(import: &Import, volumes: &Path, layouts: &HashMap<String, Layou
         let camera = card_camera(&card.join("DCIM"));
         let streams: HashSet<String> = import.synced.iter().flat_map(|s| [s.photos.clone(), s.videos.clone()]).collect();
         let name = camera.as_deref().map(|c| propose(c, &camera_sources(c), layouts, &streams)).unwrap_or_default();
-        let problem = if name.is_empty() { Some("geen camera herkend: kies een naam".into()) } else { source_name_problem(&name) };
+        let problem = if name.is_empty() { Some(tr!("geen camera herkend: kies een naam", "no camera recognized: choose a name")) } else { source_name_problem(&name) };
         out.push(Found { kind: "card", path: card.display().to_string(), layout: layout(&name), known: layouts.contains_key(&name), name, videos: String::new(), camera, ignore: false, problem });
     }
     out

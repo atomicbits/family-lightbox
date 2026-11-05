@@ -58,8 +58,8 @@ pub fn add(config: &Path, kind: Kind, lines: &str) -> Result<(), String> {
         fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
     }
     let mut f = fs::OpenOptions::new().create(true).append(true).open(&p).map_err(|e| format!("{}: {e}", p.display()))?;
-    f.write_all(lines.as_bytes()).map_err(|e| format!("wijziging niet bewaard: {e}"))?;
-    f.sync_all().map_err(|e| format!("wijziging niet bewaard: {e}"))
+    f.write_all(lines.as_bytes()).map_err(|e| tr!("wijziging niet bewaard: {e}", "change not saved: {e}"))?;
+    f.sync_all().map_err(|e| tr!("wijziging niet bewaard: {e}", "change not saved: {e}"))
 }
 
 /// Replaces the outbox file with `content`, through a temporary name.
@@ -137,7 +137,7 @@ pub fn send(config: &Path, share: &Path, device: &str) -> Result<usize, String> 
         }
         let after = there(&file);
         if let Some(missing) = waiting.lines().find(|l| !after.contains(*l)) {
-            return Err(format!("niet op de NAS na het verzenden: {missing}"));
+            return Err(tr!("niet op de NAS na het verzenden: {missing}", "not on the NAS after sending: {missing}"));
         }
         replace(config, kind, "")?;
         sent += todo.lines().count();

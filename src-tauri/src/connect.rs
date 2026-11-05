@@ -91,14 +91,14 @@ impl Outcome {
 
     pub fn message(&self, host: &str, share: &str) -> String {
         match self {
-            Outcome::Mounted => "verbonden".into(),
-            Outcome::AlreadyMounted => "was al verbonden".into(),
-            Outcome::Cancelled => "geannuleerd".into(),
-            Outcome::AuthFailed => "aanmelden mislukt".into(),
-            Outcome::NoSuchShare => format!("gedeelde map '{share}' bestaat niet op {host}"),
-            Outcome::Unreachable => format!("{host} is niet bereikbaar"),
-            Outcome::Failed(c) => format!("verbinden mislukt (code {c})"),
-            Outcome::Skipped => "niet geprobeerd".into(),
+            Outcome::Mounted => tr!("verbonden", "connected"),
+            Outcome::AlreadyMounted => tr!("was al verbonden", "was already connected"),
+            Outcome::Cancelled => tr!("geannuleerd", "canceled"),
+            Outcome::AuthFailed => tr!("aanmelden mislukt", "sign-in failed"),
+            Outcome::NoSuchShare => tr!("gedeelde map '{share}' bestaat niet op {host}", "shared folder '{share}' does not exist on {host}"),
+            Outcome::Unreachable => tr!("{host} is niet bereikbaar", "{host} is not reachable"),
+            Outcome::Failed(c) => tr!("verbinden mislukt (code {c})", "connecting failed (code {c})"),
+            Outcome::Skipped => tr!("niet geprobeerd", "not tried"),
         }
     }
 }
