@@ -1,6 +1,6 @@
 # Feature 23: The lists in Lightroom Classic
 
-**Status:** In progress (plan accepted 2026-11-04)
+**Status:** In progress (S01, S02 and S04 done; S03, installing from the app, to do)
 **Depends on:** Feature 3 (lists and their summaries), feature 9 (fetching originals)
 **Folder:** `F023-lightroom-plugin`
 
@@ -65,4 +65,4 @@ the bridge goes one way.
 | [S01](stories/S01-the-file-for-lightroom.md) | The file for Lightroom, written by the app: every list with its photos' paths in the working copy and whether they are here | Done | — |
 | [S02](stories/S02-the-plug-in.md) | The plug-in: the collection set, by list id, adding what is here, the message and the log | Done | S01 |
 | [S03](stories/S03-from-the-app.md) | From the app: installing the plug-in, *Naar Lightroom* on a list | Planned | S02, feature 9 |
-| [S04](stories/S04-stars.md) | Stars and hearts to Lightroom: a heart is 5 stars, FamilyLightbox wins where it has one | Built, to try in Lightroom | S01, S02 |
+| [S04](stories/S04-stars.md) | Stars and hearts to Lightroom: a heart is 5 stars, FamilyLightbox wins where it has one | Done | S01, S02 |

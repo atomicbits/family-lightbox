@@ -1,7 +1,7 @@
 # Story S04: Stars and hearts to Lightroom
 
 **Feature:** `F023-lightroom-plugin`
-**Status:** In progress: built and tested; to try in Lightroom
+**Status:** Done (2026-11-05)
 **Depends on:** S01, S02
 
 ## Goal
@@ -43,3 +43,7 @@ With Peter's choices: every photo with stars, FamilyLightbox wins where it has s
   second write access `setRawMetadata("rating", …)`; the message counts them.
 - On Peter's Mac: 15 ratings in the file (5 × 1, 3 × 3, 6 × 4, 1 × 5).
 - `cargo test` 215 passed (1 new), `cargo clippy --all-targets` clean.
+
+### [2026-11-05] Checked
+
+Peter: the stars work in Lightroom; the integration is good as it is.
