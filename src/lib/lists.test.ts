@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addedText, changeBlocked, defaultYear, groupLists, manyChange, type ListInfo, type ListsState, type Member } from "./lists";
+import { addedText, changeBlocked, defaultYear, groupLists, manyChange, type ListInfo, type ListsState, type Member, menuDirect, menuSearch } from "./lists";
 import type { Item } from "./api";
 
 const list = (id: string, archived = false): ListInfo => ({
@@ -44,5 +44,23 @@ describe("several photos at once", () => {
     const members = new Map([["a", member("a")]]);
     expect(manyChange([item("a"), item("b"), item("b")], members)).toEqual({ op: "add", items: [item("b")] });
     expect(manyChange([item("a")], members)).toEqual({ op: "remove", items: [item("a")] });
+  });
+});
+
+describe("lists in the photo menu (F003/S05)", () => {
+  const l = (name: string, year: number, updated: string) => ({ id: `${year}/${name}`, name, year, archived: false, count: 1, created_by: "x", created_at: "", updated_by: "x", updated_at: updated });
+  const few = [l("a", 2026, "2026-11-01"), l("b", 2025, "2026-10-01")];
+  const many = Array.from({ length: 10 }, (_, i) => l(`lijst ${i}`, 2026 - (i % 3), `2026-10-${String(10 + i).padStart(2, "0")}`));
+  it("shows a few lists all, many by the most recent five", () => {
+    expect(menuDirect(few)).toEqual({ direct: few, more: false });
+    const m = menuDirect(many);
+    expect(m.more).toBe(true);
+    expect(m.direct.map((x) => x.name)).toEqual(["lijst 9", "lijst 8", "lijst 7", "lijst 6", "lijst 5"]);
+  });
+  it("finds a list by name or year, per year", () => {
+    const sorted = [...many].sort((a, b) => b.year - a.year || a.name.localeCompare(b.name));
+    expect(menuSearch(sorted, "lijst 4").flatMap((g) => g.lists.map((x) => x.name))).toEqual(["lijst 4"]);
+    expect(menuSearch(sorted, "2024").map((g) => g.year)).toEqual([2024]);
+    expect(menuSearch(sorted, "").length).toBe(3);
   });
 });

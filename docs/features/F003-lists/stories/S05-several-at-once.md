@@ -65,3 +65,11 @@ all of them in the active list (or takes them out, when all are in it already).
 
 - Peter tried it in the app: creating a list, showing it, adding by dragging and the menu,
   picking several; "de lijst werkt".
+
+### [2026-11-05] Many lists in the photo menu
+
+- Peter asked whether *Toevoegen aan* scales with many lists: it showed every list that isn't
+  archived, one under the other. Now, with more than 7, it shows the 5 changed most recently
+  (*Toevoegen aan (recent)*) and *Andere lijst… ▸*, which opens a search in the menu: every list
+  per year, filtered by name or year as you type, Enter adds to the first one found, Escape goes
+  back. With 7 or fewer it stays as it was. `menuDirect` and `menuSearch` in `lists.ts`, tested.

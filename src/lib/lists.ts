@@ -17,7 +17,8 @@ export type ListInfo = {
 };
 
 export type ListsState = {
-  /** nas: changes are possible; local: the copy on this Mac, look only; none: no lists yet. */
+  /** nas: read from the share; local: the copy on this Mac, changes wait in the outbox (F020);
+   * none: no lists yet. */
   source: "nas" | "local" | "none";
   lists: ListInfo[];
   ignored: number;
@@ -229,4 +230,24 @@ export function useLists(): Lists {
   }, [blocked, membersOf, change, say, nameOf]);
 
   return { state, active, members, blocked, message, refresh, version, setActive, create, rename, archive, say, addTo, removeFrom, photosOf: membersOf };
+}
+
+/** How many lists the photo menu shows directly; with more, the most recent and *Andere lijst…*
+ * (F003/S05). */
+export const MENU_DIRECT = 7;
+export const MENU_RECENT = 5;
+
+/** The lists the photo menu shows directly: all of them when they are few, else the ones changed
+ * most recently. */
+export function menuDirect(lists: ListInfo[]): { direct: ListInfo[]; more: boolean } {
+  if (lists.length <= MENU_DIRECT) return { direct: lists, more: false };
+  const recent = [...lists].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, MENU_RECENT);
+  return { direct: recent, more: true };
+}
+
+/** The lists matching what was typed (name or year), per year, newest year first. */
+export function menuSearch(lists: ListInfo[], query: string): YearGroup[] {
+  const q = query.trim().toLowerCase();
+  const hits = q ? lists.filter((l) => l.name.toLowerCase().includes(q) || String(l.year).includes(q)) : lists;
+  return groupLists(hits, true);
 }

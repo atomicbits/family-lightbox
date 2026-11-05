@@ -9,6 +9,9 @@ export type FetchPlan = { files: { path: string; size: number; sidecar: boolean 
 export type FetchProgress = { done: number; total: number; bytes_done: number; bytes_total: number };
 export type FetchDone = { fetched: number; problems: string[]; error: string | null };
 
+/** Above this a fetch warns before it starts, with its duration (F009/S03). */
+export const BIG_FETCH = 5e9;
+
 /** "40 originelen ophalen (1,2 GB) · 3 staan er al", or why not. */
 export function fetchPlanText(p: FetchPlan): string {
   const originals = p.files.filter((f) => !f.sidecar).length;

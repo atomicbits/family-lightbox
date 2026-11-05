@@ -36,3 +36,9 @@
   *Archiveren…*, which asks first (`ConfirmDialog`: what archiving means, *Annuleren* focused) or
   *Terugzetten*. The grid's menu keeps *Originelen ophalen (n)* for the photos picked only.
 - `pnpm test` 160 passed, `tsc` and `vite build` clean.
+
+### [2026-11-05] A warning before much data
+
+Peter: confirm when a fetch is a lot of data. Above 5 GB (`BIG_FETCH`) the plan says so in amber,
+with how long it takes and that it takes that much room on this Mac, and the button reads *Toch
+ophalen (12,3 GB)*. `pnpm test` 162 passed (2 new).

@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import type { ListInfo } from "../lib/lists";
+import { useEffect, useState } from "react";
+import { menuDirect, menuSearch, type ListInfo } from "../lib/lists";
 
 export type MenuAction = { label: string; run: () => void; disabled?: boolean; title?: string };
 
@@ -20,6 +20,12 @@ type Props = {
 
 /** The right-click menu on the grid (F003/S05): the active list, and adding to any list. */
 export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo, onClose, swatches }: Props) {
+  // with many lists: the most recent directly, the rest behind *Andere lijst…* with a search (F003/S05)
+  const { direct, more } = menuDirect(lists);
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState("");
+  const found = searching ? menuSearch(lists, query) : [];
+  const firstFound = found[0]?.lists[0];
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -29,7 +35,7 @@ export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo
   const item = "w-full text-left px-3 py-1 rounded hover:bg-blue-600 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-inherit";
   // keep the menu inside the window
   const left = Math.min(x, window.innerWidth - 260);
-  const top = Math.min(y, window.innerHeight - 40 - 28 * (actions.length + lists.length + 1));
+  const top = Math.min(y, window.innerHeight - 40 - 28 * (actions.length + direct.length + (more ? 2 : 1)) - (searching ? 300 : 0));
 
   return (
     <div className="absolute inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }}>
@@ -62,12 +68,45 @@ export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo
         {lists.length > 0 && (
           <>
             <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
-            <div className="px-3 py-1 text-xs text-neutral-400">Toevoegen aan</div>
-            {lists.map((l) => (
+            <div className="px-3 py-1 text-xs text-neutral-400">{more ? "Toevoegen aan (recent)" : "Toevoegen aan"}</div>
+            {direct.map((l) => (
               <button key={l.id} className={item} disabled={!!blocked} title={blocked ?? undefined} onClick={() => { onAddTo(l.id); onClose(); }}>
                 {l.name} <span className="opacity-60">{l.year}</span>
               </button>
             ))}
+            {more && !searching && (
+              <button className={item} disabled={!!blocked} title={blocked ?? "alle lijsten, met zoeken"} onClick={() => setSearching(true)}>
+                Andere lijst… ▸
+              </button>
+            )}
+            {searching && (
+              <div className="px-2 py-1 space-y-1">
+                <input
+                  autoFocus
+                  className="w-full px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm"
+                  placeholder="zoek een lijst"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && firstFound) { onAddTo(firstFound.id); onClose(); }
+                    if (e.key === "Escape") { e.stopPropagation(); setSearching(false); setQuery(""); }
+                  }}
+                />
+                <div className="max-h-64 overflow-y-auto">
+                  {found.length === 0 && <div className="px-1 py-1 text-xs text-neutral-400">geen lijst met die naam</div>}
+                  {found.map((g) => (
+                    <div key={g.year}>
+                      <div className="px-1 pt-1 text-xs text-neutral-400">{g.year}</div>
+                      {g.lists.map((l) => (
+                        <button key={l.id} className={item} disabled={!!blocked} onClick={() => { onAddTo(l.id); onClose(); }}>
+                          {l.name}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

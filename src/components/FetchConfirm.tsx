@@ -1,4 +1,5 @@
-import { fetchPlanText, type FetchPlan } from "../lib/fetcher";
+import { BIG_FETCH, fetchPlanText, type FetchPlan } from "../lib/fetcher";
+import { estimate, gb } from "../lib/sync";
 
 type Props = { plan: FetchPlan; onYes: () => void; onNo: () => void };
 
@@ -6,6 +7,7 @@ type Props = { plan: FetchPlan; onYes: () => void; onNo: () => void };
 export default function FetchConfirm({ plan, onYes, onNo }: Props) {
   const nothing = plan.files.length === 0;
   const tight = plan.fits === false;
+  const big = plan.bytes > BIG_FETCH;
   return (
     <div className="absolute inset-0 z-40 bg-black/40 flex items-center justify-center p-4" onClick={onNo}>
       <div className="w-[28rem] max-w-full rounded-lg bg-white dark:bg-neutral-900 shadow-xl p-5 text-sm space-y-3" onClick={(e) => e.stopPropagation()}>
@@ -16,10 +18,15 @@ export default function FetchConfirm({ plan, onYes, onNo }: Props) {
           het ophalen gaat verder, de voortgang staat onderaan.
         </p>
         {tight && <p className="text-amber-600">Er is niet genoeg plaats op deze Mac (20 GB blijft altijd vrij).</p>}
+        {big && !tight && (
+          <p className="text-amber-600">
+            Dat is veel: {gb(plan.bytes)} GB, wat {estimate(plan.bytes)} duurt en zoveel plaats inneemt op deze Mac. Zolang de lijst niet gearchiveerd is, blijven ze staan.
+          </p>
+        )}
         <div className="flex justify-end gap-2">
           <button className="px-3 py-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={onNo}>Annuleren</button>
           <button className="px-3 py-1.5 rounded bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40" disabled={nothing || tight} onClick={onYes}>
-            Ophalen
+            {big ? `Toch ophalen (${gb(plan.bytes)} GB)` : "Ophalen"}
           </button>
         </div>
       </div>
