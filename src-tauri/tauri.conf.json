@@ -41,12 +41,18 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "infoplist/en.lproj/InfoPlist.strings": "en.lproj/InfoPlist.strings",
+      "infoplist/nl.lproj/InfoPlist.strings": "nl.lproj/InfoPlist.strings"
+    }
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ1MkU2OTJGMTYyM0NGNEUKUldST3p5TVdMMmt1UmIyVzZYdUxvT0xleFdzd3l1cTdjaXNYbXhkQjNKVzZML1ZmdjBuc2pqdngK",
-      "endpoints": ["https://github.com/atomicbits/family-lightbox/releases/latest/download/latest.json"]
+      "endpoints": [
+        "https://github.com/atomicbits/family-lightbox/releases/latest/download/latest.json"
+      ]
     }
   }
 }

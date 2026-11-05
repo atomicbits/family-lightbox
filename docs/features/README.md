@@ -22,6 +22,10 @@ Everything in this repo is written in **English**: README, `CLAUDE.md`, features
 messages and code comments. (The `media` CLI and its docs in `~/Pictures/LibraryLocal` are in
 Dutch and follow the same process there.)
 
+The app's UI texts are the exception: every one in both an English and a Dutch catalog, and every
+message from the core in both languages through `tr!` (feature 11; how is in `CLAUDE.md`). Quotes
+of Dutch UI texts in older stories stay as they were written.
+
 ## Layout and naming
 
 ```
@@ -160,7 +164,7 @@ no folder yet.
 | 8 | [Native index](F008-native-index/plan.md): build the app's own index from the manifests (replaces `media index` for the app) | Done | 7 |
 | 9 | [Fetching originals](F009-fetch-originals/plan.md) from the NAS: one photo, a selection or a list, into the working copy at their paths | Done | 3, 6, 8 |
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin (Peter, 2026-11-05: to be offered in the app later, as `media thin` does now), Drive upload status | Planned | 8 |
-| 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
+| 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Built, to try | — |
 | 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | Done | 6, 7, 8 |
 | 13 | [Ratings and hearts](F013-ratings-and-hearts/plan.md): 1–5 stars shared, a heart per person, on the tiles; undo with a message, a button and ⌘Z | Done | 3 |
 | 14 | [Hiding photos](F014-hide-photos/plan.md): hide practical photos for both of us, from the right-click menu, with undo; show them per month or year until a restart | Done | 13 |

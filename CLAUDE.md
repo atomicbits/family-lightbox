@@ -19,6 +19,13 @@ commit messages, code comments. The `media` CLI and its documentation in `~/Pict
 are in Dutch. The data contract lives here, in [`docs/data-contract.md`](docs/data-contract.md)
 (moved from LibraryLocal on 2026-10-26); contract changes are made here and the CLI follows.
 
+**The app's own texts come in English and Dutch** (feature 11). A text in the window goes into
+`src/i18n/` (`en.ts` or `parts/<part>.en.ts`, and the same key in the `.nl.ts` next to it; a
+missing Dutch text fails `tsc`) and is read with `t()` when it is shown, never at module load. A
+message from the Rust core that a user can see is written with `tr!("Dutch", "English", …)`
+(`src-tauri/src/i18n.rs`). Numbers through `count`/`decimal`. Data (folder, file, list and device
+names) is never translated. Tests run in Dutch.
+
 ## Work process
 
 **A feature describes _what_ the app does; a story describes _how_.** Before any non-trivial code
