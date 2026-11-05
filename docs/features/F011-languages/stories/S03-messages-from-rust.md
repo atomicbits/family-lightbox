@@ -1,7 +1,7 @@
 # Story S03: Messages from the Rust core
 
 **Feature:** `F011-languages`
-**Status:** Planned: a decision to revisit with Peter
+**Status:** In progress
 **Depends on:** S01
 
 ## The question
@@ -24,8 +24,14 @@ would live in two places, but each message in one.
 
 - Every message from the core a user can see comes in the chosen language; an OS error's own
   text (`Permission denied`) stays as the system gives it.
-- `cargo test` passes; a test per module for one message in English.
+- `cargo test` passes in Dutch unchanged; `tr!` tested in both languages, and a few messages in English.
 
 ## Progress log
 
 ### [2026-11-05] Written
+
+### [2026-11-05] Decided
+
+Peter: the macro in Rust. `src-tauri/src/i18n.rs`: `tr!(nl, en, args…)` (both literals, as
+`format!`), `set_language` (a command the window calls whenever its language changes),
+`in_english` for tests (per thread). Dutch until the window says otherwise.

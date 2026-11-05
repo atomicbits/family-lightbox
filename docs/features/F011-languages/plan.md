@@ -76,17 +76,17 @@ names and list names stay as they are.
 |---|---|---|---|
 | [S01](stories/S01-the-mechanism.md) | The mechanism: catalogs for English and Dutch, the language choice (system, setting), dates and numbers; the first screens moved | Built, to try in the app | — |
 | [S02](stories/S02-all-frontend-texts.md) | All frontend texts moved to the catalogs | Built, to try in the app | S01 |
-| [S03](stories/S03-messages-from-rust.md) | Messages from the Rust core: codes with parameters, translated in the UI | Planned: decision 2 to revisit | S01 |
+| [S03](stories/S03-messages-from-rust.md) | Messages from the Rust core: both languages in Rust with `tr!` | In progress | S01 |
 | S04 | The bundle's languages, the docs and the conventions | Planned | S02, S03 |
 
 ## Decisions
 
-Peter accepted all five proposals on 2026-10-27.
+Peter accepted all five proposals on 2026-10-27; decision 2 revised on 2026-11-05.
 
 1. **How the language is chosen.** Proposal: follow the Mac, with a setting to override. The
    alternative is a setting only, English unless set. Following the Mac means Lynn and Peter see
    Dutch without doing anything.
-2. **Messages from Rust.** Proposal: the Rust core returns a code with parameters
+2. **Messages from Rust.** *Revised 2026-11-05 (Peter): both languages next to each other in Rust, through `tr!`, the language passed in once by the window (S03); the paragraph below was the first choice.* Proposal: the Rust core returns a code with parameters
    (`{ code: "index_missing", path: "…" }`), and the frontend translates it, so there is one place
    for every text. The alternative, a small catalog on the Rust side, keeps the commands as they
    are, but then the language has to be passed into Rust, and the texts live in two places.

@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { config } from "./lib/api";
 import { LANGUAGE_EVENT, LanguageContext, pickLanguage, setLanguage, type Lang } from "./i18n";
+import { invoke } from "@tauri-apps/api/core";
 import "./index.css";
 
 /** Keeps the language in use: the Mac's at first, then the setting's; a change re-renders all. */
@@ -23,7 +24,11 @@ function Root() {
     window.addEventListener(LANGUAGE_EVENT, on);
     return () => window.removeEventListener(LANGUAGE_EVENT, on);
   }, []);
-  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    // the core's messages in the same language (F011/S03)
+    invoke("set_language", { lang }).catch(() => {});
+  }, [lang]);
   return (
     <LanguageContext.Provider value={lang}>
       <App />
