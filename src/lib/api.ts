@@ -86,6 +86,8 @@ export type DryCheck = {
   found: { what: string; location: Location; root: string | null; note: string; ok: boolean }[];
   devices: { name: string; owner: string; app: string; ok: boolean }[];
 };
+/** What the welcome finds in the home share (F019/S02). */
+export type Home = { share: string; connected: boolean; found: boolean; name: string; problem: string | null; existing: string[] };
 export type NasLayout = { contract_version: string; name: string; library: Location; previews: Location; lists: Location; exports: Location };
 export type LocalFolders = Local & { chosen: boolean; proposal: string };
 export type SettingsState = { settings: Settings; error: string | null; path: string };
@@ -118,6 +120,9 @@ export const nas = {
   layout: () => invoke<NasLayout>("nas_layout"),
   dryCheck: (share: string) => invoke<DryCheck>("layout_dry_check", { share }),
   whoami: () => invoke<Whoami>("nas_whoami"),
+  home: () => invoke<Home>("layout_home"),
+  /** A new library in the home share; with `layout`, pointing at folders that exist. Returns the folders made. */
+  setUp: (name: string, layout: NasLayout | null) => invoke<string[]>("layout_set_up", { name, layout }),
 };
 
 /** What the welcome proposes from the NAS (F006/S06). */

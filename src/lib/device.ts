@@ -57,3 +57,20 @@ export function shareProblem(share: string): string | null {
   if (share.includes("/")) return `'${share}': een gedeelde map mag geen '/' bevatten`;
   return null;
 }
+
+/** A folder inside a share (F019): relative, with '/', not leaving it. As `location_problem` in layout.rs. */
+export function pathProblem(path: string): string | null {
+  if (path.startsWith("/") || path.includes("\\") || path.split("/").includes("..")) return `'${path}': het pad moet binnen de gedeelde map blijven, met '/'`;
+  return null;
+}
+
+/** What setting up a new library in `share` will do, given the folders that are there (F019/S02). */
+export function setUpText(share: string, existing: string[]): string {
+  const all = ["Library", "Previews", "Lists", "Exports"];
+  const make = all.filter((f) => !existing.includes(f));
+  const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} en ${xs[xs.length - 1]}`);
+  const parts = [];
+  if (make.length) parts.push(`maakt in '${share}' de map${make.length > 1 ? "pen" : ""} ${list(make)}`);
+  if (existing.length) parts.push(`gebruikt ${list(existing)} die er al ${existing.length > 1 ? "zijn" : "is"}`);
+  return `${parts.join(" en ")}, en schrijft er familylightbox.json bij. Er wordt niets overschreven.`.replace(/^./, (c) => c.toUpperCase());
+}

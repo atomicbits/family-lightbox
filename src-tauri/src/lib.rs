@@ -162,6 +162,37 @@ async fn layout_dry_check(share: String, paths: State<'_, Paths>) -> Result<layo
     on_blocking(move || Ok(layout::dry_check(&mounts::system_mounts(), &config::load_settings(&config).0.nas_host, &share))).await
 }
 
+/// What the welcome finds in the home share (F019/S02).
+#[tauri::command]
+async fn layout_home(paths: State<'_, Paths>) -> Result<layout::Home, String> {
+    let config = paths.config.clone();
+    on_blocking(move || {
+        let (settings, _) = config::load_settings(&config);
+        Ok(layout::home_status(&mounts::system_mounts(), &settings.nas_host, settings.home()))
+    })
+    .await
+}
+
+/// Sets up a library in the home share (F019/S02): in one share, or `layout` pointing at folders
+/// that exist; then reads it, so the shares it names are connected next.
+#[tauri::command]
+async fn layout_set_up(name: String, layout: Option<layout::NasLayout>, paths: State<'_, Paths>) -> Result<Vec<String>, String> {
+    let config = paths.config.clone();
+    on_blocking(move || {
+        let (settings, _) = config::load_settings(&config);
+        let (host, home) = (settings.nas_host.clone(), settings.home().to_string());
+        let raw = mounts::system_mounts();
+        let list = mounts::mounts_of(&raw, &host, &home);
+        let m = mounts::NasMounts::chosen(&list).ok_or_else(|| format!("de gedeelde map '{home}' is niet verbonden"))?;
+        let mut l = layout.unwrap_or_else(|| layout::NasLayout::in_one_share(&home, ""));
+        l.name = name.trim().to_string();
+        let made = layout::set_up(Path::new(&m.mount_point), &home, &l)?;
+        layout::refresh(&config, &raw, &host, &home)?;
+        Ok(made)
+    })
+    .await
+}
+
 /// The layout in use (F019/S03): the NAS's file, its copy, or the Mac's share names.
 #[tauri::command]
 fn nas_layout(paths: State<Paths>) -> layout::NasLayout {
@@ -1727,7 +1758,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, export_presets, export_plan, export_start, export_pending, eject_card, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, layout_dry_check, layout_home, layout_set_up, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, export_presets, export_plan, export_start, export_pending, eject_card, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

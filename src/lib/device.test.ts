@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { accessLabel, anyMissing, mountLabel, registrationLabel } from "./api";
-import { deviceNameProblem, freeText, hostProblem, ownerProblem, parentOf, people, shareProblem, takenBy } from "./device";
+import { deviceNameProblem, freeText, hostProblem, ownerProblem, parentOf, pathProblem, people, setUpText, shareProblem, takenBy } from "./device";
 
 describe("the local folder (F006/S07)", () => {
   it("says how much room there is", () => {
@@ -72,5 +72,18 @@ describe("access and registration", () => {
     expect(accessLabel({ mounted: true, readable: true, writable: false, problem: "niet schrijfbaar: x" })).toBe("niet schrijfbaar: x");
     expect(registrationLabel({ kind: "already_registered" })).toBe("geregistreerd op de NAS");
     expect(registrationLabel({ kind: "refused", message: "toestelnaam 'mbp-lynn' is al van karel" })).toContain("al van karel");
+  });
+});
+
+describe("a new library (F019/S02)", () => {
+  it("says what it makes and what it uses", () => {
+    expect(setUpText("Fotos", [])).toBe("Maakt in 'Fotos' de mappen Library, Previews, Lists en Exports, en schrijft er familylightbox.json bij. Er wordt niets overschreven.");
+    expect(setUpText("Fotos", ["Library"])).toBe("Maakt in 'Fotos' de mappen Previews, Lists en Exports en gebruikt Library die er al is, en schrijft er familylightbox.json bij. Er wordt niets overschreven.");
+    expect(setUpText("Fotos", ["Library", "Previews", "Lists", "Exports"])).toBe("Gebruikt Library, Previews, Lists en Exports die er al zijn, en schrijft er familylightbox.json bij. Er wordt niets overschreven.");
+  });
+  it("keeps a path inside its share", () => {
+    expect(pathProblem("")).toBeNull();
+    expect(pathProblem("FamilyLightbox/Library")).toBeNull();
+    for (const bad of ["/x", "../x", "a/../b", "a\\b"]) expect(pathProblem(bad)).not.toBeNull();
   });
 });

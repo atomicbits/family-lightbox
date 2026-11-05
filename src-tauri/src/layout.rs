@@ -148,6 +148,84 @@ pub fn next_home(config: &Path, raw: &[RawMount], host: &str, home: &str) -> Opt
     Some(next)
 }
 
+/// What the welcome finds in the home share (F019/S02).
+#[derive(Debug, Clone, Serialize)]
+pub struct Home {
+    pub share: String,
+    pub connected: bool,
+    /// A valid file is there.
+    pub found: bool,
+    pub name: String,
+    /// The file is there but can't be read.
+    pub problem: Option<String>,
+    /// Of `Library`, `Previews`, `Lists`, `Exports`: the folders that are in the share already.
+    pub existing: Vec<String>,
+}
+
+pub const SUBFOLDERS: [&str; 4] = ["Library", "Previews", "Lists", "Exports"];
+
+pub fn home_status(raw: &[RawMount], host: &str, home: &str) -> Home {
+    let mut out = Home { share: home.to_string(), connected: false, found: false, name: String::new(), problem: None, existing: Vec::new() };
+    let list = mounts::mounts_of(raw, host, home);
+    let Some(m) = mounts::NasMounts::chosen(&list) else { return out };
+    let root = Path::new(&m.mount_point);
+    out.connected = true;
+    out.existing = SUBFOLDERS.iter().filter(|f| root.join(f).is_dir()).map(|f| f.to_string()).collect();
+    match fs::read_to_string(root.join(LAYOUT_FILE)) {
+        Ok(text) => match parse(&text) {
+            Ok(l) => {
+                out.found = true;
+                out.name = l.name;
+            }
+            Err(e) => out.problem = Some(e),
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => out.problem = Some(format!("{LAYOUT_FILE} in '{home}': {e}")),
+    }
+    out
+}
+
+fn written(e: std::io::Error, home: &str, what: &str) -> String {
+    if e.kind() == std::io::ErrorKind::PermissionDenied {
+        format!("je account mag niet schrijven in '{home}': vraag schrijfrecht op die gedeelde map, of kies een andere")
+    } else {
+        format!("{what} in '{home}': {e}")
+    }
+}
+
+/// Sets up a library in the home share mounted at `root` (F019/S02): the folders the locations in
+/// this share name, and the file. Refused when the file is there; nothing that exists is
+/// overwritten. Returns the folders it made.
+pub fn set_up(root: &Path, home: &str, layout: &NasLayout) -> Result<Vec<String>, String> {
+    let mut layout = layout.clone();
+    layout.contract_version = "1.4".into();
+    layout.home = String::new();
+    let text = serde_json::to_string_pretty(&layout).map_err(|e| e.to_string())? + "\n";
+    parse(&text)?;
+    let file = root.join(LAYOUT_FILE);
+    if file.exists() {
+        return Err(format!("in '{home}' staat al een {LAYOUT_FILE}: die wordt niet overschreven"));
+    }
+    let mut made = Vec::new();
+    for (_, loc) in layout.locations() {
+        if loc.share != home || loc.path.is_empty() {
+            continue;
+        }
+        let dir = root.join(&loc.path);
+        if !dir.is_dir() {
+            fs::create_dir_all(&dir).map_err(|e| written(e, home, &loc.path))?;
+            made.push(loc.path.clone());
+        }
+    }
+    let mut f = fs::OpenOptions::new().write(true).create_new(true).open(&file).map_err(|e| written(e, home, LAYOUT_FILE))?;
+    use std::io::Write;
+    if let Err(e) = f.write_all(text.as_bytes()).and_then(|_| f.sync_all()) {
+        let _ = fs::remove_file(&file);
+        return Err(written(e, home, LAYOUT_FILE));
+    }
+    Ok(made)
+}
+
 /// One location as a move would find it (F019/S04).
 #[derive(Debug, Clone, Serialize)]
 pub struct Found {
@@ -329,5 +407,50 @@ mod tests {
         assert_eq!(versions, [("mbp-anna", true), ("mbp-jan", false)]);
         assert!(dry_check(&[], "nas1", "Fotos").problem.unwrap().contains("niet verbonden"));
         assert!(version_at_least("0.10.0", "0.5.0") && !version_at_least("0.4.4", "0.5.0") && !version_at_least("", "0.5.0"));
+    }
+
+    #[test]
+    fn setting_up_a_new_library() {
+        let d = tempfile::tempdir().unwrap();
+        let fotos = d.path().join("mnt/Fotos");
+        fs::create_dir_all(&fotos).unwrap();
+        let raw = [mount("//anna@nas1/Fotos", &fotos)];
+        let h = home_status(&raw, "nas1", "Fotos");
+        assert!(h.connected && !h.found && h.existing.is_empty());
+        assert!(!home_status(&[], "nas1", "Fotos").connected);
+        // an empty share: the four folders and the file
+        let made = set_up(&fotos, "Fotos", &NasLayout::in_one_share("Fotos", "Onze foto's")).unwrap();
+        assert_eq!(made, ["Lists", "Library", "Previews", "Exports"]);
+        let h = home_status(&raw, "nas1", "Fotos");
+        assert!(h.found && h.name == "Onze foto's" && h.existing.len() == 4);
+        // the file there: refused, nothing changed
+        let err = set_up(&fotos, "Fotos", &NasLayout::in_one_share("Fotos", "Andere")).unwrap_err();
+        assert!(err.contains("niet overschreven"), "{err}");
+        assert_eq!(parse(&fs::read_to_string(fotos.join(LAYOUT_FILE)).unwrap()).unwrap().name, "Onze foto's");
+    }
+
+    #[test]
+    fn setting_up_where_some_folders_are() {
+        let d = tempfile::tempdir().unwrap();
+        let fotos = d.path().join("Fotos");
+        fs::create_dir_all(fotos.join("Library/2026")).unwrap();
+        fs::write(fotos.join("Library/2026/x.jpg"), b"x").unwrap();
+        let made = set_up(&fotos, "Fotos", &NasLayout::in_one_share("Fotos", "")).unwrap();
+        assert_eq!(made, ["Lists", "Previews", "Exports"]);
+        assert!(fotos.join("Library/2026/x.jpg").is_file());
+        // pointing at folders in other shares: only the file is written here
+        let other = d.path().join("Home");
+        fs::create_dir_all(&other).unwrap();
+        let mut l = NasLayout::from_shares(&Shares::default());
+        l.exports = Location { share: "photo".into(), path: "FamilyLightbox/Exports".into() };
+        assert!(set_up(&other, "Home", &l).unwrap().is_empty());
+        let back = parse(&fs::read_to_string(other.join(LAYOUT_FILE)).unwrap()).unwrap();
+        assert_eq!((back.contract_version.as_str(), back.exports.share.as_str()), ("1.4", "photo"));
+        // a bad location: nothing written
+        l.library.path = "../x".into();
+        let third = d.path().join("Third");
+        fs::create_dir_all(&third).unwrap();
+        assert!(set_up(&third, "Third", &l).is_err());
+        assert!(!third.join(LAYOUT_FILE).exists());
     }
 }
