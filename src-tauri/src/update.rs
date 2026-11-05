@@ -16,9 +16,6 @@ use crate::runner::SyncRunner;
 #[cfg(debug_assertions)]
 const ENDPOINT_OVERRIDE: &str = "FAMILYLIGHTBOX_UPDATE_ENDPOINT";
 
-pub const REFUSED: &str = "Update geweigerd: de handtekening klopt niet";
-pub const DURING_SYNC: &str = "bijwerken kan na de synchronisatie";
-
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct Offer {
     pub version: String,
@@ -64,9 +61,9 @@ impl UpdateState {
     fn begin(&self) -> Result<Update, String> {
         let mut inner = self.inner.lock().map_err(|e| e.to_string())?;
         if inner.installing {
-            return Err("de update wordt al geïnstalleerd".into());
+            return Err(tr!("de update wordt al geïnstalleerd", "the update is being installed already"));
         }
-        let update = inner.found.clone().ok_or("geen update gevonden")?;
+        let update = inner.found.clone().ok_or_else(|| tr!("geen update gevonden", "no update found"))?;
         inner.installing = true;
         Ok(update)
     }
@@ -115,7 +112,7 @@ pub async fn update_install(
     runner: State<'_, SyncRunner>,
 ) -> Result<(), String> {
     if runner.status().running {
-        return Err(DURING_SYNC.into());
+        return Err(tr!("bijwerken kan na de synchronisatie", "update after the sync"));
     }
     let update = state.begin()?;
     let mut done = 0u64;
@@ -138,7 +135,7 @@ pub async fn update_install(
         Err(e) => {
             let refused = is_refused(&e);
             state.failed(&update.version, refused);
-            Err(if refused { REFUSED.into() } else { format!("bijwerken mislukt: {e}") })
+            Err(if refused { tr!("Update geweigerd: de handtekening klopt niet", "Update refused: the signature doesn't match") } else { tr!("bijwerken mislukt: {e}", "update failed: {e}") })
         }
     }
 }
@@ -151,6 +148,7 @@ mod tests {
     fn begin_needs_a_found_update_and_claims_it_once() {
         let state = UpdateState::default();
         assert_eq!(state.begin().err().as_deref(), Some("geen update gevonden"));
+        assert_eq!(crate::i18n::in_english(|| state.begin().err()).as_deref(), Some("no update found"));
         assert!(!state.installing());
     }
 

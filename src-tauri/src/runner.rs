@@ -232,7 +232,7 @@ impl SyncRunner {
         {
             let mut inner = self.inner.lock().map_err(|e| e.to_string())?;
             if inner.state.running {
-                return Err("er loopt al een synchronisatie".into());
+                return Err(tr!("er loopt al een synchronisatie", "a sync is running already"));
             }
             inner.state = SyncState {
                 running: true,

@@ -101,7 +101,7 @@ export function useUpdate(): Update {
       await invoke("update_install"); // restarts the app when it succeeds
     } catch (e) {
       // a refused signature drops the offer on the Rust side too
-      const refused = String(e).startsWith("Update geweigerd");
+      const refused = /^Update (geweigerd|refused)/.test(String(e));
       setState((s) => ({ ...s, installing: false, progress: null, installError: String(e), offer: refused ? null : s.offer }));
     }
   }, []);

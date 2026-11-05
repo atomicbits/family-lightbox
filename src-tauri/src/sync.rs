@@ -411,7 +411,7 @@ fn execute_inner(
 fn copy_one(job: &Job, e: &Entry, bytes_before: u64, report: &mut dyn FnMut(u64), cancel: &AtomicBool) -> Result<u64, Stop> {
     let src = job.remote.join(&e.rel);
     let target = job.local.join(&e.rel);
-    let dir = target.parent().ok_or_else(|| Stop::Failed(format!("{}: geen map", target.display())))?;
+    let dir = target.parent().ok_or_else(|| Stop::Failed(tr!("{}: geen map", "{}: no folder", target.display())))?;
     let name = target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let tmp = dir.join(partial_name(&name));
     let fail = |msg: String| {

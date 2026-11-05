@@ -186,7 +186,7 @@ async fn layout_set_up(name: String, layout: Option<layout::NasLayout>, paths: S
         let (host, home) = (settings.nas_host.clone(), settings.home().to_string());
         let raw = mounts::system_mounts();
         let list = mounts::mounts_of(&raw, &host, &home);
-        let m = mounts::NasMounts::chosen(&list).ok_or_else(|| format!("de gedeelde map '{home}' is niet verbonden"))?;
+        let m = mounts::NasMounts::chosen(&list).ok_or_else(|| tr!("de gedeelde map '{home}' is niet verbonden", "the shared folder '{home}' isn't connected"))?;
         let mut l = layout.unwrap_or_else(|| layout::NasLayout::in_one_share(&home, ""));
         l.name = name.trim().to_string();
         let made = layout::set_up(Path::new(&m.mount_point), &home, &l)?;
@@ -222,7 +222,7 @@ async fn connect_nas(allow_ui: bool, paths: State<'_, Paths>) -> Result<ConnectR
     tauri::async_runtime::spawn_blocking(move || {
         let (settings, _) = config::load_settings(&config);
         if settings.nas_host.trim().is_empty() {
-            return Err("nog geen NAS ingesteld: geef de naam van je NAS in de instellingen".to_string());
+            return Err(tr!("nog geen NAS ingesteld: geef de naam van je NAS in de instellingen", "no NAS set up yet: enter your NAS's name in the settings"));
         }
         #[cfg(target_os = "macos")]
         let connect_these = |host: &str, list: &[(connect::ShareKey, String)]| connect::connect_all(&connect::NetFsMounter { allow_ui }, host, list);
@@ -295,7 +295,7 @@ fn plan_source(paths: &Paths, path: &str, progress: &mut dyn FnMut(&import_plan:
     let layouts = sources::layouts(&db.source_paths()?);
     let of_camera = |c: &str| db.sources_of_camera(c).unwrap_or_default();
     let found = sources::discover(&import, Path::new("/Volumes"), &layouts, &of_camera);
-    let f = found.iter().find(|f| f.path == path).ok_or_else(|| format!("{path}: geen bron (meer)"))?;
+    let f = found.iter().find(|f| f.path == path).ok_or_else(|| tr!("{path}: geen bron (meer)", "{path}: not a source (anymore)"))?;
     if let Some(p) = &f.problem {
         return Err(p.clone());
     }
@@ -336,7 +336,7 @@ async fn eject_card(path: String) -> Result<(), String> {
     on_blocking(move || {
         let p = Path::new(&path);
         if !p.starts_with("/Volumes") || !p.join("DCIM").is_dir() {
-            return Err(format!("{path}: geen kaart"));
+            return Err(tr!("{path}: geen kaart", "{path}: not a card"));
         }
         let out = std::process::Command::new("diskutil").arg("eject").arg(p).output().map_err(|e| e.to_string())?;
         if out.status.success() { Ok(()) } else { Err(String::from_utf8_lossy(&out.stderr).trim().to_string()) }
@@ -431,10 +431,10 @@ fn run_import(app: &tauri::AppHandle, paths: &Paths, job: &mut import_job::Job) 
 #[tauri::command]
 fn import_start(path: String, app: tauri::AppHandle, paths: State<Paths>, runner: State<ImportRunner>, sync: State<runner::SyncRunner>) -> Result<(), String> {
     if sync.status().running {
-        return Err("er loopt een synchronisatie: importeren kan daarna".into());
+        return Err(tr!("er loopt een synchronisatie: importeren kan daarna", "a sync is running: import after it"));
     }
     if runner.running.swap(true, std::sync::atomic::Ordering::SeqCst) {
-        return Err("er loopt al een import".into());
+        return Err(tr!("er loopt al een import", "an import is running already"));
     }
     #[cfg(target_os = "macos")]
     app.state::<previews_job::MakeRunner>().stop(false);
@@ -477,11 +477,11 @@ fn import_pending(paths: State<Paths>) -> Vec<import_job::Job> {
 #[tauri::command]
 fn import_resume(id: String, app: tauri::AppHandle, paths: State<Paths>, runner: State<ImportRunner>, sync: State<runner::SyncRunner>) -> Result<(), String> {
     if sync.status().running {
-        return Err("er loopt een synchronisatie: importeren kan daarna".into());
+        return Err(tr!("er loopt een synchronisatie: importeren kan daarna", "a sync is running: import after it"));
     }
-    let mut job = import_job::pending(&paths.library).into_iter().find(|j| j.id == id).ok_or("deze import is al afgewerkt")?;
+    let mut job = import_job::pending(&paths.library).into_iter().find(|j| j.id == id).ok_or_else(|| tr!("deze import is al afgewerkt", "this import has finished already"))?;
     if runner.running.swap(true, std::sync::atomic::Ordering::SeqCst) {
-        return Err("er loopt al een import".into());
+        return Err(tr!("er loopt al een import", "an import is running already"));
     }
     #[cfg(target_os = "macos")]
     app.state::<previews_job::MakeRunner>().stop(false);
@@ -592,9 +592,9 @@ pub fn check_nas(config: &Path) -> NasCheck {
     };
     let lists = check(&found.lists, true);
     let registration = match (&device, lists.writable) {
-        (None, _) => nas::Registration::NotTried("dit toestel heeft nog geen naam".into()),
-        (_, None) => nas::Registration::NotTried("Lijsten is niet verbonden".into()),
-        (_, Some(false)) => nas::Registration::NotTried("Lijsten is niet schrijfbaar".into()),
+        (None, _) => nas::Registration::NotTried(tr!("dit toestel heeft nog geen naam", "this device has no name yet")),
+        (_, None) => nas::Registration::NotTried(tr!("Lijsten is niet verbonden", "Lists isn't connected")),
+        (_, Some(false)) => nas::Registration::NotTried(tr!("Lijsten is niet schrijfbaar", "Lists isn't writable")),
         (Some(d), Some(true)) => {
             let dir = mounts::NasMounts::chosen(&found.lists).map(|m| m.mount_point.clone()).unwrap_or_default();
             nas::register(Path::new(&dir), &nas::entry_for(d), &|| {})
@@ -657,14 +657,14 @@ impl runner::Sink for EventSink {
     fn done(&self, state: &runner::SyncState) {
         let _ = self.0.emit("sync-done", state);
         for f in &state.failed {
-            report(&self.0, log::Level::Warn, "synchronisatie", &format!("overgeslagen: {f}"));
+            report(&self.0, log::Level::Warn, &tr!("synchronisatie", "sync"), &tr!("overgeslagen: {f}", "skipped: {f}"));
         }
         if state.failed_count as usize > state.failed.len() {
             let more = state.failed_count as usize - state.failed.len();
-            report(&self.0, log::Level::Warn, "synchronisatie", &format!("en nog {more} bestanden overgeslagen"));
+            report(&self.0, log::Level::Warn, &tr!("synchronisatie", "sync"), &tr!("en nog {more} bestanden overgeslagen", "and {more} more files skipped"));
         }
         if let (runner::Phase::Failed, Some(m)) = (state.phase, &state.message) {
-            report(&self.0, log::Level::Error, "synchronisatie", m);
+            report(&self.0, log::Level::Error, &tr!("synchronisatie", "sync"), m);
         }
         // a rename of sources done on another Mac: the same moves here (F022/S04)
         let renamed = apply_renames(&self.0);
@@ -725,7 +725,7 @@ fn apply_renames(app: &tauri::AppHandle) -> usize {
                 state.renames_applied.push(rec.id.clone());
                 let _ = config::save_state(&paths.config, &state);
             }
-            Err(e) => report(app, log::Level::Warn, "bronnen", &format!("hernoeming {} niet toegepast: {e}", rec.id)),
+            Err(e) => report(app, log::Level::Warn, &tr!("bronnen", "sources"), &tr!("hernoeming {} niet toegepast: {e}", "rename {} not applied: {e}", rec.id)),
         }
     }
     moved
@@ -747,9 +747,9 @@ fn rename_shares(paths: &Paths) -> Result<(PathBuf, PathBuf, PathBuf), String> {
     let (settings, _) = config::load_settings(&paths.config);
     let found = mounts::find_shares(&mounts::system_mounts(), &settings);
     let at = |list: &[mounts::Mount], what: &str| {
-        mounts::NasMounts::chosen(list).map(|m| PathBuf::from(&m.mount_point)).ok_or(format!("{what} is niet verbonden: hernoemen kan alleen met de NAS"))
+        mounts::NasMounts::chosen(list).map(|m| PathBuf::from(&m.mount_point)).ok_or_else(|| tr!("{what} is niet verbonden: hernoemen kan alleen met de NAS", "{what} isn't connected: renaming needs the NAS"))
     };
-    Ok((at(&found.library, "de bibliotheek")?, at(&found.previews, "Previews")?, at(&found.lists, "Lijsten")?))
+    Ok((at(&found.library, &tr!("de bibliotheek", "the library"))?, at(&found.previews, "Previews")?, at(&found.lists, &tr!("Lijsten", "Lists"))?))
 }
 
 /// How a rename ended, for the window.
@@ -769,13 +769,13 @@ fn rename_start(from: Vec<String>, to: String, snapshot_today: bool, app: tauri:
     sorted.sort();
     let continuing = rename::Job::pending(&app.state::<Paths>().config).is_some_and(|j| j.record.from == sorted && j.record.to == to.trim());
     if !snapshot_today && !continuing {
-        return Err("maak eerst een snapshot van de NAS".into());
+        return Err(tr!("maak eerst een snapshot van de NAS", "take a snapshot of the NAS first"));
     }
     if sync.status().running {
-        return Err("er loopt een synchronisatie: hernoemen kan daarna".into());
+        return Err(tr!("er loopt een synchronisatie: hernoemen kan daarna", "a sync is running: rename after it"));
     }
     if runner.running.swap(true, std::sync::atomic::Ordering::SeqCst) {
-        return Err("er loopt een import of een hernoeming".into());
+        return Err(tr!("er loopt een import of een hernoeming", "an import or a rename is running"));
     }
     #[cfg(target_os = "macos")]
     app.state::<previews_job::MakeRunner>().stop(false);
@@ -784,10 +784,10 @@ fn rename_start(from: Vec<String>, to: String, snapshot_today: bool, app: tauri:
         let to = to.trim().to_string();
         let result = (|| -> Result<(), String> {
             let (library, previews, lists) = rename_shares(&paths)?;
-            let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+            let device = config::load_device(&paths.config)?.ok_or_else(|| tr!("dit toestel heeft nog geen naam", "this device has no name yet"))?;
             let mut job = match rename::Job::pending(&paths.config) {
                 Some(j) if j.record.to == to && j.record.from == { let mut f = from.clone(); f.sort(); f } => j,
-                Some(j) => return Err(format!("eerst de onderbroken hernoeming naar {} afwerken", j.record.to)),
+                Some(j) => return Err(tr!("eerst de onderbroken hernoeming naar {} afwerken", "first finish the interrupted rename to {}", j.record.to)),
                 None => rename::Job::new(&rename::plan(&library, &previews, &from, &to)?, &device.name, &device.owner),
             };
             let emit = app.clone();
@@ -806,7 +806,7 @@ fn rename_start(from: Vec<String>, to: String, snapshot_today: bool, app: tauri:
         })();
         app.state::<ImportRunner>().running.store(false, std::sync::atomic::Ordering::SeqCst);
         if let Err(e) = &result {
-            report(&app, log::Level::Error, "bronnen", &format!("hernoemen naar {to}: {e}"));
+            report(&app, log::Level::Error, &tr!("bronnen", "sources"), &tr!("hernoemen naar {to}: {e}", "renaming to {to}: {e}"));
         }
         let _ = app.emit("rename-done", RenameDone { to, error: result.err() });
         EventSink(app.clone()).rebuild_index();
@@ -830,7 +830,7 @@ fn list_media(paths: &Paths, id: &str) -> Result<(String, Vec<db::Item>), String
     if let Some(p) = state.problem {
         return Err(p);
     }
-    let list = all.remove(id).ok_or_else(|| format!("onbekende lijst: {id}"))?;
+    let list = all.remove(id).ok_or_else(|| tr!("onbekende lijst: {id}", "unknown list: {id}"))?;
     let hashes: Vec<String> = list.photos.into_keys().collect();
     let mut seen = std::collections::HashSet::new();
     let mut items: Vec<db::Item> = Db::open(&paths.index())?.items_by_hash(&hashes)?.into_iter().map(|(_, i)| i).filter(|i| seen.insert(i.hash.clone())).collect();
@@ -859,7 +859,7 @@ async fn export_plan(list: String, preset: String, custom: Option<export::Custom
     let p = state.inner().clone();
     on_blocking(move || {
         let own = custom.map(|c| c.preset()).transpose()?;
-        let pr = own.as_ref().or_else(|| export::preset(&preset)).ok_or("onbekende voorinstelling")?;
+        let pr = own.as_ref().or_else(|| export::preset(&preset)).ok_or_else(|| tr!("onbekende voorinstelling", "unknown preset"))?;
         let (_, items) = list_media(&p, &list)?;
         let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path), &chosen_variants(&p));
         Ok(ExportPlan {
@@ -909,7 +909,7 @@ fn export_start(list: String, preset: String, custom: Option<export::Custom>, de
         c.preset()?;
     }
     if runner.0.swap(true, std::sync::atomic::Ordering::SeqCst) {
-        return Err("er loopt al een export".into());
+        return Err(tr!("er loopt al een export", "an export is running already"));
     }
     std::thread::spawn(move || {
         let p = app.state::<Paths>().inner().clone();
@@ -920,11 +920,11 @@ fn export_start(list: String, preset: String, custom: Option<export::Custom>, de
                 None if list.is_empty() => return Ok((0, vec![])),
                 None => {
                     let own = custom.map(|c| c.preset()).transpose()?;
-                    let pr = own.as_ref().or_else(|| export::preset(&preset)).ok_or("onbekende voorinstelling")?;
+                    let pr = own.as_ref().or_else(|| export::preset(&preset)).ok_or_else(|| tr!("onbekende voorinstelling", "unknown preset"))?;
                     let (name, items) = list_media(&p, &list)?;
                     let folder = match dest.filter(|d| !d.trim().is_empty()) {
                         Some(d) => PathBuf::from(d),
-                        None => exports_folder(&p).ok_or("Exports op de NAS is niet verbonden: kies een map")?.join(export::folder_name(list.rsplit('/').next().unwrap_or(&list), pr, &chrono::Local::now())),
+                        None => exports_folder(&p).ok_or_else(|| tr!("Exports op de NAS is niet verbonden: kies een map", "Exports on the NAS isn't connected: choose a folder"))?.join(export::folder_name(list.rsplit('/').next().unwrap_or(&list), pr, &chrono::Local::now())),
                     };
                     let by = config::load_device(&p.config).ok().flatten().map(|d| d.owner).unwrap_or_default();
                     let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path), &chosen_variants(&p));
@@ -934,7 +934,7 @@ fn export_start(list: String, preset: String, custom: Option<export::Custom>, de
             dest_shown = job.dest.clone();
             let pr = match &job.custom {
                 Some(c) => c.preset()?,
-                None => *export::preset(&job.preset).ok_or("onbekende voorinstelling")?,
+                None => *export::preset(&job.preset).ok_or_else(|| tr!("onbekende voorinstelling", "unknown preset"))?,
             };
             let (settings, _) = config::load_settings(&p.config);
             let found = mounts::find_shares(&mounts::system_mounts(), &settings);
@@ -1001,21 +1001,21 @@ pub struct FetchDone {
 #[tauri::command]
 fn fetch_start(paths: Vec<String>, app: tauri::AppHandle, runner: State<FetchRunner>) -> Result<(), String> {
     if runner.0.swap(true, std::sync::atomic::Ordering::SeqCst) {
-        return Err("er worden al originelen opgehaald".into());
+        return Err(tr!("er worden al originelen opgehaald", "originals are being fetched already"));
     }
     std::thread::spawn(move || {
         let p = app.state::<Paths>().inner().clone();
         let result = (|| -> Result<(usize, Vec<String>), String> {
             let (settings, _) = config::load_settings(&p.config);
             let found = mounts::find_shares(&mounts::system_mounts(), &settings);
-            let nas = mounts::NasMounts::chosen(&found.library).map(|m| PathBuf::from(&m.mount_point)).ok_or("de bibliotheek op de NAS is niet verbonden")?;
+            let nas = mounts::NasMounts::chosen(&found.library).map(|m| PathBuf::from(&m.mount_point)).ok_or_else(|| tr!("de bibliotheek op de NAS is niet verbonden", "the library on the NAS isn't connected"))?;
             let mut job = match fetch::Job::pending(&p.config) {
                 Some(j) => j,
                 None if paths.is_empty() => return Ok((0, vec![])),
                 None => {
                     let plan = fetch::plan(&p.library, &paths, pull::free_bytes(&p.library));
                     if plan.fits == Some(false) {
-                        return Err("niet genoeg plaats op deze Mac".into());
+                        return Err(tr!("niet genoeg plaats op deze Mac", "not enough space on this Mac"));
                     }
                     fetch::Job::new(&plan)
                 }
@@ -1030,7 +1030,7 @@ fn fetch_start(paths: Vec<String>, app: tauri::AppHandle, runner: State<FetchRun
             Err(e) => FetchDone { fetched: 0, problems: vec![], error: Some(e) },
         };
         for pr in done.problems.iter().chain(&done.error) {
-            report(&app, log::Level::Warn, "originelen", pr);
+            report(&app, log::Level::Warn, &tr!("originelen", "originals"), pr);
         }
         let _ = app.emit("fetch-done", done);
         EventSink(app.clone()).rebuild_index();
@@ -1082,7 +1082,7 @@ impl index::IndexSink for EventSink {
             report(&self.0, log::Level::Error, "index", e);
         }
         for b in state.outcome.iter().flat_map(|o| &o.broken) {
-            report(&self.0, log::Level::Warn, "index", &format!("manifest onleesbaar: {b}"));
+            report(&self.0, log::Level::Warn, "index", &tr!("manifest onleesbaar: {b}", "manifest unreadable: {b}"));
         }
         // the index is current now: make what is missing (F012/S03)
         start_making(&self.0);
@@ -1134,7 +1134,7 @@ impl previews_job::MakeSink for EventSink {
     fn done(&self, state: &previews_job::MakeState) {
         let _ = self.0.emit("previews-done", state);
         if state.failed > 0 {
-            report(&self.0, log::Level::Warn, "previews", &format!("{} previews konden niet gemaakt worden (zie Instellingen → Previews)", state.failed));
+            report(&self.0, log::Level::Warn, "previews", &tr!("{} previews konden niet gemaakt worden (zie Instellingen → Previews)", "{} previews couldn't be made (see Settings → Previews)", state.failed));
         }
         if let Some(m) = &state.message {
             report(&self.0, log::Level::Warn, "previews", m);
@@ -1266,13 +1266,13 @@ fn sync_start(
     update: State<update::UpdateState>,
 ) -> Result<(), String> {
     if update.installing() {
-        return Err("de app wordt bijgewerkt en herstart zo".into());
+        return Err(tr!("de app wordt bijgewerkt en herstart zo", "the app is updating and will restart shortly"));
     }
     if at_launch == Some(true) && !runner.first_launch() {
         return Ok(());
     }
     if app.state::<ImportRunner>().running() {
-        return Err("er loopt een import: synchroniseren kan daarna".into());
+        return Err(tr!("er loopt een import: synchroniseren kan daarna", "an import is running: sync after it"));
     }
     // no previews are made during a sync; they start again after it (F012/S03)
     #[cfg(target_os = "macos")]
@@ -1280,7 +1280,7 @@ fn sync_start(
     let kind = match kind.as_str() {
         "all" => runner::Kind::All,
         "previews" => runner::Kind::Previews,
-        other => return Err(format!("onbekende synchronisatie: {other}")),
+        other => return Err(tr!("onbekende synchronisatie: {other}", "unknown sync: {other}")),
     };
     // the sync at start counts the previews only where something can be new, and every year once a
     // week; Synchroniseren in the settings always every year (F007/S07)
@@ -1320,7 +1320,7 @@ async fn outbox_send(app: tauri::AppHandle) -> Result<usize, String> {
         if outbox::count(&paths.config) == 0 {
             return Ok(0);
         }
-        let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+        let device = config::load_device(&paths.config)?.ok_or_else(|| tr!("dit toestel heeft nog geen naam", "this device has no name yet"))?;
         let touched: Vec<String> = outbox::text(&paths.config, outbox::Kind::Lists)
             .lines()
             .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()?["list"].as_str().map(str::to_string))
@@ -1363,7 +1363,7 @@ fn write_change(paths: &Paths, kind: outbox::Kind, device: &str, text: &str) -> 
         None => None,
     };
     if !lists::registered(&paths.lists).map(|d| d.contains(device)).unwrap_or(false) {
-        return Err(share_error.unwrap_or_else(|| "Lijsten is niet verbonden, en dit toestel werd nog nooit met de NAS geregistreerd".into()));
+        return Err(share_error.unwrap_or_else(|| tr!("Lijsten is niet verbonden, en dit toestel werd nog nooit met de NAS geregistreerd", "Lists isn't connected, and this device was never registered with the NAS")));
     }
     outbox::add(&paths.config, kind, text)
 }
@@ -1405,7 +1405,7 @@ async fn marks_state(paths: State<'_, Paths>) -> Result<marks::MarksState, Strin
 
 /// Writes a change to stars or hearts on the share and answers with the marks as they are now.
 fn change_marks(paths: &Paths, change: marks::Change) -> Result<marks::MarksState, String> {
-    let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+    let device = config::load_device(&paths.config)?.ok_or_else(|| tr!("dit toestel heeft nog geen naam", "this device has no name yet"))?;
     if let Some(why) = marks::refusal(&change) {
         return Err(why);
     }
@@ -1441,7 +1441,7 @@ async fn marks_stack(photos: Vec<String>, stack: Option<String>, paths: State<'_
         let stack = match stack {
             Some(s) => s,
             None => {
-                let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+                let device = config::load_device(&paths.config)?.ok_or_else(|| tr!("dit toestel heeft nog geen naam", "this device has no name yet"))?;
                 marks::new_stack_id(&device.name)
             }
         };
@@ -1491,7 +1491,7 @@ async fn list_photos(id: String, paths: State<'_, Paths>) -> Result<Vec<lists::M
         if let Some(p) = state.problem {
             return Err(p);
         }
-        all.remove(&id).map(|l| l.photos.into_values().collect()).ok_or_else(|| format!("onbekende lijst: {id}"))
+        all.remove(&id).map(|l| l.photos.into_values().collect()).ok_or_else(|| tr!("onbekende lijst: {id}", "unknown list: {id}"))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1542,7 +1542,7 @@ pub struct ListChanged {
 /// share, or without a device, it refuses: changes are only written on the NAS (data contract 5.2).
 fn change_list(app: &tauri::AppHandle, make: impl FnOnce(&std::collections::BTreeMap<String, lists::List>) -> lists::Change) -> Result<ListChanged, String> {
     let paths = app.state::<Paths>().inner().clone();
-    let device = config::load_device(&paths.config)?.ok_or("dit toestel heeft nog geen naam")?;
+    let device = config::load_device(&paths.config)?.ok_or_else(|| tr!("dit toestel heeft nog geen naam", "this device has no name yet"))?;
     // the lists as this Mac knows them, with what waits in the outbox (F020/S01)
     let (_, merged) = load_lists(&paths);
     let change = make(&merged);
@@ -1594,7 +1594,7 @@ async fn list_items(id: String, paths: State<'_, Paths>) -> Result<ListItems, St
         if let Some(p) = state.problem {
             return Err(p);
         }
-        let list = all.remove(&id).ok_or_else(|| format!("onbekende lijst: {id}"))?;
+        let list = all.remove(&id).ok_or_else(|| tr!("onbekende lijst: {id}", "unknown list: {id}"))?;
         let hashes: Vec<String> = list.photos.into_keys().collect();
         let mut rows = Db::open(&paths.index())?.items_by_hash(&hashes)?;
         renditions::fill(&paths.previews, rows.iter_mut().map(|(_, i)| i));
@@ -1739,9 +1739,9 @@ fn safe_join(root: &Path, rel: &str) -> Option<PathBuf> {
 }
 
 fn original(paths: &Paths, rel: &str) -> Result<PathBuf, String> {
-    let p = safe_join(&paths.library, rel).ok_or("ongeldig pad")?;
+    let p = safe_join(&paths.library, rel).ok_or_else(|| tr!("ongeldig pad", "invalid path"))?;
     if !p.is_file() {
-        return Err("het origineel staat niet op deze laptop (alleen op de NAS)".into());
+        return Err(tr!("het origineel staat niet op deze laptop (alleen op de NAS)", "the original isn't on this laptop (only on the NAS)"));
     }
     Ok(p)
 }
