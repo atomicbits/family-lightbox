@@ -581,14 +581,13 @@ export default function App() {
   }, [blockedMarks, itemsAt, marks.state.hidden, marks.change, lists.say, undo.push, showToast]);
 
   // The menu's Verbergen / Niet meer verbergen, each for its own photos among those clicked.
-  // the originals of the photos picked, and when a list is shown of the whole list (F009/S03)
+  // the originals of the photos picked (F009/S03); a whole list's from the list's own menu
   const fetchActions = (keys: string[]) => {
     const items = keys
       .map((k) => { const { section, index } = parseKey(k); return itemsOf(sections[section]?.month)?.[index]; })
       .filter((x): x is Item => !!x);
     const away = items.filter((x) => !x.local).map((x) => x.path);
     const busy = fetcher.running ? "er worden al originelen opgehaald" : null;
-    const listAway = showingList && listView ? [...listView.byMonth.values()].flat().filter((x) => !x.local).map((x) => x.path) : [];
     return [
       {
         label: away.length ? `Originelen ophalen (${away.length})` : "Originelen ophalen",
@@ -596,14 +595,6 @@ export default function App() {
         title: busy ?? (away.length ? "van de NAS naar deze Mac, op hun plaats in de bibliotheek" : "ze staan al op deze Mac"),
         run: () => askFetch(away),
       },
-      ...(showingList && lists.active
-        ? [{
-            label: `Alle originelen van ${lists.active.name} ophalen (${listAway.length})`,
-            disabled: !listAway.length || !!busy,
-            title: busy ?? (listAway.length ? "voor Lightroom of een export" : "ze staan allemaal op deze Mac"),
-            run: () => askFetch(listAway),
-          }]
-        : []),
     ];
   };
 
@@ -1001,6 +992,12 @@ export default function App() {
                 lists={lists}
                 month={topSection?.month ?? null}
                 dragging={dragging}
+                fetching={!!fetcher.running}
+                onFetch={(id) => {
+                  invoke<{ items: Item[]; missing: number }>("list_items", { id })
+                    .then((r) => askFetch(r.items.filter((x) => !x.local).map((x) => x.path)))
+                    .catch((e) => showToast(String(e), false));
+                }}
                 onDrop={(id) => {
                   setDragging(false);
                   listChange("add", id, dragKeys.current);
