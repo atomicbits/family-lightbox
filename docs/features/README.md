@@ -158,7 +158,7 @@ no folder yet.
 | 6 | [Connect to the NAS](F006-nas-connection/plan.md): find or mount the shares (macOS first), register the device | Done on Peter's Mac; Lynn's Mac deferred | 1 |
 | 7 | [Sync manifests and previews from the NAS](F007-sync-from-nas/plan.md) (replaces passes 1–2 of `media pull`; moves the data contract here) | Done | 6 |
 | 8 | [Native index](F008-native-index/plan.md): build the app's own index from the manifests (replaces `media index` for the app) | In progress | 7 |
-| 9 | [Fetching originals](F009-fetch-originals/plan.md) from the NAS: one photo, a selection or a list, into the working copy at their paths | In design | 3, 6, 8 |
+| 9 | [Fetching originals](F009-fetch-originals/plan.md) from the NAS: one photo, a selection or a list, into the working copy at their paths | In progress | 3, 6, 8 |
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |
 | 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
 | 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (S01–S03 done, S04 built) | 6, 7, 8 |

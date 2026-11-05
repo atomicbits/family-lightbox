@@ -3,6 +3,7 @@
 
 pub mod capture;
 pub mod config;
+pub mod fetch;
 mod connect;
 pub mod db;
 pub mod index;
@@ -733,6 +734,73 @@ fn rename_start(from: Vec<String>, to: String, snapshot_today: bool, app: tauri:
     Ok(())
 }
 
+/// One fetch of originals at a time (F009/S02).
+#[derive(Default)]
+pub struct FetchRunner(std::sync::atomic::AtomicBool);
+
+/// What fetching these originals takes (F009/S01), from the manifests in the working copy.
+#[tauri::command]
+async fn fetch_plan(paths: Vec<String>, state: State<'_, Paths>) -> Result<fetch::FetchPlan, String> {
+    let p = state.inner().clone();
+    on_blocking(move || Ok(fetch::plan(&p.library, &paths, pull::free_bytes(&p.library)))).await
+}
+
+/// How a fetch ended, for the window.
+#[derive(Clone, serde::Serialize)]
+pub struct FetchDone {
+    pub fetched: usize,
+    pub problems: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// Fetches the originals of `paths` (F009/S02), or continues the fetch that was interrupted when
+/// `paths` is empty. Progress as `fetch-progress`, the end as `fetch-done`; the index rebuilt.
+#[tauri::command]
+fn fetch_start(paths: Vec<String>, app: tauri::AppHandle, runner: State<FetchRunner>) -> Result<(), String> {
+    if runner.0.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return Err("er worden al originelen opgehaald".into());
+    }
+    std::thread::spawn(move || {
+        let p = app.state::<Paths>().inner().clone();
+        let result = (|| -> Result<(usize, Vec<String>), String> {
+            let (settings, _) = config::load_settings(&p.config);
+            let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+            let nas = mounts::NasMounts::chosen(&found.library).map(|m| PathBuf::from(&m.mount_point)).ok_or("de bibliotheek op de NAS is niet verbonden")?;
+            let mut job = match fetch::Job::pending(&p.config) {
+                Some(j) => j,
+                None if paths.is_empty() => return Ok((0, vec![])),
+                None => {
+                    let plan = fetch::plan(&p.library, &paths, pull::free_bytes(&p.library));
+                    if plan.fits == Some(false) {
+                        return Err("niet genoeg plaats op deze Mac".into());
+                    }
+                    fetch::Job::new(&plan)
+                }
+            };
+            let emit = app.clone();
+            fetch::run(&mut job, &nas, &p.library, &p.config, &mut |pr| { let _ = emit.emit("fetch-progress", pr); })?;
+            Ok((job.files.iter().filter(|f| !f.sidecar).count(), job.problems))
+        })();
+        app.state::<FetchRunner>().0.store(false, std::sync::atomic::Ordering::SeqCst);
+        let done = match result {
+            Ok((fetched, problems)) => FetchDone { fetched, problems, error: None },
+            Err(e) => FetchDone { fetched: 0, problems: vec![], error: Some(e) },
+        };
+        for pr in done.problems.iter().chain(&done.error) {
+            report(&app, log::Level::Warn, "originelen", pr);
+        }
+        let _ = app.emit("fetch-done", done);
+        EventSink(app.clone()).rebuild_index();
+    });
+    Ok(())
+}
+
+/// Whether a fetch was interrupted (F009/S02), to continue once the NAS is there.
+#[tauri::command]
+fn fetch_pending(paths: State<Paths>) -> bool {
+    fetch::Job::pending(&paths.config).is_some()
+}
+
 /// A rename this Mac started and didn't finish (F022/S03): its sources and target, to continue.
 #[tauri::command]
 fn rename_pending(paths: State<Paths>) -> Option<(Vec<String>, String)> {
@@ -1453,6 +1521,7 @@ pub fn run() {
         .manage(paths)
         .manage(runner::SyncRunner::default())
         .manage(ImportRunner::default())
+        .manage(FetchRunner::default())
         .manage(index::IndexRunner::default())
         .manage(update::UpdateState::default())
         .manage(Summaries::default())
@@ -1465,7 +1534,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

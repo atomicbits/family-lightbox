@@ -9,6 +9,8 @@ import LiveIcon from "./LiveIcon";
 import { liveTitle } from "../lib/live";
 
 type Props = {
+  /** Fetch this original from the NAS (F009/S03). */
+  onFetch?: (path: string) => void;
   item: Item;
   index: number;
   count: number;
@@ -31,7 +33,7 @@ type Props = {
 };
 
 /** Eén foto groot (de 2048 px-preview), met pijltjes, en knoppen naar het origineel. */
-export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me, bar, onMarkKey, onMenu }: Props) {
+export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me, bar, onMarkKey, onMenu, onFetch }: Props) {
   const heart = heartView(hearts, me);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -103,6 +105,11 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
           </span>
         )}
         {member && <span className="text-neutral-400">{addedText(member)}</span>}
+        {!item.local && onFetch && (
+          <button className="px-2 py-1 rounded bg-white/10 hover:bg-white/20" title="het origineel van de NAS naar deze Mac halen" onClick={() => onFetch(item.path)}>
+            Origineel ophalen
+          </button>
+        )}
         <button
           className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
           disabled={!item.local}

@@ -11,6 +11,8 @@ import ImportView from "./components/ImportView";
 import { doneText, useImporter } from "./lib/importjob";
 import { importActivity, usePlans } from "./lib/importplans";
 import { renamingText, useRenamer } from "./lib/renamer";
+import { fetchDoneText, fetchingText, useFetcher, type FetchPlan } from "./lib/fetcher";
+import FetchConfirm from "./components/FetchConfirm";
 import { saveTab } from "./lib/settingsTabs";
 import { MiniBar, Spinner } from "./components/Progress";
 import { firstStartSteps } from "./lib/firststart";
@@ -120,6 +122,12 @@ export default function App() {
     setToast({ text, undoable, id });
     setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 6000);
   }, []);
+  // fetching originals from the NAS (F009/S03): asked with its plan first, kept by the app
+  const fetcher = useFetcher(useCallback((d) => showToast(fetchDoneText(d), false), [showToast]));
+  const [fetchAsk, setFetchAsk] = useState<{ plan: FetchPlan; paths: string[] } | null>(null);
+  const askFetch = useCallback((paths: string[]) => {
+    fetcher.plan(paths).then((plan) => setFetchAsk({ plan, paths })).catch((e) => showToast(String(e), false));
+  }, [fetcher.plan, showToast]);
   const [confirming, setConfirming] = useState(false);
   const [cols, setCols] = useState(1);
   const [tile, setTile] = useState(loadTile);
@@ -173,6 +181,15 @@ export default function App() {
       .catch((e) => invoke("log_message", { level: "warn", source: "lijsten", text: `wachtende wijzigingen niet verzonden: ${e}` }).catch(() => {}));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice, listsUp, waiting, nas.mounts]);
+
+  // an interrupted fetch of originals goes on by itself once the NAS is there (F009/S02)
+  const fetchResumeTried = useRef(false);
+  useEffect(() => {
+    if (!hasDevice || fetchResumeTried.current || !nas.mounts?.library.some((m) => m.chosen)) return;
+    fetchResumeTried.current = true;
+    fetcher.resume().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDevice, nas.mounts]);
 
   // an interrupted rename of sources goes on by itself once the NAS is there (F022/S03)
   const resumeTried = useRef(false);
@@ -564,6 +581,32 @@ export default function App() {
   }, [blockedMarks, itemsAt, marks.state.hidden, marks.change, lists.say, undo.push, showToast]);
 
   // The menu's Verbergen / Niet meer verbergen, each for its own photos among those clicked.
+  // the originals of the photos picked, and when a list is shown of the whole list (F009/S03)
+  const fetchActions = (keys: string[]) => {
+    const items = keys
+      .map((k) => { const { section, index } = parseKey(k); return itemsOf(sections[section]?.month)?.[index]; })
+      .filter((x): x is Item => !!x);
+    const away = items.filter((x) => !x.local).map((x) => x.path);
+    const busy = fetcher.running ? "er worden al originelen opgehaald" : null;
+    const listAway = showingList && listView ? [...listView.byMonth.values()].flat().filter((x) => !x.local).map((x) => x.path) : [];
+    return [
+      {
+        label: away.length ? `Originelen ophalen (${away.length})` : "Originelen ophalen",
+        disabled: !away.length || !!busy,
+        title: busy ?? (away.length ? "van de NAS naar deze Mac, op hun plaats in de bibliotheek" : "ze staan al op deze Mac"),
+        run: () => askFetch(away),
+      },
+      ...(showingList && lists.active
+        ? [{
+            label: `Alle originelen van ${lists.active.name} ophalen (${listAway.length})`,
+            disabled: !listAway.length || !!busy,
+            title: busy ?? (listAway.length ? "voor Lightroom of een export" : "ze staan allemaal op deze Mac"),
+            run: () => askFetch(listAway),
+          }]
+        : []),
+    ];
+  };
+
   const hideActions = (keys: string[]) => {
     const hashes = keys
       .map((k) => { const { section, index } = parseKey(k); return itemsOf(sections[section]?.month)?.[index]?.hash; })
@@ -1005,6 +1048,7 @@ export default function App() {
           </main>
           {open && selected && (current ? (
             <Lightbox
+              onFetch={(path) => askFetch([path])}
               item={current}
               index={selected.index}
               count={sections[selected.section].count}
@@ -1061,6 +1105,12 @@ export default function App() {
           )}
           {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
           <PreviewsLine previews={previews} />
+          {fetcher.running && (
+            <span className="text-blue-600 flex items-center gap-1.5" title="je mag de app sluiten: het gaat daarna verder">
+              <Spinner /> {fetchingText(fetcher.running)}
+              <MiniBar done={fetcher.running.bytes_total ? fetcher.running.bytes_done / fetcher.running.bytes_total : null} />
+            </span>
+          )}
           {renamer.running && (
             <button className="text-blue-600 flex items-center gap-1.5" title="de bronnen in de instellingen openen" onClick={() => { saveTab("sources"); setShowSettings(true); }}>
               <Spinner /> {renamingText(renamer.running)}
@@ -1153,6 +1203,7 @@ export default function App() {
                   run: () => { listChange("remove", listId, menu.keys); },
                 }]
               : []),
+            ...fetchActions(menu.keys),
             ...hideActions(menu.keys),
             ...foldActions(menu.keys),
             ...stackMenu(menu.keys),
@@ -1166,6 +1217,13 @@ export default function App() {
       {showImport && <ImportView importer={importer} planner={planner} sync={sync} onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
       {showSettings && (
         <Settings renamer={renamer} device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+      )}
+      {fetchAsk && (
+        <FetchConfirm
+          plan={fetchAsk.plan}
+          onNo={() => setFetchAsk(null)}
+          onYes={() => { const paths = fetchAsk.paths; setFetchAsk(null); fetcher.start(paths).catch((e) => showToast(String(e), false)); }}
+        />
       )}
       {confirming && sync.state?.summary && (
         <ConfirmPreviews
