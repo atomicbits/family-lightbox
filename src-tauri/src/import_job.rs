@@ -113,7 +113,8 @@ impl Job {
             files,
             problems: Vec::new(),
             created: manifest::local_iso(Local::now()),
-            synced: plan.synced,
+            // a card is copied only, as a synced folder: nothing on it is moved (S07)
+            synced: plan.synced || plan.copy_only,
         }
     }
 
@@ -607,5 +608,24 @@ mod tests {
         // an ordinary file: it can be moved on and removed
         move_file(&to, &d.path().join("local/IMG_0001.JPG")).unwrap();
         fs::remove_file(d.path().join("local/IMG_0001.JPG")).unwrap();
+    }
+
+    #[test]
+    fn a_card_is_copied_only() {
+        let f = fixture();
+        let known: HashMap<String, String> = HashMap::new();
+        let cache = HashCache::open(&f.library.join("h.sqlite")).unwrap();
+        let mut p = plan(&f.drop.join("Cam"), "Cam", Layout { split: false, day: true }, &[], &known, &cache, &mut |_| {});
+        p.copy_only = true; // as for a card (S07)
+        let mut j = Job::from_plan(&p, &f.drop, "20261105-120000", false, 18);
+        assert!(j.synced);
+        let taken = f.library.join("taken.sqlite");
+        let env = Env { taken: Some(&taken), ..env(&f, true) };
+        run(&mut j, &env, &mut |_| {}, None).unwrap();
+        assert!(j.problems.is_empty(), "{:?}", j.problems);
+        // everything on the NAS, nothing on the card moved, no _imported
+        assert!(f.share.join("2026/07/Cam/2026-07-30/IMG_1.JPG").is_file());
+        assert!(f.drop.join("Cam/100/IMG_1.JPG").is_file() && f.drop.join("Cam/101/OLD.JPG").is_file());
+        assert!(!f.drop.join(crate::sources::IMPORTED).exists());
     }
 }

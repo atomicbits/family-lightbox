@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { config, type Found } from "../lib/api";
+import { invoke } from "@tauri-apps/api/core";
 import { actionText, datesText, monthsText, planSummary, progressText, syncedText } from "../lib/importplan";
 import { baseName, layoutText } from "../lib/sources";
 import { doneText, importLine, pendingText, type Importer } from "../lib/importjob";
@@ -26,6 +27,18 @@ export default function ImportView({ importer, planner, sync, onClose, onOpenSet
   const errors: Record<string, string> = { ...planner.errors, ...(listError ? { "": listError } : {}) };
   const [open, setOpen] = useState<string | null>(null);
 
+  // a card shows as soon as it is mounted (S07): looked for again every few seconds while open
+  useEffect(() => {
+    const t = setInterval(() => {
+      config.importSources().then((f) => setFound((old) => (JSON.stringify(old) === JSON.stringify(f) ? old : f))).catch(() => {});
+    }, 4000);
+    return () => clearInterval(t);
+  }, []);
+  const eject = (path: string) => {
+    invoke("eject_card", { path })
+      .then(() => { note(path, null); config.importSources().then(setFound).catch(() => {}); })
+      .catch((e) => note(path, `niet uitgeworpen: ${e}`));
+  };
   useEffect(() => {
     config.importSources().then(setFound).catch((e) => setListError(String(e)));
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } };
@@ -112,6 +125,7 @@ export default function ImportView({ importer, planner, sync, onClose, onOpenSet
                     sync.state?.running ? "er loopt een synchronisatie: importeren kan daarna"
                     : !plan ? "maakt eerst het plan, om na te kijken"
                     : f.kind === "synced" ? "kopieert naar de NAS; de gesynchroniseerde map zelf blijft zoals ze is"
+                    : f.kind === "card" ? "kopieert naar de NAS; op de kaart verandert niets"
                     : "kopieert naar de NAS, en verplaatst daarna de originelen naar _imported"
                   }
                   onClick={() => start(f)}
@@ -119,6 +133,14 @@ export default function ImportView({ importer, planner, sync, onClose, onOpenSet
                   Importeren
                 </button>
                 {f.kind === "synced" && <span className="text-xs text-neutral-500">alleen kopiëren: de map zelf blijft zoals ze is</span>}
+                {f.kind === "card" && (
+                  <>
+                    <span className="text-xs text-neutral-500 flex-1">alleen kopiëren: op de kaart verandert niets</span>
+                    <button className={button} disabled={importer.running?.path === f.path || !!progress} title="de kaart veilig verwijderen" onClick={() => eject(f.path)}>
+                      Uitwerpen
+                    </button>
+                  </>
+                )}
               </div>
               {progress && (
                 <Progress

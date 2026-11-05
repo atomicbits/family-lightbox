@@ -290,7 +290,24 @@ fn plan_source(paths: &Paths, path: &str, progress: &mut dyn FnMut(&import_plan:
         "card" => PathBuf::from(&f.path).join("DCIM"),
         _ => PathBuf::from(&f.path),
     };
-    Ok((import_plan::plan(&root, &f.name, f.layout, &set.exclude, &known, &cache, progress), set))
+    let card = f.kind == "card";
+    let mut plan = import_plan::plan(&root, &f.name, f.layout, &set.exclude, &known, &cache, progress);
+    plan.copy_only = card;
+    Ok((plan, set))
+}
+
+/// Ejects a card or device (F018/S07): only a volume under `/Volumes` with `DCIM/`.
+#[tauri::command]
+async fn eject_card(path: String) -> Result<(), String> {
+    on_blocking(move || {
+        let p = Path::new(&path);
+        if !p.starts_with("/Volumes") || !p.join("DCIM").is_dir() {
+            return Err(format!("{path}: geen kaart"));
+        }
+        let out = std::process::Command::new("diskutil").arg("eject").arg(p).output().map_err(|e| e.to_string())?;
+        if out.status.success() { Ok(()) } else { Err(String::from_utf8_lossy(&out.stderr).trim().to_string()) }
+    })
+    .await
 }
 
 /// What imports took from synced folders (F018/S06).
@@ -1710,7 +1727,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, export_presets, export_plan, export_start, export_pending, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, export_presets, export_plan, export_start, export_pending, eject_card, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

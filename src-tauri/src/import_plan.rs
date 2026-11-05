@@ -67,6 +67,8 @@ pub struct SourcePlan {
     pub read: usize,
     /// Of a synced folder: clips of Live Photos left out by its setting.
     pub live_skipped: usize,
+    /// Copied only, never tidied: a card or a device (S07), like a synced folder.
+    pub copy_only: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]

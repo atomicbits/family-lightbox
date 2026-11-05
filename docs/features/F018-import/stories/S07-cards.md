@@ -1,7 +1,7 @@
 # Story S07: Cards and devices
 
 **Feature:** `F018-import`
-**Status:** Planned
+**Status:** In progress: built and tested; to try with a card
 **Depends on:** S05
 
 ## Goal
@@ -25,3 +25,17 @@ app, on either Mac, with the same result: Lynn reads a GoPro card on hers (scena
 ## Progress log
 
 ### [2026-10-30] Written
+
+### [2026-11-05] Built
+
+- What was there: a mounted volume with `DCIM/` is found as a card, with the source proposed from
+  its camera (S03), and planned like a drop folder.
+- What was missing: an import from a card would have moved its originals to `_imported/` on the
+  card, as from a drop folder. `SourcePlan.copy_only` (set by `plan_source` for a card) makes the
+  job copy only, as a synced folder: nothing on the card is moved, what it took is recorded.
+- The import view looks for sources again every 4 s while open, so a card shows as soon as it is
+  mounted; a card's row says *alleen kopiëren: op de kaart verandert niets* and has *Uitwerpen*
+  (`eject_card`: only a volume under `/Volumes` with `DCIM/`, through `diskutil eject`).
+- GoPro's `.LRV`, `.THM` follow as in the drop folder (they are in the plan by their kind).
+- `cargo test` 221 passed (1 new: a card copied only), `pnpm test` 166 passed, `tsc`, `vite
+  build` and `cargo clippy --all-targets` clean.
