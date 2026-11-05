@@ -771,10 +771,11 @@ pub struct ExportPlan {
 }
 
 #[tauri::command]
-async fn export_plan(list: String, preset: String, state: State<'_, Paths>) -> Result<ExportPlan, String> {
+async fn export_plan(list: String, preset: String, custom: Option<export::Custom>, state: State<'_, Paths>) -> Result<ExportPlan, String> {
     let p = state.inner().clone();
     on_blocking(move || {
-        let pr = export::preset(&preset).ok_or("onbekende voorinstelling")?;
+        let own = custom.map(|c| c.preset()).transpose()?;
+        let pr = own.as_ref().or_else(|| export::preset(&preset)).ok_or("onbekende voorinstelling")?;
         let (_, items) = list_media(&p, &list)?;
         let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path));
         Ok(ExportPlan {
@@ -818,7 +819,11 @@ pub struct ExportDone {
 /// export that was interrupted when `list` is empty (F024/S02). Originals not here are read from
 /// the NAS. Progress as `export-progress`, the end as `export-done`.
 #[tauri::command]
-fn export_start(list: String, preset: String, dest: Option<String>, app: tauri::AppHandle, runner: State<ExportRunner>) -> Result<(), String> {
+fn export_start(list: String, preset: String, custom: Option<export::Custom>, dest: Option<String>, app: tauri::AppHandle, runner: State<ExportRunner>) -> Result<(), String> {
+    // an own setting is checked before anything starts
+    if let Some(c) = &custom {
+        c.preset()?;
+    }
     if runner.0.swap(true, std::sync::atomic::Ordering::SeqCst) {
         return Err("er loopt al een export".into());
     }
@@ -830,7 +835,8 @@ fn export_start(list: String, preset: String, dest: Option<String>, app: tauri::
                 Some(j) => j,
                 None if list.is_empty() => return Ok((0, vec![])),
                 None => {
-                    let pr = export::preset(&preset).ok_or("onbekende voorinstelling")?;
+                    let own = custom.map(|c| c.preset()).transpose()?;
+                    let pr = own.as_ref().or_else(|| export::preset(&preset)).ok_or("onbekende voorinstelling")?;
                     let (name, items) = list_media(&p, &list)?;
                     let folder = match dest.filter(|d| !d.trim().is_empty()) {
                         Some(d) => PathBuf::from(d),
@@ -838,11 +844,14 @@ fn export_start(list: String, preset: String, dest: Option<String>, app: tauri::
                     };
                     let by = config::load_device(&p.config).ok().flatten().map(|d| d.owner).unwrap_or_default();
                     let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path));
-                    export::Job { id: chrono::Local::now().format("%Y%m%d-%H%M%S").to_string(), list: list.clone(), list_name: name, preset: pr.id.into(), dest: folder.display().to_string(), by, parts, problems: vec![] }
+                    export::Job { id: chrono::Local::now().format("%Y%m%d-%H%M%S").to_string(), list: list.clone(), list_name: name, preset: pr.id.into(), dest: folder.display().to_string(), by, custom, parts, problems: vec![] }
                 }
             };
             dest_shown = job.dest.clone();
-            let pr = *export::preset(&job.preset).ok_or("onbekende voorinstelling")?;
+            let pr = match &job.custom {
+                Some(c) => c.preset()?,
+                None => *export::preset(&job.preset).ok_or("onbekende voorinstelling")?,
+            };
             let (settings, _) = config::load_settings(&p.config);
             let found = mounts::find_shares(&mounts::system_mounts(), &settings);
             let nas = mounts::NasMounts::chosen(&found.library).map(|m| PathBuf::from(&m.mount_point));

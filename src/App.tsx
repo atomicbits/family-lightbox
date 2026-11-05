@@ -1251,7 +1251,7 @@ export default function App() {
         <ExportDialog
           list={exporting}
           onClose={() => setExporting(null)}
-          onStart={(preset, dest) => { const id = exporting.id; setExporting(null); exporter.start(id, preset, dest).catch((e) => showToast(String(e), false)); }}
+          onStart={(preset, dest, custom) => { const id = exporting.id; setExporting(null); exporter.start(id, preset, dest, custom).catch((e) => showToast(String(e), false)); }}
         />
       )}
       {fetchAsk && (

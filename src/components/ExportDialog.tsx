@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { exportPlanText, presetText, shortFolder, type ExportPlan, type Preset } from "../lib/exporter";
+import { customProblem, customText, exportPlanText, presetText, shortFolder, type Custom, type ExportPlan, type Preset } from "../lib/exporter";
 
-type Props = { list: { id: string; name: string }; onStart: (preset: string, dest: string | null) => void; onClose: () => void };
+type Props = { list: { id: string; name: string }; onStart: (preset: string, dest: string | null, custom: Custom | null) => void; onClose: () => void };
+
+const field = "w-20 px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent font-mono text-xs";
 
 /** Exporting a list (F024/S03): a preset, the folder, what it makes; Lightroom's edits aren't in it. */
 export default function ExportDialog({ list, onStart, onClose }: Props) {
@@ -12,12 +14,18 @@ export default function ExportDialog({ list, onStart, onClose }: Props) {
   const [plan, setPlan] = useState<ExportPlan | null>(null);
   const [folder, setFolder] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // an own setting, by hand, behind its own button (Peter, 2026-11-05)
+  const [own, setOwn] = useState<Custom | null>(null);
+  const ownProblem = own ? customProblem(own) : null;
   useEffect(() => { invoke<Preset[]>("export_presets").then(setPresets).catch((e) => setError(String(e))); }, []);
   useEffect(() => {
     setPlan(null);
-    invoke<ExportPlan>("export_plan", { list: list.id, preset }).then(setPlan).catch((e) => setError(String(e)));
-  }, [list.id, preset]);
-  const chosen = presets.find((p) => p.id === preset);
+    if (own && customProblem(own)) return;
+    invoke<ExportPlan>("export_plan", { list: list.id, preset, custom: own }).then(setPlan).catch((e) => setError(String(e)));
+  }, [list.id, preset, own]);
+  const fromList = presets.find((p) => p.id === preset);
+  const chosen: Preset | undefined = own ? { id: "eigen", label: "Eigen instelling", what: "", long: own.long, quality: own.quality / 100, dpi: own.dpi, originals: false } : fromList;
+  const num = (v: string) => (v.trim() === "" ? NaN : Number(v));
   const dest = folder ?? plan?.dest ?? null;
   const choose = async () => {
     const f = await open({ directory: true, title: "Map voor de export" });
@@ -30,7 +38,7 @@ export default function ExportDialog({ list, onStart, onClose }: Props) {
         <div className="space-y-1">
           {presets.map((p) => (
             <label key={p.id} className="flex items-start gap-2">
-              <input type="radio" name="preset" checked={preset === p.id} onChange={() => setPreset(p.id)} className="mt-1" />
+              <input type="radio" name="preset" checked={!own && preset === p.id} onChange={() => { setOwn(null); setPreset(p.id); }} className="mt-1" />
               <span>
                 {presetText(p)}
                 <span className="block text-xs text-neutral-500">{p.what}</span>
@@ -38,6 +46,28 @@ export default function ExportDialog({ list, onStart, onClose }: Props) {
             </label>
           ))}
         </div>
+        {!own ? (
+          <button
+            className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs"
+            onClick={() => setOwn({ long: fromList?.long ?? 3000, quality: Math.round((fromList?.quality || 0.92) * 100), dpi: fromList?.dpi ?? 300 })}
+          >
+            Eigen instelling…
+          </button>
+        ) : (
+          <div className="rounded border border-neutral-200 dark:border-neutral-800 p-2 space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <input type="radio" checked readOnly />
+              <span className="font-medium flex-1">Eigen instelling: {customText(own)}</span>
+              <button className="text-neutral-500 hover:underline" onClick={() => setOwn(null)}>weg</button>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 pl-5">
+              <label className="flex items-center gap-1">lange zijde <input className={field} value={Number.isNaN(own.long) ? "" : own.long} onChange={(e) => setOwn({ ...own, long: num(e.target.value) })} /> px</label>
+              <label className="flex items-center gap-1">kwaliteit <input className={field} value={Number.isNaN(own.quality) ? "" : own.quality} onChange={(e) => setOwn({ ...own, quality: num(e.target.value) })} /></label>
+              <label className="flex items-center gap-1">dpi <input className={field} value={own.dpi ?? ""} placeholder="geen" onChange={(e) => setOwn({ ...own, dpi: e.target.value.trim() === "" ? null : num(e.target.value) })} /></label>
+            </div>
+            {ownProblem && <div className="pl-5 text-amber-600">{ownProblem}</div>}
+          </div>
+        )}
         {plan && chosen && <p>{exportPlanText(plan, chosen)}</p>}
         <div className="flex items-center gap-2 text-xs">
           <span className="text-neutral-500">Naar</span>
@@ -51,7 +81,7 @@ export default function ExportDialog({ list, onStart, onClose }: Props) {
         {error && <p className="text-red-600 text-xs">{error}</p>}
         <div className="flex justify-end gap-2">
           <button className="px-3 py-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={onClose}>Annuleren</button>
-          <button className="px-3 py-1.5 rounded bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40" disabled={!plan || !dest} onClick={() => onStart(preset, folder)}>
+          <button className="px-3 py-1.5 rounded bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40" disabled={!plan || !dest || !!ownProblem} onClick={() => onStart(own ? "eigen" : preset, folder, own)}>
             Exporteren
           </button>
         </div>

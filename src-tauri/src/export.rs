@@ -36,6 +36,31 @@ pub fn preset(id: &str) -> Option<&'static Preset> {
     PRESETS.iter().find(|p| p.id == id)
 }
 
+/// An own setting (F024/S03, Peter 2026-11-05): a long side, a quality and a DPI chosen by hand.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Custom {
+    pub long: usize,
+    /// 1–100.
+    pub quality: u8,
+    pub dpi: Option<u32>,
+}
+
+impl Custom {
+    /// A preset made of it, checked: 100–20 000 px, quality 1–100, DPI 72–1 200.
+    pub fn preset(&self) -> Result<Preset, String> {
+        if !(100..=20_000).contains(&self.long) {
+            return Err("de lange zijde: tussen 100 en 20 000 pixels".into());
+        }
+        if !(1..=100).contains(&self.quality) {
+            return Err("de kwaliteit: tussen 1 en 100".into());
+        }
+        if self.dpi.is_some_and(|d| !(72..=1200).contains(&d)) {
+            return Err("de dpi: tussen 72 en 1 200".into());
+        }
+        Ok(Preset { id: "eigen", label: "Eigen instelling", what: "", long: Some(self.long), quality: f64::from(self.quality) / 100.0, dpi: self.dpi, originals: false })
+    }
+}
+
 /// One file of an export.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Part {
@@ -87,7 +112,11 @@ fn stem(p: &str) -> &str {
 
 /// `Exports/<year>/<year>-<month>-<list slug>[-<preset>]` (data contract 6), for the moment `now`.
 pub fn folder_name(list_slug: &str, preset: &Preset, now: &chrono::DateTime<chrono::Local>) -> String {
-    let suffix = if preset.id == "vol" { String::new() } else { format!("-{}", preset.id) };
+    let suffix = match (preset.id, preset.long) {
+        ("vol", _) => String::new(),
+        ("eigen", Some(long)) => format!("-{long}px"),
+        (id, _) => format!("-{id}"),
+    };
     format!("{}/{}-{}{suffix}", now.format("%Y"), now.format("%Y-%m"), list_slug)
 }
 
@@ -101,6 +130,9 @@ pub struct Job {
     /// The folder the files go to, absolute.
     pub dest: String,
     pub by: String,
+    /// The own setting, when `preset` is `eigen`.
+    #[serde(default)]
+    pub custom: Option<Custom>,
     pub parts: Vec<Part>,
     pub problems: Vec<String>,
 }
@@ -234,6 +266,13 @@ mod tests {
         assert_eq!(folder_name("aosta", preset("vol").unwrap(), &now), format!("{y}/{}-aosta", now.format("%Y-%m")));
         assert_eq!(preset("10x15").unwrap().long, Some(1800));
         assert!(preset("nope").is_none());
+        // an own setting, checked, with its size in the folder's name
+        let own = Custom { long: 2400, quality: 90, dpi: Some(240) }.preset().unwrap();
+        assert_eq!((own.long, own.quality, own.dpi), (Some(2400), 0.9, Some(240)));
+        assert_eq!(folder_name("aosta", &own, &now), format!("{y}/{}-aosta-2400px", now.format("%Y-%m")));
+        assert!(Custom { long: 50, quality: 90, dpi: None }.preset().is_err());
+        assert!(Custom { long: 2400, quality: 0, dpi: None }.preset().is_err());
+        assert!(Custom { long: 2400, quality: 90, dpi: Some(5000) }.preset().is_err());
     }
 
     #[test]
@@ -247,7 +286,7 @@ mod tests {
         let none = |_: &str| vec![];
         let mut job = Job {
             id: "t".into(), list: "2026/aosta".into(), list_name: "Aosta".into(), preset: "fotoboek-a4".into(), dest: dest.display().to_string(),
-            by: "peter".into(), parts: parts(&items(), preset("fotoboek-a4").unwrap(), &none), problems: vec![],
+            by: "peter".into(), custom: None, parts: parts(&items(), preset("fotoboek-a4").unwrap(), &none), problems: vec![],
         };
         // as if an earlier run made the first file
         fs::create_dir_all(&dest).unwrap();
