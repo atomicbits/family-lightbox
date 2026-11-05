@@ -14,6 +14,9 @@ local LrTasks = import "LrTasks"
 
 local Json = require "Json"
 
+-- LrTasks.pcall, not pcall: Lightroom may yield inside (adding a photo does), which a plain pcall
+-- doesn't allow
+
 local log = LrLogger("FamilyLightbox")
 log:enable("logfile") -- in ~/Documents/LrClassicLogs/FamilyLightbox.log
 
@@ -25,7 +28,7 @@ local function readFile()
   local f = io.open(path, "r")
   local text = f:read("*a")
   f:close()
-  local ok, data = pcall(Json.decode, text)
+  local ok, data = LrTasks.pcall(Json.decode, text)
   if not ok or type(data) ~= "table" or type(data.lists) ~= "table" then
     return nil, "Het bestand van FamilyLightbox is niet leesbaar: " .. tostring(data)
   end
@@ -58,7 +61,7 @@ LrTasks.startAsyncTask(function()
   local collections, toAdd, away = {}, {}, 0
   for _, list in ipairs(data.lists) do
     if known[list.id] then
-      local ok, c = pcall(function() return catalog:getCollectionByLocalIdentifier(known[list.id]) end)
+      local ok, c = LrTasks.pcall(function() return catalog:getCollectionByLocalIdentifier(known[list.id]) end)
       if ok and c then collections[list.id] = c end
     end
     for _, p in ipairs(list.photos or {}) do
@@ -83,7 +86,7 @@ LrTasks.startAsyncTask(function()
       end
     end
     for _, path in ipairs(toAdd) do
-      local ok, photo = pcall(function() return catalog:addPhoto(path) end)
+      local ok, photo = LrTasks.pcall(function() return catalog:addPhoto(path) end)
       if ok and photo then added = added + 1 else log:warn("niet toegevoegd: " .. path .. " " .. tostring(photo)) end
     end
   end, { timeout = 120 })

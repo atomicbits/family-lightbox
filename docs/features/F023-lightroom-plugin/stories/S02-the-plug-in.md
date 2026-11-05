@@ -39,3 +39,9 @@ outside Lightroom.
   the sets, the missing collections and adds the photos; outside again the new collections found
   back by name in their set, their ids kept, and what to add, remove, rename or move; a second
   write access that does it.
+
+### [2026-11-05] Fix: `LrTasks.pcall`
+
+- The collections came, but empty: every `catalog:addPhoto` failed with *AgEventLoop.yieldToScheduler
+  called when yielding is not allowed* (Lightroom's console), as it ran inside a plain `pcall`,
+  which doesn't allow Lightroom to yield. All `pcall`s are `LrTasks.pcall` now.
