@@ -24,11 +24,42 @@ pub struct LrList {
     pub photos: Vec<Photo>,
 }
 
+/// A photo's rating for Lightroom (S04): a heart is 5 stars, else its stars.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LrRating {
+    pub path: String,
+    pub rating: u8,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct LrFile {
     pub version: u32,
     pub written_at: String,
     pub lists: Vec<LrList>,
+    /// The photos with stars or a heart whose original is here, by path (S04).
+    pub ratings: Vec<LrRating>,
+}
+
+/// The ratings (S04): every photo with a heart (5 stars) or stars, whose original is in the
+/// working copy; hidden photos aren't passed on, and a photo without either is left out, so it
+/// keeps its stars in Lightroom.
+pub fn ratings(marks: &crate::marks::Marks, library: &Path, path_of: &HashMap<String, String>) -> Vec<LrRating> {
+    let mut out: Vec<LrRating> = marks
+        .ratings
+        .keys()
+        .chain(marks.hearts.keys())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .filter_map(|hash| {
+            let hearted = marks.hearts.get(hash).is_some_and(|who| !who.is_empty());
+            let stars = marks.ratings.get(hash).map_or(0, |r| r.stars);
+            let rating = if hearted { 5 } else { stars };
+            let abs = library.join(path_of.get(hash)?);
+            (rating > 0 && abs.is_file()).then(|| LrRating { path: abs.display().to_string(), rating })
+        })
+        .collect();
+    out.sort_by(|a, b| a.path.cmp(&b.path));
+    out
 }
 
 /// The file's content: per list, each photo by its current path in the library (`path_of`, by
@@ -51,7 +82,7 @@ pub fn build(lists: &BTreeMap<String, List>, library: &Path, path_of: &HashMap<S
         })
         .collect();
     out.sort_by(|a, b| b.year.cmp(&a.year).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())));
-    LrFile { version: 1, written_at: now.to_string(), lists: out }
+    LrFile { version: 1, written_at: now.to_string(), lists: out, ratings: vec![] }
 }
 
 /// Writes it in `config`, through a temporary name.
@@ -93,5 +124,32 @@ mod tests {
         write(d.path(), &f).unwrap();
         let back: serde_json::Value = serde_json::from_slice(&fs::read(d.path().join(LIGHTROOM_FILE)).unwrap()).unwrap();
         assert_eq!(back["lists"][1]["archived"], true);
+    }
+
+    #[test]
+    fn ratings_with_hearts_as_five_stars() {
+        use crate::marks::{Marks, Rating};
+        let d = tempfile::tempdir().unwrap();
+        let lib = d.path().join("LibraryLocal");
+        for f in ["2026/10/a.JPG", "2026/10/b.JPG", "2026/10/c.JPG"] {
+            fs::create_dir_all(lib.join(f).parent().unwrap()).unwrap();
+            fs::write(lib.join(f), b"x").unwrap();
+        }
+        let r = |stars: u8| Rating { stars, by: "peter".into(), at: "".into() };
+        let mut m = Marks::default();
+        m.ratings.insert("sha256:a".into(), r(3));
+        m.ratings.insert("sha256:b".into(), r(2));
+        m.hearts.insert("sha256:b".into(), [("lynn".to_string(), "".to_string())].into());
+        m.hearts.insert("sha256:c".into(), [("peter".to_string(), "".to_string())].into());
+        m.ratings.insert("sha256:away".into(), r(4));
+        m.ratings.insert("sha256:unknown".into(), r(5));
+        m.ratings.insert("sha256:none".into(), r(0));
+        let path_of: HashMap<String, String> = [("a", "2026/10/a.JPG"), ("b", "2026/10/b.JPG"), ("c", "2026/10/c.JPG"), ("away", "2019/01/away.JPG"), ("none", "2026/10/a.JPG")]
+            .iter()
+            .map(|(h, p)| (format!("sha256:{h}"), p.to_string()))
+            .collect();
+        let got: Vec<(String, u8)> = ratings(&m, &lib, &path_of).into_iter().map(|x| (x.path.rsplit('/').next().unwrap().to_string(), x.rating)).collect();
+        // stars; a heart is 5, also with stars; not here, unknown or without stars: left out
+        assert_eq!(got, [("a.JPG".to_string(), 3), ("b.JPG".to_string(), 5), ("c.JPG".to_string(), 5)]);
     }
 }

@@ -2,7 +2,8 @@
 -- (~/.config/media/familylightbox-lightroom.json) and keeps the collection set "FamilyLightbox"
 -- equal to the lists: a collection per list, archived ones in "Gearchiveerd". A list is found
 -- again by its id, kept in this plug-in's preferences, so a renamed list renames its collection.
--- Nothing outside "FamilyLightbox" is touched, and nothing goes back to the lists.
+-- Nothing outside "FamilyLightbox" is touched, and nothing goes back to the lists. The stars and
+-- hearts of FamilyLightbox become Lightroom's stars (a heart is 5), where FamilyLightbox has one.
 local LrApplication = import "LrApplication"
 local LrDialogs = import "LrDialogs"
 local LrFileUtils = import "LrFileUtils"
@@ -135,9 +136,17 @@ LrTasks.startAsyncTask(function()
       log:warn("geen collectie voor " .. list.id)
     end
   end
+  -- the ratings that differ (S04): FamilyLightbox wins where it has stars or a heart
+  local rate = {}
+  for _, r in ipairs(data.ratings or {}) do
+    local photo = catalog:findPhotoByPath(r.path)
+    if photo and (photo:getRawMetadata("rating") or 0) ~= r.rating then
+      table.insert(rate, { photo = photo, rating = r.rating })
+    end
+  end
   progress:setPortionComplete(3, 4)
 
-  -- 4. a second write access: names, places and photos
+  -- 4. a second write access: names, places, photos and stars
   progress:setCaption("de collecties bijwerken")
   local changed = 0
   catalog:withWriteAccessDo("FamilyLightbox: lijsten bijwerken", function()
@@ -148,12 +157,16 @@ LrTasks.startAsyncTask(function()
       if #w.removes > 0 then w.collection:removePhotos(w.removes) end
       if w.rename or w.move or #w.adds + #w.removes > 0 then changed = changed + 1 end
     end
+    for _, r in ipairs(rate) do
+      r.photo:setRawMetadata("rating", r.rating)
+    end
   end, { timeout = 120 })
   prefs.collections = known
   progress:done()
 
   local text = string.format("%d lijsten, %d bijgewerkt.", #data.lists, changed)
   if added > 0 then text = text .. string.format("\n%d originelen aan de catalogus toegevoegd.", added) end
+  if #rate > 0 then text = text .. string.format("\n%d foto's kregen de sterren van FamilyLightbox (een hartje is 5 sterren).", #rate) end
   if away > 0 then
     text = text .. string.format("\n%d originelen nog niet op deze Mac: haal ze op in FamilyLightbox (rechtsklik op de lijst, Alle originelen ophalen) en klik dan opnieuw op Lijsten bijwerken.", away)
   end

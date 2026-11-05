@@ -827,7 +827,8 @@ fn write_lightroom(paths: &Paths) {
         .and_then(|db| db.path_hashes())
         .map(|m| m.into_iter().map(|(path, hash)| (hash, path)).collect())
         .unwrap_or_default();
-    let file = lightroom::build(&merged, &paths.library, &path_of, &lists::now());
+    let mut file = lightroom::build(&merged, &paths.library, &path_of, &lists::now());
+    file.ratings = lightroom::ratings(&load_marks(paths).marks, &paths.library, &path_of);
     let _ = lightroom::write(&paths.config, &file);
 }
 
@@ -1168,6 +1169,7 @@ fn change_marks(paths: &Paths, change: marks::Change) -> Result<marks::MarksStat
     }
     let text = marks::lines(&change, &lists::now(), &device.name, &device.owner).concat();
     write_change(paths, outbox::Kind::Marks, &device.name, &text)?;
+    write_lightroom(paths);
     Ok(load_marks(paths))
 }
 
