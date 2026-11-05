@@ -1191,6 +1191,7 @@ export default function App() {
         const hidden = ms.reduce((n, m) => n + (m.hidden ?? 0), 0);
         const shown = ms.length > 0 && ms.filter((m) => m.hidden).every((m) => m.revealed) && hidden > 0;
         const keys = ms.map((m) => m.month);
+        const away = ms.reduce((n, m) => n + m.photos + m.videos - m.local, 0);
         return (
           <PhotoMenu
             x={monthMenu.x}
@@ -1209,6 +1210,16 @@ export default function App() {
                     title: hidden === 0 ? "hier is niets verborgen" : "tijdelijk, tot de app herstart",
                     run: () => setRevealed((r) => toggled(r, keys, true)),
                   },
+              {
+                // a whole month or year from the NAS (F009/S04), with the plan first
+                label: `Originelen ophalen (${away})`,
+                disabled: away === 0 || !!fetcher.running,
+                title: fetcher.running ? "er worden al originelen opgehaald" : away === 0 ? "alles staat al op deze Mac" : "naar deze Mac, met eerst wat het inneemt",
+                run: () => {
+                  setMonthMenu(null);
+                  invoke<string[]>("not_local", { keys: [monthMenu.key] }).then(askFetch).catch((e) => showToast(String(e), false));
+                },
+              },
             ]}
           />
         );

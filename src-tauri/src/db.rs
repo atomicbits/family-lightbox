@@ -336,6 +336,21 @@ impl Db {
         Ok(out)
     }
 
+    /// The photos and videos of these months (`2019/07`) or years (`2019`) that aren't on this
+    /// Mac (F009/S04).
+    pub fn not_local(&self, keys: &[String]) -> Result<Vec<String>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT path FROM items WHERE kind IN ('photo', 'video') AND NOT local AND (coalesce(month, folder) = ?1 OR substr(coalesce(month, folder), 1, 4) = ?1) ORDER BY path")
+            .map_err(|e| e.to_string())?;
+        let mut out = Vec::new();
+        for k in keys {
+            let rows = stmt.query_map([k], |r| r.get::<_, String>(0)).map_err(|e| e.to_string())?;
+            out.extend(rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?);
+        }
+        Ok(out)
+    }
+
     /// De foto's en video's van één maand, op opnametijd.
     pub fn items(&self, month: &str) -> Result<Vec<Item>, String> {
         let join = self.joins();
@@ -416,6 +431,16 @@ mod tests {
         assert!(!items[2].local);
         assert_eq!(items[0].source.as_deref(), Some("iPhone-photos-Lynn"));
         assert!(Db::open(&p).unwrap().items("1999/01").unwrap().is_empty());
+    }
+
+    #[test]
+    fn what_a_month_or_year_still_needs() {
+        let (_d, p) = fixture();
+        let db = Db::open(&p).unwrap();
+        let all: Vec<String> = db.items("2026/07").unwrap().into_iter().filter(|i| !i.local).map(|i| i.path).collect();
+        assert_eq!(db.not_local(&["2026/07".into()]).unwrap(), all);
+        assert_eq!(db.not_local(&["2026".into()]).unwrap(), all);
+        assert!(db.not_local(&["1999".into()]).unwrap().is_empty());
     }
 
     #[test]

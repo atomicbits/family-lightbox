@@ -1,6 +1,6 @@
 # Feature 9: Fetching originals from the NAS
 
-**Status:** Done (2026-11-05)
+**Status:** In progress (S04)
 **Depends on:** Feature 6 (the NAS), feature 8 (the index), feature 3 (lists)
 **Folder:** `F009-fetch-originals`
 
@@ -28,13 +28,11 @@ on the NAS only.
 - **Staying**: originals in a list that isn't archived stay, as `thin` keeps them already (data
   contract 10); others fetched by hand may be thinned again later as any old month.
 - **Space**: the total size first, refused when it doesn't fit with the 20 GB reserve.
+- **Whole months and years** (S04, Peter 2026-11-05): from the left column, with the plan first.
 - **Opening an original** that isn't here (double-click, *Open in…*) offers to fetch it first.
 
 ### Out of scope
 
-- Fetching whole months or years (that is `media pull`'s job for now). Peter wants it offered
-  later too (2026-11-05): a following story or feature that uses this one's job for a range of
-  months, with the space it takes shown first.
 - Videos above a size without asking: the plan shows them, a click fetches them.
 
 ## Acceptance criteria
@@ -54,3 +52,4 @@ on the NAS only.
 | [S01](stories/S01-the-plan.md) | The plan: what to fetch, what is here already, sidecars, the space needed | Done | — |
 | [S02](stories/S02-fetching.md) | Fetching: copy, verify, the month's manifest, resumable, in the footer | Done | S01 |
 | [S03](stories/S03-in-the-window.md) | In the window: the right-click menu, a list's command, opening an original that isn't here | Done | S02 |
+| [S04](stories/S04-months-and-years.md) | Whole months and years from the left column | Built, to try in the app | S03 |
