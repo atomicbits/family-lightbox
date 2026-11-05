@@ -831,8 +831,15 @@ fn list_media(paths: &Paths, id: &str) -> Result<(String, Vec<db::Item>), String
     let list = all.remove(id).ok_or_else(|| format!("onbekende lijst: {id}"))?;
     let hashes: Vec<String> = list.photos.into_keys().collect();
     let mut seen = std::collections::HashSet::new();
-    let items = Db::open(&paths.index())?.items_by_hash(&hashes)?.into_iter().map(|(_, i)| i).filter(|i| seen.insert(i.hash.clone())).collect();
+    let mut items: Vec<db::Item> = Db::open(&paths.index())?.items_by_hash(&hashes)?.into_iter().map(|(_, i)| i).filter(|i| seen.insert(i.hash.clone())).collect();
+    renditions::fill(&paths.previews, items.iter_mut());
     Ok((list.name, items))
+}
+
+/// Each photo's chosen version for an export (F025/S05), from the marks.
+fn chosen_variants(paths: &Paths) -> impl Fn(&db::Item) -> String {
+    let marks = load_marks(paths).marks.variants;
+    move |i: &db::Item| renditions::chosen(&i.variants, marks.get(&i.hash).map(String::as_str))
 }
 
 /// What an export of a list at a preset makes (F024/S03): its files, and the folder by default.
@@ -852,7 +859,7 @@ async fn export_plan(list: String, preset: String, custom: Option<export::Custom
         let own = custom.map(|c| c.preset()).transpose()?;
         let pr = own.as_ref().or_else(|| export::preset(&preset)).ok_or("onbekende voorinstelling")?;
         let (_, items) = list_media(&p, &list)?;
-        let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path));
+        let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path), &chosen_variants(&p));
         Ok(ExportPlan {
             photos: items.iter().filter(|i| i.kind == "photo").count(),
             videos: items.iter().filter(|i| i.kind == "video" && i.live.is_none()).count(),
@@ -918,7 +925,7 @@ fn export_start(list: String, preset: String, custom: Option<export::Custom>, de
                         None => exports_folder(&p).ok_or("Exports op de NAS is niet verbonden: kies een map")?.join(export::folder_name(list.rsplit('/').next().unwrap_or(&list), pr, &chrono::Local::now())),
                     };
                     let by = config::load_device(&p.config).ok().flatten().map(|d| d.owner).unwrap_or_default();
-                    let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path));
+                    let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path), &chosen_variants(&p));
                     export::Job { id: chrono::Local::now().format("%Y%m%d-%H%M%S").to_string(), list: list.clone(), list_name: name, preset: pr.id.into(), dest: folder.display().to_string(), by, custom, parts, problems: vec![] }
                 }
             };
@@ -930,9 +937,10 @@ fn export_start(list: String, preset: String, custom: Option<export::Custom>, de
             let (settings, _) = config::load_settings(&p.config);
             let found = mounts::find_shares(&mounts::system_mounts(), &settings);
             let nas = mounts::NasMounts::chosen(&found.library).map(|m| PathBuf::from(&m.mount_point));
+            let previews_nas = mounts::NasMounts::chosen(&found.previews).map(|m| PathBuf::from(&m.mount_point));
             let render = move |src: &Path, part: &export::Part, out: &Path| preview::render(src, pr.long, pr.quality, pr.dpi, part.taken.as_deref(), part.camera.as_deref(), out);
             let emit = app.clone();
-            export::run(&mut job, &p.library, nas.as_deref(), &p.config, &render, &mut |pr| { let _ = emit.emit("export-progress", pr); })?;
+            export::run(&mut job, &p.library, nas.as_deref(), previews_nas.as_deref(), &p.config, &render, &mut |pr| { let _ = emit.emit("export-progress", pr); })?;
             Ok((job.parts.len(), job.problems))
         })();
         app.state::<ExportRunner>().0.store(false, std::sync::atomic::Ordering::SeqCst);
@@ -1446,6 +1454,13 @@ async fn marks_color(stack: String, color: String, paths: State<'_, Paths>) -> R
     on_blocking(move || change_marks(&paths, marks::Change::Color { stack, color })).await
 }
 
+/// Which version of a photo shows and is exported (F025/S04).
+#[tauri::command]
+async fn marks_variant(photo: String, variant: String, paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
+    let paths = paths.inner().clone();
+    on_blocking(move || change_marks(&paths, marks::Change::Variant { photo, variant })).await
+}
+
 #[tauri::command]
 async fn marks_unstack(photos: Vec<String>, paths: State<'_, Paths>) -> Result<marks::MarksState, String> {
     let paths = paths.inner().clone();
@@ -1579,7 +1594,8 @@ async fn list_items(id: String, paths: State<'_, Paths>) -> Result<ListItems, St
         }
         let list = all.remove(&id).ok_or_else(|| format!("onbekende lijst: {id}"))?;
         let hashes: Vec<String> = list.photos.into_keys().collect();
-        let rows = Db::open(&paths.index())?.items_by_hash(&hashes)?;
+        let mut rows = Db::open(&paths.index())?.items_by_hash(&hashes)?;
+        renditions::fill(&paths.previews, rows.iter_mut().map(|(_, i)| i));
         let found: std::collections::HashSet<&str> = rows.iter().map(|(_, i)| i.hash.as_str()).collect();
         let missing = hashes.iter().filter(|h| !found.contains(h.as_str())).count();
         Ok(ListItems { items: rows.into_iter().map(|(month, item)| ListItem { month, item }).collect(), missing })
@@ -1639,7 +1655,8 @@ async fn list_archive(id: String, archived: bool, app: tauri::AppHandle) -> Resu
 async fn items_by_hash(hashes: Vec<String>, paths: State<'_, Paths>) -> Result<Vec<ListItem>, String> {
     let paths = paths.inner().clone();
     on_blocking(move || {
-        let rows = Db::open(&paths.index())?.items_by_hash(&hashes)?;
+        let mut rows = Db::open(&paths.index())?.items_by_hash(&hashes)?;
+        renditions::fill(&paths.previews, rows.iter_mut().map(|(_, i)| i));
         Ok(rows.into_iter().map(|(month, item)| ListItem { month, item }).collect())
     })
     .await
@@ -1663,7 +1680,12 @@ async fn months_filtered(filter: filter::Filter, paths: State<'_, Paths>) -> Res
 #[tauri::command]
 async fn items_filtered(month: String, filter: filter::Filter, paths: State<'_, Paths>) -> Result<Vec<Item>, String> {
     let paths = paths.inner().clone();
-    on_blocking(move || Db::open(&paths.index())?.filtered_items(&month, &filter)).await
+    on_blocking(move || {
+        let mut items = Db::open(&paths.index())?.filtered_items(&month, &filter)?;
+        renditions::fill(&paths.previews, items.iter_mut());
+        Ok(items)
+    })
+    .await
 }
 
 /// The cameras with how many photos and videos each and when last used, "" for unknown (F002/S04).
@@ -1694,7 +1716,9 @@ fn months(paths: State<Paths>) -> Result<Vec<MonthSummary>, String> {
 
 #[tauri::command]
 fn items(month: String, paths: State<Paths>) -> Result<Vec<Item>, String> {
-    Db::open(&paths.index())?.items(&month)
+    let mut items = Db::open(&paths.index())?.items(&month)?;
+    renditions::fill(&paths.previews, items.iter_mut());
+    Ok(items)
 }
 
 /// Een relatief contractpad (`2026/07/EOSR/.../X.CR3`) mag nooit uit de boom wijzen.
@@ -1798,7 +1822,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, not_local, nas_layout, layout_dry_check, layout_home, layout_set_up, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, export_presets, export_plan, export_start, export_pending, eject_card, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, not_local, nas_layout, layout_dry_check, layout_home, layout_set_up, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, marks_variant, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, export_presets, export_plan, export_start, export_pending, eject_card, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

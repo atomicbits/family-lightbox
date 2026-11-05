@@ -341,6 +341,8 @@ Exports/<year>/<year>-<month>-<name>/export.json  optional
 {"contract_version": "1.0", "name": "Kerstkaartje 2026", "from_lists": ["2026/herfstwandeling"], "lightroom_collection": "2026 Kerstkaartje", "exported_at": "2026-12-01T20:00:00+01:00", "by": "peter"}
 ```
 
+FamilyLightbox adds `lightroom_edits` (1.7): the files rendered from a Lightroom rendition (section 4) instead of the original.
+
 Exports are end products: never rewritten automatically, but pushed and synced to Drive.
 
 ## 7. Local state on a laptop
@@ -426,7 +428,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 |---|---|---|
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
 | 1.4 (addition) | 2026-11-03 | Section 3.1: a new source has no day folders; the sources with day folders keep them (FamilyLightbox F018, at Peter's request). |
-| 1.7 | 2026-11-05 | Section 4: renditions of photos edited in Lightroom (`<path>.lr.jpg`, `.lr.full.jpg`, virtual copies `lr-<copy>`), the full ones only on the NAS; section 5.5: the mark `variant` (FamilyLightbox F025). |
+| 1.7 | 2026-11-05 | Section 4: renditions of photos edited in Lightroom (`<path>.lr.jpg`, `.lr.full.jpg`, virtual copies `lr-<copy>`), the full ones only on the NAS; section 5.5: the mark `variant`; section 6: `lightroom_edits` in `export.json` (FamilyLightbox F025). |
 | 1.6 | 2026-11-04 | Sections 3.6 and 5.6: renaming a source on the NAS, and its record in `Lists/renames/` that every device applies; section 1: a rename moves, it deletes nothing; section 8: Drive may repeat it as a move (FamilyLightbox F022, LibraryLocal F005/S01). |
 | 1.5 | 2026-11-04 | Section 5.2 and 5.5: a change made while the NAS can't be written to MAY be kept on the device and appended later with its original `ts`, in order, never twice; a list id taken meanwhile gets the next free one (FamilyLightbox F020). The format of the events doesn't change. |
 | 1.4 (addition) | 2026-11-04 | Section 1: files below a folder whose name starts with `.` aren't photos or videos for a reader (FamilyLightbox F012). |

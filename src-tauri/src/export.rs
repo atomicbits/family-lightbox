@@ -74,11 +74,16 @@ pub struct Part {
     pub camera: Option<String>,
     #[serde(default)]
     pub done: bool,
+    /// Lightroom's version to render from (F025/S05): `<src>.<variant>.full.jpg` in `Previews`
+    /// on the NAS; empty: the original.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub variant: String,
 }
 
 /// The export's files (S02): the photos and videos by date taken, then name, numbered; Live
 /// Photos' clips left out; with `originelen` the originals with their sidecars under the number.
-pub fn parts(items: &[Item], preset: &Preset, sidecars: &dyn Fn(&str) -> Vec<String>) -> Vec<Part> {
+/// `variant` gives each photo's chosen version (F025/S05); only a rendered photo uses it.
+pub fn parts(items: &[Item], preset: &Preset, sidecars: &dyn Fn(&str) -> Vec<String>, variant: &dyn Fn(&Item) -> String) -> Vec<Part> {
     let mut media: Vec<&Item> = items.iter().filter(|i| (i.kind == "photo" || i.kind == "video") && i.live.is_none()).collect();
     media.sort_by(|a, b| a.taken.cmp(&b.taken).then_with(|| file_name(&a.path).cmp(file_name(&b.path))));
     let width = media.len().to_string().len().max(3);
@@ -91,10 +96,11 @@ pub fn parts(items: &[Item], preset: &Preset, sidecars: &dyn Fn(&str) -> Vec<Str
         } else {
             format!("{number}-{}", file_name(&i.path))
         };
-        out.push(Part { src: i.path.clone(), name, render, taken: i.taken.clone(), camera: i.camera.clone(), done: false });
+        let variant = if render { variant(i) } else { String::new() };
+        out.push(Part { src: i.path.clone(), name, render, taken: i.taken.clone(), camera: i.camera.clone(), done: false, variant });
         if preset.originals {
             for sc in sidecars(&i.path) {
-                out.push(Part { name: format!("{number}-{}", file_name(&sc)), src: sc, render: false, taken: None, camera: None, done: false });
+                out.push(Part { name: format!("{number}-{}", file_name(&sc)), src: sc, render: false, taken: None, camera: None, done: false, variant: String::new() });
             }
         }
     }
@@ -184,7 +190,8 @@ fn copy(from: &Path, to: &Path) -> Result<(), String> {
 /// Runs the export (S02): each part from the working copy, or from `nas` when it isn't here,
 /// rendered or copied into `dest`; a file there already is kept; the journal saved after each;
 /// `export.json` at the end (data contract 6).
-pub fn run(job: &mut Job, here: &Path, nas: Option<&Path>, config: &Path, render: &dyn Fn(&Path, &Part, &Path) -> Result<(), String>, progress: &mut dyn FnMut(&Progress)) -> Result<(), String> {
+/// `previews_nas`: the NAS's `Previews`, where Lightroom's full versions are (F025/S05).
+pub fn run(job: &mut Job, here: &Path, nas: Option<&Path>, previews_nas: Option<&Path>, config: &Path, render: &dyn Fn(&Path, &Part, &Path) -> Result<(), String>, progress: &mut dyn FnMut(&Progress)) -> Result<(), String> {
     let dest = PathBuf::from(&job.dest);
     fs::create_dir_all(&dest).map_err(|e| format!("{}: {e}", dest.display()))?;
     job.save(config)?;
@@ -197,7 +204,21 @@ pub fn run(job: &mut Job, here: &Path, nas: Option<&Path>, config: &Path, render
         let part = job.parts[i].clone();
         let out = dest.join(&part.name);
         let local = here.join(&part.src);
-        let src = if local.is_file() { Some(local) } else { nas.map(|n| n.join(&part.src)).filter(|p| p.is_file()) };
+        let edited = (!part.variant.is_empty())
+            .then(|| previews_nas.map(|n| n.join(format!("{}.{}.full.jpg", part.src, part.variant))))
+            .flatten()
+            .filter(|p| p.is_file());
+        if !part.variant.is_empty() && edited.is_none() && !out.exists() {
+            job.problems.push(format!("{}: de bewerkte versie staat niet op de NAS, het origineel genomen", part.src));
+            job.parts[i].variant.clear();
+        }
+        let src = if edited.is_some() {
+            edited
+        } else if local.is_file() {
+            Some(local)
+        } else {
+            nas.map(|n| n.join(&part.src)).filter(|p| p.is_file())
+        };
         let result = match (&src, out.exists()) {
             (_, true) => Ok(()),
             (None, _) => Err(format!("{}: niet op deze Mac en niet op de NAS", part.src)),
@@ -220,6 +241,11 @@ pub fn run(job: &mut Job, here: &Path, nas: Option<&Path>, config: &Path, render
         "exported_at": manifest::local_iso(chrono::Local::now()),
         "by": job.by,
     });
+    let mut info = info;
+    let edited: Vec<&str> = job.parts.iter().filter(|p| !p.variant.is_empty()).map(|p| p.name.as_str()).collect();
+    if !edited.is_empty() {
+        info["lightroom_edits"] = serde_json::json!(edited);
+    }
     manifest::write(&dest.join("export.json"), &info)?;
     let _ = fs::remove_file(Job::path(config, &job.id));
     Ok(())
@@ -233,6 +259,7 @@ mod tests {
         Item {
             path: path.into(), folder: "2026/07".into(), kind: kind.into(), taken: Some(taken.into()), taken_from: None, source: None,
             size: 1, hash: "sha256:x".into(), local: true, preview: true, live: live.map(str::to_string), camera: Some("Canon EOS R".into()),
+            variants: Vec::new(),
         }
     }
 
@@ -249,13 +276,14 @@ mod tests {
     #[test]
     fn numbered_by_date_then_name_without_live_clips() {
         let none = |_: &str| vec![];
-        let p = parts(&items(), preset("fotoboek-a4").unwrap(), &none);
+        let plain = |_: &Item| String::new();
+        let p = parts(&items(), preset("fotoboek-a4").unwrap(), &none, &plain);
         let names: Vec<(&str, bool)> = p.iter().map(|x| (x.name.as_str(), x.render)).collect();
         assert_eq!(names, [("001-IMG_1.MOV", false), ("002-a.jpg", true), ("003-b.jpg", true)]);
         let with_sidecars = |p: &str| if p.ends_with("a.CR3") { vec!["2026/07/Cam/a.xmp".to_string()] } else { vec![] };
-        let o = parts(&items(), preset("originelen").unwrap(), &with_sidecars);
+        let o = parts(&items(), preset("originelen").unwrap(), &with_sidecars, &|_| "lr".into());
         assert_eq!(o.iter().map(|x| x.name.as_str()).collect::<Vec<_>>(), ["001-IMG_1.MOV", "002-a.CR3", "002-a.xmp", "003-b.CR3"]);
-        assert!(o.iter().all(|x| !x.render));
+        assert!(o.iter().all(|x| !x.render && x.variant.is_empty()), "originals never take a version");
     }
 
     #[test]
@@ -286,21 +314,28 @@ mod tests {
         let none = |_: &str| vec![];
         let mut job = Job {
             id: "t".into(), list: "2026/aosta".into(), list_name: "Aosta".into(), preset: "fotoboek-a4".into(), dest: dest.display().to_string(),
-            by: "peter".into(), custom: None, parts: parts(&items(), preset("fotoboek-a4").unwrap(), &none), problems: vec![],
+            by: "peter".into(), custom: None, problems: vec![],
+            // a.CR3 edited in Lightroom, its full version on the NAS; b.CR3's chosen version missing
+            parts: parts(&items(), preset("fotoboek-a4").unwrap(), &none, &|i: &Item| if i.path.ends_with(".CR3") { "lr".into() } else { String::new() }),
         };
         // as if an earlier run made the first file
         fs::create_dir_all(&dest).unwrap();
         fs::write(dest.join("001-IMG_1.MOV"), b"made before").unwrap();
         let fake = |src: &Path, _: &Part, out: &Path| fs::write(out, fs::read(src).unwrap()).map_err(|e| e.to_string());
         let mut last = Progress::default();
-        run(&mut job, &here, Some(&nas), &cfg, &fake, &mut |p| last = p.clone()).unwrap();
-        assert!(job.problems.is_empty(), "{:?}", job.problems);
+        let previews = d.path().join("nas-previews");
+        fs::create_dir_all(previews.join("2026/07/Cam")).unwrap();
+        fs::write(previews.join("2026/07/Cam/a.CR3.lr.full.jpg"), b"as edited").unwrap();
+        run(&mut job, &here, Some(&nas), Some(&previews), &cfg, &fake, &mut |p| last = p.clone()).unwrap();
+        assert_eq!(job.problems.len(), 1, "{:?}", job.problems);
+        assert!(job.problems[0].contains("b.CR3") && job.problems[0].contains("origineel genomen"));
         assert_eq!(fs::read(dest.join("001-IMG_1.MOV")).unwrap(), b"made before", "kept");
-        assert_eq!(fs::read(dest.join("002-a.jpg")).unwrap(), b"2026/07/Cam/a.CR3", "from here");
+        assert_eq!(fs::read(dest.join("002-a.jpg")).unwrap(), b"as edited", "Lightroom's version");
         assert_eq!(fs::read(dest.join("003-b.jpg")).unwrap(), b"2026/07/Cam/b.CR3", "from the NAS");
         assert_eq!((last.done, last.total), (3, 3));
         let info: serde_json::Value = serde_json::from_slice(&fs::read(dest.join("export.json")).unwrap()).unwrap();
         assert_eq!((info["name"].as_str(), info["from_lists"][0].as_str()), (Some("Aosta"), Some("2026/aosta")));
+        assert_eq!(info["lightroom_edits"], serde_json::json!(["002-a.jpg"]));
         assert!(Job::pending(&cfg).is_none());
     }
 }

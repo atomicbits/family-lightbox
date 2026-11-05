@@ -36,6 +36,49 @@ pub fn suffixes(dir: &Path, file: &str) -> Vec<String> {
     out
 }
 
+/// Each item's variants from the small renditions in this Mac's previews, latest edit first
+/// (S04): one look at each folder.
+pub fn fill<'a>(previews: &Path, items: impl IntoIterator<Item = &'a mut crate::db::Item>) {
+    let mut folders: std::collections::HashMap<PathBuf, Vec<(String, String, SystemTime)>> = std::collections::HashMap::new();
+    for item in items {
+        if item.kind != "photo" {
+            continue;
+        }
+        let p = previews.join(&item.path);
+        let (Some(dir), Some(name)) = (p.parent(), p.file_name()) else { continue };
+        let found = folders.entry(dir.to_path_buf()).or_insert_with(|| {
+            fs::read_dir(dir)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter_map(|e| {
+                    let n = e.file_name().to_string_lossy().into_owned();
+                    let rest = n.strip_suffix(".jpg")?;
+                    let (file, variant) = rest.rsplit_once('.')?;
+                    if !valid_variant(variant) {
+                        return None;
+                    }
+                    let t = e.metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH);
+                    Some((file.to_string(), variant.to_string(), t))
+                })
+                .collect()
+        });
+        let name = name.to_string_lossy();
+        let mut mine: Vec<&(String, String, SystemTime)> = found.iter().filter(|(f, ..)| *f == name).collect();
+        mine.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.1.cmp(&b.1)));
+        item.variants = mine.into_iter().map(|(_, v, _)| v.clone()).collect();
+    }
+}
+
+/// The variant that shows and is exported (data contract 5.5): the mark when it names one that is
+/// here (or the plain original), else the latest edit, else the plain original.
+pub fn chosen(variants: &[String], mark: Option<&str>) -> String {
+    match mark {
+        Some(m) if m.is_empty() || variants.iter().any(|v| v == m) => m.to_string(),
+        _ => variants.first().cloned().unwrap_or_default(),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct Note {
     path: String,
@@ -191,6 +234,32 @@ mod tests {
             fs::write(d.path().join(f), b"x").unwrap();
         }
         assert_eq!(suffixes(d.path(), "A.CR3"), [".lr-zw.full.jpg", ".lr-zw.jpg", ".lr.full.jpg", ".lr.jpg"]);
+    }
+
+    #[test]
+    fn each_photo_its_variants() {
+        let d = tempfile::tempdir().unwrap();
+        let dir = d.path().join("2026/07/EOSR");
+        fs::create_dir_all(&dir).unwrap();
+        let at = |f: &str, secs: u64| {
+            fs::write(dir.join(f), b"x").unwrap();
+            fs::File::options().write(true).open(dir.join(f)).unwrap().set_modified(SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(secs)).unwrap();
+        };
+        at("A.CR3.jpg", 1);
+        at("A.CR3.lr.jpg", 10);
+        at("A.CR3.lr-zw.jpg", 20);
+        at("B.CR3.jpg", 1);
+        let item = |path: &str| crate::db::Item {
+            path: path.into(), folder: "2026/07".into(), kind: "photo".into(), taken: None, taken_from: None, source: None,
+            size: 1, hash: "sha256:x".into(), local: true, preview: true, live: None, camera: None, variants: Vec::new(),
+        };
+        let mut items = [item("2026/07/EOSR/A.CR3"), item("2026/07/EOSR/B.CR3")];
+        fill(d.path(), items.iter_mut());
+        assert_eq!(items[0].variants, ["lr-zw", "lr"], "the latest edit first");
+        assert!(items[1].variants.is_empty());
+        let v = ["lr-zw".to_string(), "lr".to_string()];
+        assert_eq!((chosen(&v, None), chosen(&v, Some("lr")), chosen(&v, Some("")), chosen(&v, Some("lr-weg")), chosen(&[], None)),
+            ("lr-zw".into(), "lr".into(), "".into(), "lr-zw".into(), "".into()));
     }
 
     #[test]

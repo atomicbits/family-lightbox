@@ -32,6 +32,8 @@ export type Item = {
   live?: string | null;
   /** Make and model from the manifest (F002/S01). */
   camera?: string | null;
+  /** Lightroom's edited versions on this Mac, latest edit first (F025/S04). */
+  variants?: string[];
 };
 
 export type Status = {
@@ -52,7 +54,9 @@ export const api = {
 };
 
 /** preview://localhost/<pad>.jpg of .t.jpg (datacontract 4); convertFileSrc kiest de juiste vorm per platform. */
-export function previewUrl(path: string, thumb: boolean): string {
+export function previewUrl(path: string, thumb: boolean, variant = ""): string {
+  // a rendition has no thumbnail of its own: its 2 048 px version serves both (F025/S04)
+  if (variant) return convertFileSrc(`${path}.${variant}.jpg`, "preview");
   return convertFileSrc(path + (thumb ? ".t.jpg" : ".jpg"), "preview");
 }
 

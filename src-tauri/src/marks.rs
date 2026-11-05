@@ -25,6 +25,8 @@ pub enum Op {
     Unstack,
     /// A stack's color (F015/S05); the event has no photo.
     Color { stack: String, color: String },
+    /// The variant that shows (F025/S04): `""`, `lr` or `lr-<copy>`.
+    Variant(String),
 }
 
 /// The colors a stack can be given (F015/S05), as the app names them.
@@ -52,6 +54,7 @@ struct Raw {
     stars: Option<i64>,
     stack: Option<String>,
     color: Option<String>,
+    variant: Option<String>,
 }
 
 fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
@@ -77,6 +80,7 @@ fn parse(line: &str, device: &str, n: usize) -> Option<Event> {
         "unhide" => Op::Unhide,
         "stack" => Op::Stack(r.stack.filter(|s| !s.trim().is_empty())?),
         "unstack" => Op::Unstack,
+        "variant" => Op::Variant(r.variant.filter(|v| v.is_empty() || crate::renditions::valid_variant(v))?),
         _ => return None,
     };
     Some(Event { ts, at, dev: device.to_string(), who: r.who.filter(|w| !w.is_empty())?, photo, op, line: n })
@@ -116,6 +120,8 @@ pub struct Marks {
     pub stacks: BTreeMap<String, String>,
     /// The color chosen for a stack, by id (F015/S05).
     pub stack_colors: BTreeMap<String, String>,
+    /// The variant chosen per photo (F025/S04); `""` the plain original.
+    pub variants: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -162,6 +168,9 @@ pub fn merge(mut events: Vec<Event>) -> Marks {
             }
             Op::Color { stack, color } => {
                 m.stack_colors.insert(stack, color);
+            }
+            Op::Variant(v) => {
+                m.variants.insert(e.photo, v);
             }
         }
     }
@@ -237,6 +246,7 @@ pub enum Change {
     Stack { photos: Vec<String>, stack: String },
     Unstack { photos: Vec<String> },
     Color { stack: String, color: String },
+    Variant { photo: String, variant: String },
 }
 
 /// Why a change can't be written, or `None`.
@@ -254,6 +264,8 @@ pub fn refusal(change: &Change) -> Option<String> {
         Change::Rate { stars, .. } if *stars > 5 => Some(format!("{stars} sterren kan niet: 0 tot 5")),
         Change::Stack { stack, .. } | Change::Color { stack, .. } if stack.trim().is_empty() => Some("een reeks zonder naam".into()),
         Change::Color { color, .. } if !COLORS.contains(&color.as_str()) => Some(format!("onbekende kleur: {color}")),
+        Change::Variant { photo, .. } if photo.trim().is_empty() => Some("geen foto gekozen".into()),
+        Change::Variant { variant, .. } if !variant.is_empty() && !crate::renditions::valid_variant(variant) => Some(format!("onbekende versie: {variant}")),
         _ => None,
     }
 }
@@ -289,6 +301,11 @@ pub fn lines(change: &Change, ts: &str, dev: &str, who: &str) -> Vec<String> {
         Change::Unstack { photos } => photos.iter().map(|p| head("unstack", p).to_string() + "\n").collect(),
         Change::Color { stack, color } => {
             vec![json!({"v": 1, "ts": ts, "dev": dev, "who": who, "op": "color", "stack": stack, "color": color}).to_string() + "\n"]
+        }
+        Change::Variant { photo, variant } => {
+            let mut v = head("variant", photo);
+            v["variant"] = json!(variant);
+            vec![v.to_string() + "\n"]
         }
     }
 }
@@ -508,5 +525,18 @@ mod tests {
         assert!(append(dir.path(), "mbp-lynn", "lynn", &Change::Color { stack: "s".into(), color: "rood".into() }).unwrap_err().contains("onbekende kleur"));
         let unknown = r#"{"v":1,"ts":"2026-10-30T10:00:00+01:00","dev":"a","who":"x","op":"color","stack":"s","color":"rood"}"#.to_string() + "\n";
         assert_eq!(parse_file(&unknown, "a").1, 1);
+    }
+
+    #[test]
+    fn the_chosen_variant() {
+        let line = |ts: &str, v: &str| format!(r#"{{"v":1,"ts":"{ts}","dev":"mbp-a","who":"a","op":"variant","photo":"sha256:1","variant":"{v}"}}"#);
+        let text = [line("2026-11-05T10:00:00+01:00", "lr-zwart-wit"), line("2026-11-05T11:00:00+01:00", ""), line("2026-11-05T12:00:00+01:00", "LR")].join("\n") + "\n";
+        let (events, ignored) = parse_file(&text, "mbp-a");
+        assert_eq!((events.len(), ignored), (2, 1), "an unknown variant is ignored");
+        assert_eq!(merge(events).variants.get("sha256:1").map(String::as_str), Some(""), "the last one: the plain original");
+        let c = Change::Variant { photo: "sha256:1".into(), variant: "lr".into() };
+        let l = lines(&c, "2026-11-05T10:00:00+01:00", "mbp-a", "a");
+        assert_eq!(parse_file(&l.concat(), "mbp-a").0[0].op, Op::Variant("lr".into()));
+        assert!(refusal(&Change::Variant { photo: "sha256:1".into(), variant: "x".into() }).is_some());
     }
 }

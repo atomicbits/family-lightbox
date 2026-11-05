@@ -17,6 +17,8 @@ export type MarksState = {
   stacks: Record<string, string>;
   /** The color chosen for a stack, by id (F015/S05). */
   stack_colors: Record<string, string>;
+  /** The version chosen per photo (F025/S04): "" the plain original, "lr", "lr-<copy>". */
+  variants?: Record<string, string>;
   ignored: number;
   problem: string | null;
 };
@@ -96,7 +98,8 @@ export type MarkChange =
   | { op: "hide"; photos: string[]; hidden: boolean }
   | { op: "stack"; photos: string[]; stack: string }
   | { op: "unstack"; photos: string[] }
-  | { op: "color"; stack: string; color: string };
+  | { op: "color"; stack: string; color: string }
+  | { op: "variant"; photo: string; variant: string };
 
 /** The marks with a change applied here and now, as the share will have it once written: shown at
  * once, before the NAS answers. A stack left with one photo is no stack, as in the merge. */
@@ -138,6 +141,9 @@ export function applyLocal(s: MarksState, c: MarkChange, me: string, at: string)
     case "color":
       next.stack_colors = { ...s.stack_colors, [c.stack]: c.color };
       break;
+    case "variant":
+      next.variants = { ...(s.variants ?? {}), [c.photo]: c.variant };
+      break;
   }
   return next;
 }
@@ -151,6 +157,7 @@ function command(c: MarkChange): [string, Record<string, unknown>] {
     case "stack": return ["marks_stack", { photos: c.photos, stack: c.stack }];
     case "unstack": return ["marks_unstack", { photos: c.photos }];
     case "color": return ["marks_color", { stack: c.stack, color: c.color }];
+    case "variant": return ["marks_variant", { photo: c.photo, variant: c.variant }];
   }
 }
 

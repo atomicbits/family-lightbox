@@ -34,6 +34,9 @@ pub struct Item {
     pub live: Option<String>,
     /// Make and model from the manifest, or none (F002/S01).
     pub camera: Option<String>,
+    /// Lightroom's renditions next to its preview on this Mac, latest edit first (F025/S04); not
+    /// in the index, filled in by `renditions::fill`.
+    pub variants: Vec<String>,
 }
 
 /// The columns of an `Item`, from `items` joined with `live_photos` as `lp` and `cameras` as `cam`
@@ -58,6 +61,7 @@ fn item_from(r: &rusqlite::Row, at: usize) -> rusqlite::Result<Item> {
         preview: r.get::<_, i64>(at + 9)? != 0,
         live: r.get(at + 10)?,
         camera: r.get(at + 11)?,
+        variants: Vec::new(),
     })
 }
 

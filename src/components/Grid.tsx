@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { Item } from "../lib/api";
 import { previewUrl } from "../lib/api";
 import { addedText, type Member } from "../lib/lists";
+import { chosenVariant, variantLabel } from "../lib/variants";
 import { heartView, markSize, marksLines, starsText, type MarksState } from "../lib/marks";
 import { cell, lastOfStack, pieces, stackColor, type Piece, type StackColor } from "../lib/stacks";
 import StackIcon from "./StackIcon";
@@ -216,6 +217,7 @@ export default function Grid({ sections, emptyText, itemsOf, selected, onSelect,
                     active={active}
                     member={marked?.get(item.hash) ?? null}
                     rating={marks?.ratings[item.hash]?.stars}
+                    variant={chosenVariant(item.variants, marks?.variants?.[item.hash])}
                     hearts={marks?.hearts[item.hash]}
                     me={me ?? null}
                     hidden={!!dimHidden && !!marks?.hidden[item.hash]}
@@ -264,10 +266,10 @@ export default function Grid({ sections, emptyText, itemsOf, selected, onSelect,
 
 type TileStack = { color: StackColor; strong: boolean; thin: boolean; symbol: boolean; open: boolean; onToggle: () => void };
 
-function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, stack, bar, title, onClick, onDoubleClick, onDragStart, onContextMenu, onMouseEnter, onMouseLeave }: {
+function Tile({ item, size, active, member, picked, rating, variant, hearts, me, hidden, stack, bar, title, onClick, onDoubleClick, onDragStart, onContextMenu, onMouseEnter, onMouseLeave }: {
   item: Item; size: number; active: boolean; member: Member | null; picked: boolean; hidden: boolean; stack: TileStack | null;
   bar?: ReactNode;
-  rating: number | undefined; hearts: Record<string, string> | undefined; me: string | null; title: string;
+  rating: number | undefined; variant: string; hearts: Record<string, string> | undefined; me: string | null; title: string;
   onClick: (e: MouseEvent) => void; onDoubleClick: () => void;
   onDragStart: (e: DragEvent) => void; onContextMenu: (e: MouseEvent) => void;
   onMouseEnter: () => void; onMouseLeave: () => void;
@@ -302,7 +304,7 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
       )}
       {item.preview ? (
         <img
-          src={previewUrl(item.path, true)}
+          src={previewUrl(item.path, true, variant)}
           loading="lazy"
           decoding="async"
           draggable={false}
@@ -314,11 +316,16 @@ function Tile({ item, size, active, member, picked, rating, hearts, me, hidden, 
           geen preview
         </div>
       )}
-      {(item.kind === "video" || !item.local) && (
+      {(item.kind === "video" || !item.local || variant) && (
         <span className="absolute top-1 left-1 flex items-center gap-1 leading-none">
           {item.kind === "video" && (
             <span title={liveTitle(item) ?? "video"}>
               {item.live ? <LiveIcon size={Math.max(12, markSize(size))} /> : <VideoIcon size={Math.max(12, markSize(size))} />}
+            </span>
+          )}
+          {variant && (
+            <span className="rounded bg-black/50 text-white text-[10px] px-1 py-px" title={`bewerkt in Lightroom: ${variantLabel(variant)}${(item.variants?.length ?? 0) > 1 ? ` (${item.variants!.length} versies)` : ""}`}>
+              LR
             </span>
           )}
           {!item.local && (

@@ -503,6 +503,13 @@ export default function App() {
 
   useEffect(() => { if (selected) need([selected.section]); }, [selected, need]);
 
+  // Lightroom's edited versions came in (F025/S03): the items again, with their versions.
+  const [rendered, setRendered] = useState(0);
+  useEffect(() => {
+    const off = listen<number>("renditions-changed", () => setRendered((n) => n + 1));
+    return () => { off.then((f) => f()); };
+  }, []);
+
   // A preview made in the background replaces its placeholder right away (F012/S04).
   useEffect(() => {
     const off = listen<Done[]>("previews-made", (e) => {
@@ -846,10 +853,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, dialog, selected, anchor, picked, cols, counts, move, current, listId, listChange, lists.say, markKey, selKeys, allHearted]);
 
-  // After every rebuild: months again, an empty cache, and the selection and the month at the
-  // top kept where they were.
+  // After every rebuild, and when Lightroom's versions came in (F025/S04): months again, an empty
+  // cache, and the selection and the month at the top kept where they were.
   useEffect(() => {
-    if (builds === 0) return;
+    if (builds === 0 && rendered === 0) return;
     ++monthsGen.current;
     if (listId) {
       // the list reloads by itself; the library starts over when it is shown again
@@ -897,7 +904,7 @@ export default function App() {
     })();
     // only when a build finished; the rest is read as it is at that moment
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [builds]);
+  }, [builds, rendered]);
   const topSection = sections[top];
   const lastSection = sections.length - 1;
   topMonthRef.current = topSection?.month ?? null;
@@ -1096,6 +1103,8 @@ export default function App() {
                 />
               }
               onMenu={(x, y) => setMenu({ x, y, keys: [selKey(selected)] })}
+              variantMark={marks.state.variants?.[current.hash]}
+              onChooseVariant={blockedMarks ? undefined : (variant) => marks.change({ op: "variant", photo: current.hash, variant })}
               onMarkKey={(e) => markKey(e, [selKey(selected)], !!me && marks.state.hearts[current.hash]?.[me] !== undefined)}
             />
           ) : (

@@ -7,6 +7,7 @@ import { heartView, type Rating } from "../lib/marks";
 import VideoIcon from "./VideoIcon";
 import LiveIcon from "./LiveIcon";
 import { liveTitle } from "../lib/live";
+import { allVariants, chosenVariant, variantLabel } from "../lib/variants";
 
 type Props = {
   /** Fetch this original from the NAS (F009/S03). */
@@ -30,12 +31,20 @@ type Props = {
   onMarkKey: (e: KeyboardEvent) => boolean;
   /** Right-click on the photo: the same menu as on a tile (F014). */
   onMenu: (x: number, y: number) => void;
+  /** The version chosen in the marks, and choosing one (F025/S04). */
+  variantMark?: string;
+  onChooseVariant?: (variant: string) => void;
 };
 
 /** Eén foto groot (de 2048 px-preview), met pijltjes, en knoppen naar het origineel. */
-export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me, bar, onMarkKey, onMenu, onFetch }: Props) {
+export default function Lightbox({ item, index, count, canPrev, canNext, onClose, onStep, member, rating, hearts, me, bar, onMarkKey, onMenu, onFetch, variantMark, onChooseVariant }: Props) {
   const heart = heartView(hearts, me);
   const [message, setMessage] = useState<string | null>(null);
+  // the version shown: the chosen one, until another is looked at (F025/S04)
+  const chosen = chosenVariant(item.variants, variantMark);
+  const [looking, setLooking] = useState<string | null>(null);
+  useEffect(() => setLooking(null), [item.path]);
+  const shown = looking ?? chosen;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -64,7 +73,7 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
       >
         {item.preview ? (
           <img
-            src={previewUrl(item.path, false)}
+            src={previewUrl(item.path, false, shown)}
             className="absolute inset-0 w-full h-full object-contain"
             draggable={false}
             alt=""
@@ -93,6 +102,25 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
         {!item.local && (
           <span className="rounded bg-white/15 text-neutral-300 text-xs px-1.5 py-0.5" title="het origineel staat alleen op de NAS">
             NAS
+          </span>
+        )}
+        {(item.variants?.length ?? 0) > 0 && (
+          <span className="flex items-center gap-1" title="versies uit Lightroom">
+            {allVariants(item.variants).map((v) => (
+              <button
+                key={v}
+                className={"px-2 py-0.5 rounded text-xs " + (v === shown ? "bg-white/25" : "bg-white/5 hover:bg-white/15") + (v === chosen ? " ring-1 ring-white/50" : "")}
+                title={v === chosen ? "deze versie toont FamilyLightbox en gaat mee in een export" : "bekijken"}
+                onClick={() => setLooking(v)}
+              >
+                {variantLabel(v)}
+              </button>
+            ))}
+            {shown !== chosen && onChooseVariant && (
+              <button className="px-2 py-0.5 rounded text-xs bg-blue-600 hover:bg-blue-500" onClick={() => onChooseVariant(shown)}>
+                Deze versie tonen
+              </button>
+            )}
           </span>
         )}
         <span className="flex-1" />
