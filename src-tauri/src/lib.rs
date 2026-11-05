@@ -14,6 +14,7 @@ pub mod import_plan;
 pub mod layout;
 pub mod lightroom;
 pub mod lists;
+pub mod lrplugin;
 pub mod log;
 pub mod manifest;
 pub mod marks;
@@ -733,6 +734,20 @@ fn rename_start(from: Vec<String>, to: String, snapshot_today: bool, app: tauri:
         EventSink(app.clone()).rebuild_index();
     });
     Ok(())
+}
+
+/// Whether the Lightroom plug-in is installed and the app's (F023/S03).
+#[tauri::command]
+fn lightroom_plugin_status() -> lrplugin::Status {
+    lrplugin::status(&lrplugin::modules(&home()))
+}
+
+/// Installs the app's Lightroom plug-in, or replaces an older one (F023/S03).
+#[tauri::command]
+fn lightroom_plugin_install() -> Result<lrplugin::Status, String> {
+    let m = lrplugin::modules(&home());
+    lrplugin::install(&m)?;
+    Ok(lrplugin::status(&m))
 }
 
 /// One fetch of originals at a time (F009/S02).
@@ -1552,7 +1567,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

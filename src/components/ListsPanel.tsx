@@ -9,8 +9,9 @@ type Props = {
   /** Something from the grid is being dragged; a list takes it on drop (F003/S05). */
   dragging: boolean;
   onDrop: (id: string) => void;
-  /** Fetch every original of this list that isn't on this Mac (F009/S03). */
-  onFetch: (id: string) => void;
+  /** Fetch every original of this list that isn't on this Mac (F009/S03); for Lightroom, saying
+   * afterwards to update the lists there (F023/S03). */
+  onFetch: (id: string, forLightroom: boolean) => void;
   /** Whether a fetch runs already. */
   fetching: boolean;
 };
@@ -100,7 +101,13 @@ export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fe
           label: "Alle originelen ophalen",
           disabled: fetching,
           title: fetching ? "er worden al originelen opgehaald" : "naar deze Mac, voor Lightroom of een export",
-          run: () => { setMenu(null); onFetch(menu.list.id); },
+          run: () => { setMenu(null); onFetch(menu.list.id, false); },
+        },
+        {
+          label: "Naar Lightroom…",
+          disabled: fetching,
+          title: "haalt de originelen op; klik daarna in Lightroom op Lijsten bijwerken",
+          run: () => { setMenu(null); onFetch(menu.list.id, true); },
         },
         { label: "Hernoemen…", disabled: !!blocked, title: blocked ?? undefined, run: () => { setMenu(null); setRenaming({ id: menu.list.id, name: menu.list.name }); } },
         menu.list.archived

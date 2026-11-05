@@ -123,7 +123,13 @@ export default function App() {
     setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 6000);
   }, []);
   // fetching originals from the NAS (F009/S03): asked with its plan first, kept by the app
-  const fetcher = useFetcher(useCallback((d) => showToast(fetchDoneText(d), false), [showToast]));
+  // after Naar Lightroom (F023/S03) the message says what to do in Lightroom
+  const forLightroom = useRef(false);
+  const LR_NEXT = "klik in Lightroom op Bibliotheek → Plug-in-extra's → Lijsten bijwerken";
+  const fetcher = useFetcher(useCallback((d) => {
+    showToast(forLightroom.current && !d.error ? `${fetchDoneText(d)}: ${LR_NEXT}` : fetchDoneText(d), false);
+    forLightroom.current = false;
+  }, [showToast]));
   const [fetchAsk, setFetchAsk] = useState<{ plan: FetchPlan; paths: string[] } | null>(null);
   const askFetch = useCallback((paths: string[]) => {
     fetcher.plan(paths).then((plan) => setFetchAsk({ plan, paths })).catch((e) => showToast(String(e), false));
@@ -993,9 +999,14 @@ export default function App() {
                 month={topSection?.month ?? null}
                 dragging={dragging}
                 fetching={!!fetcher.running}
-                onFetch={(id) => {
+                onFetch={(id, lr) => {
                   invoke<{ items: Item[]; missing: number }>("list_items", { id })
-                    .then((r) => askFetch(r.items.filter((x) => !x.local).map((x) => x.path)))
+                    .then((r) => {
+                      const away = r.items.filter((x) => !x.local).map((x) => x.path);
+                      if (lr && away.length === 0) return showToast(`alle originelen staan al op deze Mac: ${LR_NEXT}`, false);
+                      forLightroom.current = lr;
+                      askFetch(away);
+                    })
                     .catch((e) => showToast(String(e), false));
                 }}
                 onDrop={(id) => {
@@ -1218,7 +1229,7 @@ export default function App() {
       {fetchAsk && (
         <FetchConfirm
           plan={fetchAsk.plan}
-          onNo={() => setFetchAsk(null)}
+          onNo={() => { setFetchAsk(null); forLightroom.current = false; }}
           onYes={() => { const paths = fetchAsk.paths; setFetchAsk(null); fetcher.start(paths).catch((e) => showToast(String(e), false)); }}
         />
       )}

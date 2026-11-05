@@ -8,6 +8,7 @@ import UpdateLine from "./UpdateLine";
 import ImportSettings from "./ImportSettings";
 import MoveCheck from "./MoveCheck";
 import SourcesTab from "./SourcesTab";
+import LightroomSection from "./LightroomSection";
 import type { Renamer } from "../lib/renamer";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
@@ -125,6 +126,8 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
               </section>
             )}
 
+
+            <LightroomSection />
 
             <section className="space-y-1">
               <div className="flex items-center gap-2">
