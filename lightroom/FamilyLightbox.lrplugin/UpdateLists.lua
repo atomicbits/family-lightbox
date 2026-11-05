@@ -36,6 +36,13 @@ local function collectionName(list)
   return string.format("%d %s", list.year, list.name)
 end
 
+local function childByName(children, name)
+  for _, c in ipairs(children) do
+    if c:getName() == name then return c end
+  end
+  return nil
+end
+
 LrTasks.startAsyncTask(function()
   local data, problem = readFile()
   if not data then
@@ -47,65 +54,90 @@ LrTasks.startAsyncTask(function()
   local known = prefs.collections or {}
   local progress = LrProgressScope { title = "FamilyLightbox: lijsten bijwerken" }
 
-  -- what is here and in the catalog, outside the write access (it may take a while)
-  local wanted, toAdd, away = {}, {}, 0
-  for n, list in ipairs(data.lists) do
-    progress:setPortionComplete(n - 1, #data.lists * 2)
-    local photos = {}
+  -- 1. outside a write access: the collections known from earlier, and what is in the catalog
+  local collections, toAdd, away = {}, {}, 0
+  for _, list in ipairs(data.lists) do
+    if known[list.id] then
+      local ok, c = pcall(function() return catalog:getCollectionByLocalIdentifier(known[list.id]) end)
+      if ok and c then collections[list.id] = c end
+    end
     for _, p in ipairs(list.photos or {}) do
       if p.here then
-        local photo = catalog:findPhotoByPath(p.path)
-        if photo then table.insert(photos, photo) else table.insert(toAdd, { list = list.id, path = p.path }) end
+        if not catalog:findPhotoByPath(p.path) then table.insert(toAdd, p.path) end
       else
         away = away + 1
       end
     end
-    wanted[list.id] = photos
   end
+  progress:setPortionComplete(1, 4)
 
-  local added, changed = 0, 0
-  catalog:withWriteAccessDo("FamilyLightbox: lijsten bijwerken", function()
+  -- 2. a first write access only makes what is missing: Lightroom can't read a collection back in
+  -- the write access that made it
+  local added = 0
+  catalog:withWriteAccessDo("FamilyLightbox: collecties maken", function()
     local set = catalog:createCollectionSet("FamilyLightbox", nil, true)
     local archivedSet = catalog:createCollectionSet("Gearchiveerd", set, true)
-    -- originals here but not in the catalog yet: added where they are
-    for _, a in ipairs(toAdd) do
-      local ok, photo = pcall(function() return catalog:addPhoto(a.path) end)
-      if ok and photo then
-        table.insert(wanted[a.list], photo)
-        added = added + 1
-      else
-        log:warn("niet toegevoegd: " .. a.path .. " " .. tostring(photo))
+    for _, list in ipairs(data.lists) do
+      if not collections[list.id] then
+        catalog:createCollection(collectionName(list), list.archived and archivedSet or set, true)
       end
     end
-    for n, list in ipairs(data.lists) do
-      progress:setPortionComplete(#data.lists + n - 1, #data.lists * 2)
-      local parent = list.archived and archivedSet or set
-      -- by its id; a collection removed by hand in Lightroom is made again
-      local collection = nil
-      if known[list.id] then
-        local ok, c = pcall(function() return catalog:getCollectionByLocalIdentifier(known[list.id]) end)
-        if ok then collection = c end
+    for _, path in ipairs(toAdd) do
+      local ok, photo = pcall(function() return catalog:addPhoto(path) end)
+      if ok and photo then added = added + 1 else log:warn("niet toegevoegd: " .. path .. " " .. tostring(photo)) end
+    end
+  end, { timeout = 120 })
+  progress:setPortionComplete(2, 4)
+
+  -- 3. outside again: the sets and the new collections found back by name, the photos by path
+  local set = childByName(catalog:getChildCollectionSets(), "FamilyLightbox")
+  local archivedSet = set and childByName(set:getChildCollectionSets(), "Gearchiveerd")
+  if not set or not archivedSet then
+    progress:done()
+    LrDialogs.message("FamilyLightbox", "De verzamelingset FamilyLightbox is niet gevonden na het maken.", "warning")
+    return
+  end
+  local work = {}
+  for _, list in ipairs(data.lists) do
+    local parent = list.archived and archivedSet or set
+    local c = collections[list.id] or childByName(parent:getChildCollections(), collectionName(list))
+    if c then
+      known[list.id] = c.localIdentifier
+      local should, adds, removes, has = {}, {}, {}, {}
+      for _, p in ipairs(list.photos or {}) do
+        if p.here then
+          local photo = catalog:findPhotoByPath(p.path)
+          if photo then should[photo.localIdentifier] = photo end
+        end
       end
-      if not collection then
-        collection = catalog:createCollection(collectionName(list), parent, true)
-        known[list.id] = collection.localIdentifier
-      end
-      if collection:getName() ~= collectionName(list) then collection:setName(collectionName(list)) end
-      local now = collection:getParent()
-      if not now or now.localIdentifier ~= parent.localIdentifier then collection:setParent(parent) end
-      local should = {}
-      for _, photo in ipairs(wanted[list.id]) do should[photo.localIdentifier] = photo end
-      local adds, removes, has = {}, {}, {}
-      for _, photo in ipairs(collection:getPhotos()) do
+      for _, photo in ipairs(c:getPhotos()) do
         has[photo.localIdentifier] = true
         if not should[photo.localIdentifier] then table.insert(removes, photo) end
       end
       for id, photo in pairs(should) do
         if not has[id] then table.insert(adds, photo) end
       end
-      if #adds > 0 then collection:addPhotos(adds) end
-      if #removes > 0 then collection:removePhotos(removes) end
-      if #adds + #removes > 0 then changed = changed + 1 end
+      local now = c:getParent()
+      table.insert(work, {
+        collection = c, adds = adds, removes = removes, name = collectionName(list), parent = parent,
+        rename = c:getName() ~= collectionName(list),
+        move = not now or now.localIdentifier ~= parent.localIdentifier,
+      })
+    else
+      log:warn("geen collectie voor " .. list.id)
+    end
+  end
+  progress:setPortionComplete(3, 4)
+
+  -- 4. a second write access: names, places and photos
+  local changed = 0
+  catalog:withWriteAccessDo("FamilyLightbox: lijsten bijwerken", function()
+    for _, w in ipairs(work) do
+      if w.rename then w.collection:setName(w.name) end
+      if w.move then w.collection:setParent(w.parent) end
+      if #w.adds > 0 then w.collection:addPhotos(w.adds) end
+      if #w.removes > 0 then w.collection:removePhotos(w.removes) end
+      if w.rename or w.move or #w.adds + #w.removes > 0 then changed = changed + 1 end
     end
   end, { timeout = 120 })
   prefs.collections = known

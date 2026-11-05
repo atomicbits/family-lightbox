@@ -30,3 +30,12 @@ hand), renamed, moved to or out of *Gearchiveerd*, photos added and removed; a m
 counts and the originals not here; a log in `~/Documents/LrClassicLogs/FamilyLightbox.log`.
 Installed by hand in Lightroom's modules folder on Peter's Mac to try; no Lua here to test it
 outside Lightroom.
+
+### [2026-11-05] Fix: a new collection can't be read in the write access that made it
+
+- Lightroom: *Can't get collection information after creating collection inside the same
+  withWriteAccessDo function*. The plug-in now works in four steps: outside a write access the
+  collections known by id and the photos not in the catalog; a first write access that only makes
+  the sets, the missing collections and adds the photos; outside again the new collections found
+  back by name in their set, their ids kept, and what to add, remove, rename or move; a second
+  write access that does it.
