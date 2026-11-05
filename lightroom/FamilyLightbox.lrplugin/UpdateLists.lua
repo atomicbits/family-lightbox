@@ -4,6 +4,7 @@
 -- again by its id, kept in this plug-in's preferences, so a renamed list renames its collection.
 -- Nothing outside "FamilyLightbox" is touched, and nothing goes back to the lists. The stars and
 -- hearts of FamilyLightbox become Lightroom's stars (a heart is 5), where FamilyLightbox has one.
+-- Then the edited photos are rendered for FamilyLightbox (Renditions.lua, F025/S02).
 local LrApplication = import "LrApplication"
 local LrDialogs = import "LrDialogs"
 local LrFileUtils = import "LrFileUtils"
@@ -14,6 +15,7 @@ local LrProgressScope = import "LrProgressScope"
 local LrTasks = import "LrTasks"
 
 local Json = require "Json"
+local Renditions = require "Renditions"
 
 -- LrTasks.pcall, not pcall: Lightroom may yield inside (adding a photo does), which a plain pcall
 -- doesn't allow
@@ -164,9 +166,29 @@ LrTasks.startAsyncTask(function()
   prefs.collections = known
   progress:done()
 
+  -- 5. the edited photos of the lists, for FamilyLightbox (F025/S02)
+  local masters = {}
+  for _, w in ipairs(work) do
+    for _, photo in ipairs(w.collection:getPhotos()) do
+      if not photo:getRawMetadata("isVirtualCopy") then masters[photo.localIdentifier] = photo
+      else
+        local m = photo:getRawMetadata("masterPhoto")
+        if m then masters[m.localIdentifier] = m end
+      end
+    end
+  end
+  local okR, rendered, removed = LrTasks.pcall(Renditions, masters)
+  if not okR then
+    log:warn("renderen: " .. tostring(rendered))
+    rendered, removed = 0, 0
+  end
+
   local text = string.format("%d lijsten, %d bijgewerkt.", #data.lists, changed)
   if added > 0 then text = text .. string.format("\n%d originelen aan de catalogus toegevoegd.", added) end
   if #rate > 0 then text = text .. string.format("\n%d foto's kregen de sterren van FamilyLightbox (een hartje is 5 sterren).", #rate) end
+  if rendered > 0 then text = text .. string.format("\n%d bewerkte versies naar FamilyLightbox.", rendered) end
+  if removed > 0 then text = text .. string.format("\n%d bewerkingen niet meer in Lightroom: FamilyLightbox toont weer het origineel.", removed) end
+  if not okR then text = text .. "\nDe bewerkte versies lukten niet: zie FamilyLightbox.log." end
   if away > 0 then
     text = text .. string.format("\n%d originelen nog niet op deze Mac: haal ze op in FamilyLightbox (rechtsklik op de lijst, Alle originelen ophalen) en klik dan opnieuw op Lijsten bijwerken.", away)
   end

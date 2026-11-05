@@ -8,6 +8,7 @@ const FILES: &[(&str, &str)] = &[
     ("Info.lua", include_str!("../../lightroom/FamilyLightbox.lrplugin/Info.lua")),
     ("Json.lua", include_str!("../../lightroom/FamilyLightbox.lrplugin/Json.lua")),
     ("UpdateLists.lua", include_str!("../../lightroom/FamilyLightbox.lrplugin/UpdateLists.lua")),
+    ("Renditions.lua", include_str!("../../lightroom/FamilyLightbox.lrplugin/Renditions.lua")),
 ];
 
 pub const FOLDER: &str = "FamilyLightbox.lrplugin";

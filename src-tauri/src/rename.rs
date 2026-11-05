@@ -217,9 +217,14 @@ fn move_one(from: &Path, to: &Path) -> Result<(), String> {
     }
 }
 
-/// A preview and thumbnail, when there.
+/// A preview and thumbnail, and Lightroom's renditions (F025), when there.
 fn move_previews(previews: &Path, from: &str, to: &str, mover: fn(&Path, &Path) -> Result<(), String>) -> Result<(), String> {
-    for ext in [".jpg", ".t.jpg"] {
+    let f = previews.join(from);
+    let renditions = match (f.parent(), f.file_name()) {
+        (Some(dir), Some(name)) => crate::renditions::suffixes(dir, &name.to_string_lossy()),
+        _ => Vec::new(),
+    };
+    for ext in [".jpg", ".t.jpg"].into_iter().chain(renditions.iter().map(String::as_str)) {
         let (f, t) = (previews.join(format!("{from}{ext}")), previews.join(format!("{to}{ext}")));
         if f.exists() || t.exists() {
             mover(&f, &t)?;
@@ -453,6 +458,7 @@ mod tests {
         fs::create_dir_all(lib.join("2019/02/GoProH7-videos")).unwrap(); // an empty folder of another name stays
         put(&prev, "2020/08/Hero7/2020-08-09/GX01.MP4.jpg", b"p");
         put(&prev, "2020/08/Hero7/2020-08-09/GX01.MP4.t.jpg", b"t");
+        put(&prev, "2020/08/Hero7/2020-08-09/GX01.MP4.lr.jpg", b"lr");
         // the other Mac's copies, before the rename
         let (other_lib, other_prev) = (d.path().join("other/Library"), d.path().join("other/Previews"));
         put(&other_lib, "2020/08/Hero7/2020-08-09/GX01.MP4", b"x");
@@ -474,6 +480,7 @@ mod tests {
         assert!(!lib.join("2020/08/Hero7").exists() && !lib.join("2019/02/GoProH7").exists(), "the old folders are gone when empty");
         assert!(lib.join("2019/02/GoProH7-videos").is_dir() && lib.join("2020/08/EOSR/a.CR3").is_file());
         assert!(prev.join("2020/08/GoPro-Hero7/2020-08-09/GX01.MP4.t.jpg").is_file());
+        assert!(prev.join("2020/08/GoPro-Hero7/2020-08-09/GX01.MP4.lr.jpg").is_file(), "a rendition moves along (F025)");
         let m = manifest::read(&lib.join("2020/08/.manifest.json")).unwrap();
         let r = &m["files"][0];
         assert_eq!((r["path"].as_str(), r["source"].as_str()), (Some("2020/08/GoPro-Hero7/2020-08-09/GX01.MP4"), Some("GoPro-Hero7")));

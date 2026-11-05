@@ -58,7 +58,7 @@ Proposed with the stories (2026-11-05):
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-the-contract.md) | The contract (1.7): renditions next to the previews, the chosen variant as a mark | Done | — |
-| [S02](stories/S02-rendering-in-lightroom.md) | The plug-in renders the edited photos and virtual copies of the lists, at two sizes, only what changed | Planned | S01 |
-| [S03](stories/S03-taken-in.md) | The app takes them in: to the NAS's `Previews`, the small one to the Mac, known to the index | Planned | S02 |
+| [S02](stories/S02-rendering-in-lightroom.md) | The plug-in renders the edited photos and virtual copies of the lists, at two sizes, only what changed | Built, to try in Lightroom | S01 |
+| [S03](stories/S03-taken-in.md) | The app takes them in: to the NAS's `Previews`, the small one to the Mac | Built, to try with S02 | S02 |
 | [S04](stories/S04-shown-and-chosen.md) | Shown in the grid and lists, variants folded like a stack, one chosen and kept for both Macs | Planned | S03 |
 | [S05](stories/S05-exported.md) | An export takes the chosen variant at full size | Planned | S04 |

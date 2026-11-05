@@ -13,6 +13,7 @@ pub mod hash;
 pub mod import_job;
 pub mod import_plan;
 pub mod layout;
+pub mod renditions;
 pub mod lightroom;
 pub mod lists;
 pub mod lrplugin;
@@ -665,6 +666,7 @@ impl runner::Sink for EventSink {
         }
         // a rename of sources done on another Mac: the same moves here (F022/S04)
         let renamed = apply_renames(&self.0);
+        take_in_renditions(&self.0);
         // What came in only shows in the grid once the index has it (F008/S02).
         if renamed > 0 || state.manifests_copied > 0 || state.previews_copied > 0 {
             self.rebuild_index();
@@ -680,6 +682,31 @@ impl runner::Sink for EventSink {
         // the months show before the previews are counted, which takes minutes on a new Mac
         self.rebuild_index();
     }
+}
+
+/// Puts what Lightroom rendered next to the previews (F025/S03), when the NAS's previews are
+/// there; returns how many changed. Problems go to the messages.
+fn take_in_renditions(app: &tauri::AppHandle) -> usize {
+    let paths = app.state::<Paths>().inner().clone();
+    let out = paths.config.join(renditions::OUT_DIR);
+    if !fs_has_json(&out) {
+        return 0;
+    }
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    let nas = mounts::NasMounts::chosen(&found.previews).map(|m| PathBuf::from(&m.mount_point));
+    let r = renditions::take_in(&paths.config, &paths.library, nas.as_deref(), &paths.previews);
+    for p in &r.problems {
+        report(app, log::Level::Warn, "Lightroom", p);
+    }
+    if r.taken + r.removed > 0 {
+        let _ = app.emit("renditions-changed", r.taken + r.removed);
+    }
+    r.taken + r.removed
+}
+
+fn fs_has_json(dir: &Path) -> bool {
+    std::fs::read_dir(dir).into_iter().flatten().flatten().any(|e| e.path().extension().is_some_and(|x| x == "json"))
 }
 
 /// Applies the renames in the local copy of `Lists` this Mac hasn't applied yet (F022/S04);
@@ -1746,6 +1773,12 @@ pub fn run() {
                 let paused = config::load_state(&app.state::<Paths>().config).previews_paused;
                 app.state::<previews_job::MakeRunner>().set_paused(paused);
             }
+            // Lightroom's edited versions, when the plug-in has rendered some (F025/S03)
+            let handle = app.handle().clone();
+            std::thread::spawn(move || loop {
+                take_in_renditions(&handle);
+                std::thread::sleep(std::time::Duration::from_secs(30));
+            });
             Ok(())
         })
         .manage(paths)
