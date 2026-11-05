@@ -141,12 +141,12 @@ fn remove_note(out: &Path, json: &Path, n: Option<&Note>) {
 /// One note: where it goes, or why not.
 fn take_one(out: &Path, n: &Note, library: &Path, nas: &Path, local: &Path) -> Result<bool, String> {
     if !valid_variant(&n.variant) {
-        return Err(format!("onbekende variant '{}'", n.variant));
+        return Err(tr!("onbekende variant '{}'", "unknown variant '{}'", n.variant));
     }
-    let rel = Path::new(&n.path).strip_prefix(library).map_err(|_| format!("{} staat niet in de werkkopie", n.path))?;
+    let rel = Path::new(&n.path).strip_prefix(library).map_err(|_| tr!("{} staat niet in de werkkopie", "{} is not in the working copy", n.path))?;
     let rel = rel.to_string_lossy().into_owned();
     if !rel.split('/').next().is_some_and(|y| y.len() == 4 && y.bytes().all(|c| c.is_ascii_digit())) || rel.split('/').any(|c| c == "..") {
-        return Err(format!("{rel}: geen pad in de bibliotheek"));
+        return Err(tr!("{rel}: geen pad in de bibliotheek", "{rel}: not a path in the library"));
     }
     let small = |root: &Path| root.join(format!("{rel}.{}.jpg", n.variant));
     let full = |root: &Path| root.join(format!("{rel}.{}.full.jpg", n.variant));
@@ -162,7 +162,7 @@ fn take_one(out: &Path, n: &Note, library: &Path, nas: &Path, local: &Path) -> R
     }
     let (s, f) = (out.join(&n.small), out.join(&n.full));
     if n.small.contains('/') || n.full.contains('/') || !is_jpeg(&s) || !is_jpeg(&f) {
-        return Err(format!("{rel}: de bewerkte versie is geen JPEG"));
+        return Err(tr!("{rel}: de bewerkte versie is geen JPEG", "{rel}: the edited version is not a JPEG"));
     }
     let time = chrono::DateTime::parse_from_rfc3339(&n.edited).ok().map(SystemTime::from);
     for (from, to) in [(&f, full(nas)), (&s, small(nas)), (&s, small(local))] {
@@ -192,7 +192,7 @@ pub fn take_in(config: &Path, library: &Path, nas: Option<&Path>, local: &Path) 
     for json in notes {
         let note = fs::read_to_string(&json).ok().and_then(|t| serde_json::from_str::<Note>(&t).ok());
         let Some(n) = note else {
-            r.problems.push(format!("{}: niet leesbaar", json.display()));
+            r.problems.push(tr!("{}: niet leesbaar", "{}: not readable", json.display()));
             remove_note(&out, &json, None);
             continue;
         };

@@ -188,8 +188,9 @@ impl Db {
 
     pub fn open(path: &Path) -> Result<Db, String> {
         if !path.is_file() {
-            return Err(format!(
+            return Err(tr!(
                 "nog geen index: {}\nde app maakt ze uit de manifesten in de werkkopie",
+                "no index yet: {}\nthe app builds it from the manifests in the working copy",
                 path.display()
             ));
         }
@@ -197,7 +198,7 @@ impl Db {
             path,
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
-        .map_err(|e| format!("index openen mislukt: {e}"))?;
+        .map_err(|e| tr!("index openen mislukt: {e}", "opening the index failed: {e}"))?;
         // the app may be replacing the index at this moment (the rename is atomic), or marking the
         // previews it just made, which waits for long reads and holds new ones meanwhile
         conn.busy_timeout(Duration::from_secs(15)).map_err(|e| e.to_string())?;

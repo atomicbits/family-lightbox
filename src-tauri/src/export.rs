@@ -10,8 +10,10 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct Preset {
     pub id: &'static str,
+    #[serde(serialize_with = "shown")]
     pub label: &'static str,
     /// What it is for, in the dialog.
+    #[serde(serialize_with = "shown")]
     pub what: &'static str,
     /// The long side in pixels, never enlarged; `None`: the original's size.
     pub long: Option<usize>,
@@ -32,6 +34,39 @@ pub const PRESETS: &[Preset] = &[
     Preset { id: "originelen", label: "Originelen", what: "de bestanden zelf, ook RAW en video, met hun sidecars", long: None, quality: 0.0, dpi: None, originals: true },
 ];
 
+/// The presets' Dutch texts in English (F011/S03), for the window in English.
+const ENGLISH: &[(&str, &str)] = &[
+    ("Delen", "Share"),
+    ("mail, berichten, een scherm", "mail, messages, a screen"),
+    ("Afdruk 10×15", "Print 10×15"),
+    ("10 × 15 cm aan 300 dpi", "10 × 15 cm at 300 dpi"),
+    ("Afdruk 13×18", "Print 13×18"),
+    ("13 × 18 cm aan 300 dpi", "13 × 18 cm at 300 dpi"),
+    ("Afdruk 20×30", "Print 20×30"),
+    ("20 × 30 cm aan 300 dpi", "20 × 30 cm at 300 dpi"),
+    ("Fotoboek A4", "Photo book A4"),
+    ("een pagina van een A4-fotoboek aan 300 dpi", "a page of an A4 photo book at 300 dpi"),
+    ("Kalender A3", "Calendar A3"),
+    ("een A3-kalenderblad aan 300 dpi", "an A3 calendar page at 300 dpi"),
+    ("Volle resolutie", "Full resolution"),
+    ("JPEG op de grootte van het origineel; RAW door macOS ontwikkeld", "JPEG at the original's size; RAW developed by macOS"),
+    ("Originelen", "Originals"),
+    ("de bestanden zelf, ook RAW en video, met hun sidecars", "the files themselves, RAW and video too, with their sidecars"),
+    ("Eigen instelling", "Custom setting"),
+];
+
+/// A preset's label or description in the language in use.
+fn in_language(nl: &'static str) -> &'static str {
+    if !crate::i18n::english() {
+        return nl;
+    }
+    ENGLISH.iter().find(|(d, _)| *d == nl).map_or(nl, |(_, en)| en)
+}
+
+fn shown<S: serde::Serializer>(nl: &&'static str, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(in_language(nl))
+}
+
 pub fn preset(id: &str) -> Option<&'static Preset> {
     PRESETS.iter().find(|p| p.id == id)
 }
@@ -49,13 +84,13 @@ impl Custom {
     /// A preset made of it, checked: 100–20 000 px, quality 1–100, DPI 72–1 200.
     pub fn preset(&self) -> Result<Preset, String> {
         if !(100..=20_000).contains(&self.long) {
-            return Err("de lange zijde: tussen 100 en 20 000 pixels".into());
+            return Err(tr!("de lange zijde: tussen 100 en 20 000 pixels", "the long side: between 100 and 20,000 pixels"));
         }
         if !(1..=100).contains(&self.quality) {
-            return Err("de kwaliteit: tussen 1 en 100".into());
+            return Err(tr!("de kwaliteit: tussen 1 en 100", "the quality: between 1 and 100"));
         }
         if self.dpi.is_some_and(|d| !(72..=1200).contains(&d)) {
-            return Err("de dpi: tussen 72 en 1 200".into());
+            return Err(tr!("de dpi: tussen 72 en 1 200", "the dpi: between 72 and 1,200"));
         }
         Ok(Preset { id: "eigen", label: "Eigen instelling", what: "", long: Some(self.long), quality: f64::from(self.quality) / 100.0, dpi: self.dpi, originals: false })
     }
@@ -209,7 +244,7 @@ pub fn run(job: &mut Job, here: &Path, nas: Option<&Path>, previews_nas: Option<
             .flatten()
             .filter(|p| p.is_file());
         if !part.variant.is_empty() && edited.is_none() && !out.exists() {
-            job.problems.push(format!("{}: de bewerkte versie staat niet op de NAS, het origineel genomen", part.src));
+            job.problems.push(tr!("{}: de bewerkte versie staat niet op de NAS, het origineel genomen", "{}: the edited version is not on the NAS, took the original", part.src));
             job.parts[i].variant.clear();
         }
         let src = if edited.is_some() {
@@ -221,7 +256,7 @@ pub fn run(job: &mut Job, here: &Path, nas: Option<&Path>, previews_nas: Option<
         };
         let result = match (&src, out.exists()) {
             (_, true) => Ok(()),
-            (None, _) => Err(format!("{}: niet op deze Mac en niet op de NAS", part.src)),
+            (None, _) => Err(tr!("{}: niet op deze Mac en niet op de NAS", "{}: not on this Mac and not on the NAS", part.src)),
             (Some(s), _) if part.render => render(s, &part, &out),
             (Some(s), _) => copy(s, &out),
         };
@@ -254,6 +289,20 @@ pub fn run(job: &mut Job, here: &Path, nas: Option<&Path>, previews_nas: Option<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn in_english() {
+        let all = PRESETS.iter().chain([Custom { long: 2000, quality: 90, dpi: None }.preset().unwrap()].iter()).flat_map(|p| [p.label, p.what]).collect::<Vec<_>>();
+        for nl in all.iter().filter(|t| !t.is_empty()) {
+            assert!(ENGLISH.iter().any(|(d, _)| d == nl), "no English for {nl:?}");
+        }
+        let json = |p: &Preset| serde_json::to_value(p).unwrap();
+        assert_eq!(json(preset("delen").unwrap())["label"], "Delen");
+        let en = crate::i18n::in_english(|| json(preset("delen").unwrap()));
+        assert_eq!((en["label"].as_str(), en["what"].as_str()), (Some("Share"), Some("mail, messages, a screen")));
+        let bad = Custom { long: 50, quality: 90, dpi: None };
+        assert_eq!(crate::i18n::in_english(|| bad.preset()), Err("the long side: between 100 and 20,000 pixels".into()));
+    }
 
     fn item(path: &str, kind: &str, taken: &str, live: Option<&str>) -> Item {
         Item {

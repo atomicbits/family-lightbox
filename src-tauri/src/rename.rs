@@ -72,7 +72,7 @@ pub fn plan(library: &Path, previews: &Path, from: &[String], to: &str) -> Resul
         return Err(p);
     }
     if from.is_empty() || from.iter().any(|f| f == to) {
-        return Err(format!("'{to}' kan niet tegelijk de oude en de nieuwe naam zijn"));
+        return Err(tr!("'{to}' kan niet tegelijk de oude en de nieuwe naam zijn", "'{to}' cannot be both the old and the new name"));
     }
     let from: HashSet<&str> = from.iter().map(String::as_str).collect();
     let mut out = RenamePlan { from: from.iter().map(|s| s.to_string()).collect(), to: to.to_string(), ..Default::default() };
@@ -85,7 +85,7 @@ pub fn plan(library: &Path, previews: &Path, from: &[String], to: &str) -> Resul
         if !ordinary {
             continue;
         }
-        let Some(m) = manifest::read(&mf) else { return Err(format!("{folder}: manifest niet leesbaar")) };
+        let Some(m) = manifest::read(&mf) else { return Err(tr!("{folder}: manifest niet leesbaar", "{folder}: manifest not readable")) };
         let rows: Vec<&Value> = m["files"].as_array().map(|a| a.iter().collect()).unwrap_or_default();
         let ours = |r: &Value| r["source"].as_str().is_some_and(|s| from.contains(s));
         if !rows.iter().any(|r| ours(r)) {
@@ -206,8 +206,8 @@ impl Job {
 fn move_one(from: &Path, to: &Path) -> Result<(), String> {
     match (from.exists(), to.exists()) {
         (false, true) => Ok(()),
-        (false, false) => Err(format!("{} niet gevonden", from.display())),
-        (true, true) => Err(format!("{} bestaat al", to.display())),
+        (false, false) => Err(tr!("{} niet gevonden", "{} not found", from.display())),
+        (true, true) => Err(tr!("{} bestaat al", "{} already exists", to.display())),
         (true, false) => {
             if let Some(d) = to.parent() {
                 fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
@@ -308,17 +308,17 @@ pub fn execute(job: &mut Job, library: &Path, previews: &Path, lists: &Path, con
             move_previews(previews, from, to, move_one)?;
         }
         let mf = library.join(&month).join(manifest::MANIFEST_NAME);
-        let m = manifest::read(&mf).ok_or_else(|| format!("{month}: manifest niet leesbaar"))?;
+        let m = manifest::read(&mf).ok_or_else(|| tr!("{month}: manifest niet leesbaar", "{month}: manifest not readable"))?;
         manifest::write(&mf, &renamed_manifest(&m, &moves, &job.record.to))?;
         // verified: every move at its new place, none at its old one, the manifest naming them
-        let written = manifest::read(&mf).ok_or_else(|| format!("{month}: manifest niet leesbaar na het schrijven"))?;
+        let written = manifest::read(&mf).ok_or_else(|| tr!("{month}: manifest niet leesbaar na het schrijven", "{month}: manifest not readable after writing"))?;
         let rows: HashSet<&str> = written["files"].as_array().into_iter().flatten().filter_map(|r| r["path"].as_str()).collect();
         for (from, to) in &ours {
             if library.join(from).exists() || !library.join(to).is_file() {
-                return Err(format!("{month}: {from} staat niet op zijn nieuwe plaats"));
+                return Err(tr!("{month}: {from} staat niet op zijn nieuwe plaats", "{month}: {from} is not in its new place"));
             }
             if rows.contains(from) {
-                return Err(format!("{month}: het manifest noemt {from} nog"));
+                return Err(tr!("{month}: het manifest noemt {from} nog", "{month}: the manifest still lists {from}"));
             }
         }
         prune(library, &month, &job.record.from);

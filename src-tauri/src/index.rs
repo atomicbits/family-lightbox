@@ -124,7 +124,7 @@ pub struct BuildOutcome {
 
 /// Every `<year>/<subfolder>/.manifest.json`, years and subfolders sorted by name (as the CLI).
 pub fn manifest_paths(library: &Path) -> Result<Vec<PathBuf>, String> {
-    let years = fs::read_dir(library).map_err(|e| format!("werkkopie niet gevonden: {} ({e})", library.display()))?;
+    let years = fs::read_dir(library).map_err(|e| tr!("werkkopie niet gevonden: {} ({e})", "working copy not found: {} ({e})", library.display()))?;
     let mut years: Vec<PathBuf> = years
         .filter_map(|e| e.ok())
         .filter(|e| is_year(&e.file_name().to_string_lossy()) && e.path().is_dir())
@@ -166,12 +166,12 @@ pub fn build(library: &Path, previews: &Path, target: &Path) -> Result<BuildOutc
     ));
     let _ = fs::remove_file(&tmp);
     if let Some(dir) = target.parent() {
-        fs::create_dir_all(dir).map_err(|e| format!("map {} maken mislukt: {e}", dir.display()))?;
+        fs::create_dir_all(dir).map_err(|e| tr!("map {} maken mislukt: {e}", "creating folder {} failed: {e}", dir.display()))?;
     }
     let result = write(&tmp, library, previews, &paths).and_then(|mut out| {
         out.changed = digest(target) != digest(&tmp);
         if out.changed {
-            fs::rename(&tmp, target).map_err(|e| format!("index vervangen mislukt: {e}"))?;
+            fs::rename(&tmp, target).map_err(|e| tr!("index vervangen mislukt: {e}", "replacing the index failed: {e}"))?;
         } else {
             let _ = fs::remove_file(&tmp);
         }
@@ -211,7 +211,7 @@ fn digest(index: &Path) -> Option<u64> {
 }
 
 fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Result<BuildOutcome, String> {
-    let err = |e: rusqlite::Error| format!("index schrijven mislukt: {e}");
+    let err = |e: rusqlite::Error| tr!("index schrijven mislukt: {e}", "writing the index failed: {e}");
     let mut conn = Connection::open(tmp).map_err(err)?;
     conn.execute_batch(SCHEMA).map_err(err)?;
     let tx = conn.transaction().map_err(err)?;
@@ -298,7 +298,7 @@ fn write(tmp: &Path, library: &Path, previews: &Path, paths: &[PathBuf]) -> Resu
 /// file; it reads the previews folder itself, so it misses at most the ones made during it, until
 /// the next build.
 pub fn mark_previews(target: &Path, paths: &[&str]) -> Result<usize, String> {
-    let err = |e: rusqlite::Error| format!("index bijwerken mislukt: {e}");
+    let err = |e: rusqlite::Error| tr!("index bijwerken mislukt: {e}", "updating the index failed: {e}");
     let mut conn = Connection::open_with_flags(target, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE).map_err(err)?;
     conn.busy_timeout(std::time::Duration::from_secs(3)).map_err(err)?;
     let tx = conn.transaction().map_err(err)?;

@@ -301,7 +301,7 @@ fn make_one(job: &MakeJob, w: &Wanted) -> Outcome {
         copy_atomic(&thumb, &n_thumb)
             .and_then(|_| copy_atomic(&out, &n_out))
             .err()
-            .map(|e| format!("preview niet op de NAS gezet: {e}"))
+            .map(|e| tr!("preview niet op de NAS gezet: {e}", "preview not put on the NAS: {e}"))
     });
     Outcome::Made { nas_error }
 }

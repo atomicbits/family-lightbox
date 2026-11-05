@@ -24,7 +24,7 @@ pub fn is_manifest(rel: &str) -> bool {
 /// The manifests job: the chosen `Library` mount to the working copy, two levels deep.
 pub fn manifests_job(settings: &Settings, found: &NasMounts, working_copy: &Path) -> Result<Job, String> {
     let mount = NasMounts::chosen(&found.library)
-        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.effective_layout().library.share))?;
+        .ok_or_else(|| tr!("gedeelde map '{}' is niet verbonden", "shared folder '{}' is not connected", settings.effective_layout().library.share))?;
     Ok(Job {
         remote: mount.mount_point.clone().into(),
         local: working_copy.to_path_buf(),
@@ -38,7 +38,7 @@ pub fn manifests_job(settings: &Settings, found: &NasMounts, working_copy: &Path
 /// files and the summaries only.
 pub fn lists_job(settings: &Settings, found: &NasMounts, local: &Path) -> Result<Job, String> {
     let mount = NasMounts::chosen(&found.lists)
-        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.effective_layout().lists.share))?;
+        .ok_or_else(|| tr!("gedeelde map '{}' is niet verbonden", "shared folder '{}' is not connected", settings.effective_layout().lists.share))?;
     Ok(Job {
         remote: mount.mount_point.clone().into(),
         local: local.to_path_buf(),
@@ -76,7 +76,7 @@ fn valid_manifest(path: &Path) -> bool {
 pub fn run_manifests(job: &Job, progress: &mut dyn FnMut(&Progress), cancel: &AtomicBool) -> ManifestsOutcome {
     let mut out = ManifestsOutcome::default();
     if let Err(e) = fs::read_dir(&job.remote) {
-        out.error = Some(format!("{} is niet leesbaar: {e}", job.remote.display()));
+        out.error = Some(tr!("{} is niet leesbaar: {e}", "{} is not readable: {e}", job.remote.display()));
         return out;
     }
     let plan = match sync::plan(job, progress, cancel) {
@@ -136,7 +136,7 @@ pub fn is_full_rendition(rel: &str) -> bool {
 /// The previews job: the chosen `Previews` mount to the local previews folder.
 pub fn previews_job(settings: &Settings, found: &NasMounts, local: &Path) -> Result<Job, String> {
     let mount = NasMounts::chosen(&found.previews)
-        .ok_or_else(|| format!("gedeelde map '{}' is niet verbonden", settings.effective_layout().previews.share))?;
+        .ok_or_else(|| tr!("gedeelde map '{}' is niet verbonden", "shared folder '{}' is not connected", settings.effective_layout().previews.share))?;
     Ok(Job { remote: mount.mount_point.clone().into(), local: local.to_path_buf(), filter: is_preview, only: None, max_depth: None })
 }
 
@@ -172,12 +172,12 @@ fn gb(bytes: u64) -> String {
 
 /// Fits when `copy_bytes + 20 GB <= free`; otherwise the three numbers and the shortfall.
 pub fn space_check(copy_bytes: u64, free: Option<u64>) -> Result<(), String> {
-    let Some(free) = free else { return Err("de vrije ruimte op deze schijf is niet te bepalen".into()) };
+    let Some(free) = free else { return Err(tr!("de vrije ruimte op deze schijf is niet te bepalen", "cannot determine the free space on this disk")) };
     if copy_bytes + RESERVE <= free {
         return Ok(());
     }
     let short = copy_bytes + RESERVE - free;
-    Err(format!("nodig {} GB, vrij {} GB, reserve {} GB: {} GB tekort", gb(copy_bytes), gb(free), gb(RESERVE), gb(short)))
+    Err(tr!("nodig {} GB, vrij {} GB, reserve {} GB: {} GB tekort", "needed {} GB, free {} GB, reserve {} GB: {} GB short", gb(copy_bytes), gb(free), gb(RESERVE), gb(short)))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -249,7 +249,7 @@ pub fn run_previews(
     if plan.copy_files > 0 {
         let asks = asks_confirmation(plan.copy_files, plan.copy_bytes, state.previews_confirmed_at.is_some(), above);
         if asks && !confirmed {
-            return Err("bevestiging nodig".into());
+            return Err(tr!("bevestiging nodig", "confirmation needed"));
         }
         space_check(plan.copy_bytes, free_now)?;
         if asks {

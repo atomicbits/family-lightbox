@@ -85,9 +85,9 @@ pub struct Record {
 
 impl Record {
     pub fn open(path: &Path) -> Result<Record, String> {
-        let err = |e: rusqlite::Error| format!("previewregister openen mislukt: {e}");
+        let err = |e: rusqlite::Error| tr!("previewregister openen mislukt: {e}", "opening the preview register failed: {e}");
         if let Some(dir) = path.parent() {
-            fs::create_dir_all(dir).map_err(|e| format!("map {} maken mislukt: {e}", dir.display()))?;
+            fs::create_dir_all(dir).map_err(|e| tr!("map {} maken mislukt: {e}", "creating folder {} failed: {e}", dir.display()))?;
         }
         let conn = Connection::open(path).map_err(err)?;
         conn.busy_timeout(Duration::from_secs(3)).map_err(err)?;
@@ -96,7 +96,7 @@ impl Record {
     }
 
     fn all(&self) -> Result<HashMap<String, Entry>, String> {
-        let err = |e: rusqlite::Error| format!("previewregister lezen mislukt: {e}");
+        let err = |e: rusqlite::Error| tr!("previewregister lezen mislukt: {e}", "reading the preview register failed: {e}");
         let mut stmt = self.conn.prepare("SELECT path, hash, made_at, error FROM previews").map_err(err)?;
         let rows = stmt
             .query_map([], |r| Ok((r.get(0)?, Entry { hash: r.get(1)?, made_at: r.get(2)?, error: r.get(3)? })))
@@ -105,7 +105,7 @@ impl Record {
     }
 
     fn put(&mut self, rows: &[(&str, &str, Option<&str>)]) -> Result<(), String> {
-        let err = |e: rusqlite::Error| format!("previewregister schrijven mislukt: {e}");
+        let err = |e: rusqlite::Error| tr!("previewregister schrijven mislukt: {e}", "writing the preview register failed: {e}");
         let tx = self.conn.transaction().map_err(err)?;
         {
             let mut stmt = tx.prepare("INSERT OR REPLACE INTO previews VALUES (?1, ?2, ?3, ?4)").map_err(err)?;
@@ -129,7 +129,7 @@ impl Record {
 
     /// What failed, with its error, by path.
     pub fn failures(&self) -> Result<Vec<Failure>, String> {
-        let err = |e: rusqlite::Error| format!("previewregister lezen mislukt: {e}");
+        let err = |e: rusqlite::Error| tr!("previewregister lezen mislukt: {e}", "reading the preview register failed: {e}");
         let mut stmt = self
             .conn
             .prepare("SELECT path, error FROM previews WHERE error IS NOT NULL ORDER BY path")
@@ -142,7 +142,7 @@ impl Record {
     pub fn clear_failures(&mut self) -> Result<usize, String> {
         self.conn
             .execute("DELETE FROM previews WHERE error IS NOT NULL", [])
-            .map_err(|e| format!("previewregister schrijven mislukt: {e}"))
+            .map_err(|e| tr!("previewregister schrijven mislukt: {e}", "writing the preview register failed: {e}"))
     }
 }
 
@@ -187,9 +187,9 @@ type Row = (String, String, String, String, Option<String>);
 
 /// The photos and videos in the app's index.
 fn indexed(index: &Path) -> Result<Vec<Row>, String> {
-    let err = |e: rusqlite::Error| format!("index lezen mislukt: {e}");
+    let err = |e: rusqlite::Error| tr!("index lezen mislukt: {e}", "reading the index failed: {e}");
     let conn = Connection::open_with_flags(index, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
-        .map_err(|e| format!("index openen mislukt: {e}"))?;
+        .map_err(|e| tr!("index openen mislukt: {e}", "opening the index failed: {e}"))?;
     conn.busy_timeout(Duration::from_secs(3)).map_err(err)?;
     let mut stmt = conn
         .prepare(

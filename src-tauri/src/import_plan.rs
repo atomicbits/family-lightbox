@@ -141,7 +141,7 @@ impl HashCache {
 
     /// The file's hash, from the cache when its size and time are unchanged.
     pub fn hash(&self, p: &Path) -> Result<String, String> {
-        let (size, ns) = Self::stamp(p).ok_or_else(|| format!("{}: niet leesbaar", p.display()))?;
+        let (size, ns) = Self::stamp(p).ok_or_else(|| tr!("{}: niet leesbaar", "{}: not readable", p.display()))?;
         let key = p.display().to_string();
         let kept: Option<String> = self
             .conn
@@ -349,7 +349,7 @@ impl TakenRecord {
     }
 
     pub fn record(&self, p: &Path) -> Result<(), String> {
-        let (size, ns) = HashCache::stamp(p).ok_or_else(|| format!("{}: niet leesbaar", p.display()))?;
+        let (size, ns) = HashCache::stamp(p).ok_or_else(|| tr!("{}: niet leesbaar", "{}: not readable", p.display()))?;
         self.conn
             .execute("INSERT OR REPLACE INTO taken VALUES (?1, ?2, ?3)", params![p.display().to_string(), size as i64, ns])
             .map(|_| ())

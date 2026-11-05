@@ -300,7 +300,7 @@ fn folders(job: &Job, state: FileState) -> BTreeSet<String> {
 }
 
 fn nas(job: &mut Job, staging: &Path, env: &Env, progress: &mut dyn FnMut(&Progress)) -> Result<(), String> {
-    let share = env.share.ok_or("de NAS is niet verbonden: de import gaat verder zodra hij dat is")?;
+    let share = env.share.ok_or_else(|| tr!("de NAS is niet verbonden: de import gaat verder zodra hij dat is", "the NAS is not connected: the import continues as soon as it is"))?;
     let months = folders(job, FileState::Staged);
     // the progress per file and in bytes: a month of a phone is gigabytes (F018/S05)
     let staged: Vec<&JobFile> = job.files.iter().filter(|f| f.state == FileState::Staged).collect();
@@ -379,7 +379,7 @@ fn local(job: &mut Job, staging: &Path, env: &Env) -> Result<(), String> {
 /// A synced folder's files stay where they are; what reached the NAS or was there already is
 /// recorded, so the next plan skips it without reading (S06).
 fn record_taken(job: &mut Job, env: &Env, progress: &mut dyn FnMut(&Progress)) -> Result<(), String> {
-    let record = crate::import_plan::TakenRecord::open(env.taken.ok_or("geen register van wat al genomen is")?)?;
+    let record = crate::import_plan::TakenRecord::open(env.taken.ok_or_else(|| tr!("geen register van wat al genomen is", "no record of what was already taken"))?)?;
     let total = job.files.iter().filter(|f| matches!(f.state, FileState::OnNas | FileState::Duplicate)).count();
     for (i, f) in job.files.iter_mut().filter(|f| matches!(f.state, FileState::OnNas | FileState::Duplicate)).enumerate() {
         match record.record(Path::new(&f.src)) {

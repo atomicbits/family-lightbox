@@ -137,7 +137,7 @@ pub struct Progress {
 fn fetch_one(nas: &Path, here: &Path, want: &str) -> Result<(), String> {
     let (from, to) = (nas.join(want), here.join(want));
     if to.exists() {
-        return Err(format!("{}: staat er al", to.display()));
+        return Err(tr!("{}: staat er al", "{}: already there", to.display()));
     }
     if let Some(d) = to.parent() {
         fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
@@ -185,7 +185,7 @@ pub fn run(job: &mut Job, nas: &Path, here: &Path, config: &Path, progress: &mut
             match (want.hash.is_empty(), hash::sha256_file(&to)) {
                 (true, _) => Ok(()),
                 (false, Ok(h)) if h == want.hash => Ok(()),
-                _ => Err(format!("{}: staat er al, met een andere inhoud", want.path)),
+                _ => Err(tr!("{}: staat er al, met een andere inhoud", "{}: already there, with different contents", want.path)),
             }
         } else {
             fetch_one(nas, here, &want.path).and_then(|()| {
@@ -194,12 +194,12 @@ pub fn run(job: &mut Job, nas: &Path, here: &Path, config: &Path, progress: &mut
                     let h = hash::sha256_file(&tmp)?;
                     if h != want.hash {
                         let _ = fs::remove_file(&tmp);
-                        return Err(format!("{}: de inhoud op de NAS klopt niet met het manifest", want.path));
+                        return Err(tr!("{}: de inhoud op de NAS klopt niet met het manifest", "{}: the contents on the NAS do not match the manifest", want.path));
                     }
                 }
                 if to.exists() {
                     let _ = fs::remove_file(&tmp);
-                    return Err(format!("{}: staat er al", want.path));
+                    return Err(tr!("{}: staat er al", "{}: already there", want.path));
                 }
                 fs::rename(&tmp, &to).map_err(|e| format!("{}: {e}", to.display()))
             })

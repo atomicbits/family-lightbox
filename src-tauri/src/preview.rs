@@ -87,12 +87,12 @@ fn tmp(path: &Path) -> PathBuf {
 /// renamed only when both succeeded; on a failure nothing is left behind.
 pub fn make(src: &Path, kind: Kind, taken: Option<&str>, out: &Path, thumb: &Path) -> Result<(), String> {
     for dir in [out.parent(), thumb.parent()].into_iter().flatten() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("map {} niet aangemaakt: {e}", dir.display()))?;
+        std::fs::create_dir_all(dir).map_err(|e| tr!("map {} niet aangemaakt: {e}", "folder {} not created: {e}", dir.display()))?;
     }
     let (tmp_out, tmp_thumb) = (tmp(out), tmp(thumb));
     let result = macos::make(src, kind, taken.and_then(exif_dates), &tmp_out, &tmp_thumb)
-        .and_then(|()| std::fs::rename(&tmp_out, out).map_err(|e| format!("preview niet weggeschreven: {e}")))
-        .and_then(|()| std::fs::rename(&tmp_thumb, thumb).map_err(|e| format!("miniatuur niet weggeschreven: {e}")));
+        .and_then(|()| std::fs::rename(&tmp_out, out).map_err(|e| tr!("preview niet weggeschreven: {e}", "preview not written: {e}")))
+        .and_then(|()| std::fs::rename(&tmp_thumb, thumb).map_err(|e| tr!("miniatuur niet weggeschreven: {e}", "thumbnail not written: {e}")));
     if result.is_err() {
         for p in [&tmp_out, &tmp_thumb] {
             let _ = std::fs::remove_file(p);
@@ -108,11 +108,11 @@ pub fn make(src: &Path, kind: Kind, taken: Option<&str>, out: &Path, thumb: &Pat
 /// `taken` as the manifest has it. Never enlarged; `long` `None` keeps the full size.
 pub fn render(src: &Path, long: Option<usize>, quality: f64, dpi: Option<u32>, taken: Option<&str>, camera: Option<&str>, out: &Path) -> Result<(), String> {
     if let Some(dir) = out.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("map {} niet aangemaakt: {e}", dir.display()))?;
+        std::fs::create_dir_all(dir).map_err(|e| tr!("map {} niet aangemaakt: {e}", "folder {} not created: {e}", dir.display()))?;
     }
     let tmp = tmp(out);
     let result = macos::render(src, long, quality, dpi, taken.and_then(exif_dates), camera, &tmp)
-        .and_then(|()| std::fs::rename(&tmp, out).map_err(|e| format!("export niet weggeschreven: {e}")));
+        .and_then(|()| std::fs::rename(&tmp, out).map_err(|e| tr!("export niet weggeschreven: {e}", "export not written: {e}")));
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
@@ -191,7 +191,7 @@ mod macos {
     }
 
     fn url(path: &Path) -> Result<CFRetained<CFURL>, String> {
-        CFURL::from_file_path(path).ok_or_else(|| format!("ongeldig pad: {}", path.display()))
+        CFURL::from_file_path(path).ok_or_else(|| tr!("ongeldig pad: {}", "invalid path: {}", path.display()))
     }
 
     fn dict(pairs: &[(&CFString, &CFType)]) -> CFRetained<CFDictionary<CFString, CFType>> {
@@ -215,9 +215,9 @@ mod macos {
     /// (F024/S01).
     fn photo_at(src: &Path, limit: Option<usize>) -> Result<CFRetained<CGImage>, String> {
         let source = unsafe { CGImageSource::with_url(&*url(src)?, None) }
-            .ok_or_else(|| format!("kan {} niet openen", src.display()))?;
+            .ok_or_else(|| tr!("kan {} niet openen", "cannot open {}", src.display()))?;
         if unsafe { source.count() } == 0 {
-            return Err("geen beeld dat macOS kan lezen".into());
+            return Err(tr!("geen beeld dat macOS kan lezen", "not an image macOS can read"));
         }
         let props = unsafe { source.properties_at_index(0, None) };
         let long = props
@@ -231,7 +231,7 @@ mod macos {
             (unsafe { kCGImageSourceCreateThumbnailFromImageAlways }, CFBoolean::new(true)),
         ]);
         unsafe { source.thumbnail_at_index(0, Some(options.as_opaque())) }
-            .ok_or_else(|| "geen beeld dat macOS kan lezen".into())
+            .ok_or_else(|| tr!("geen beeld dat macOS kan lezen", "not an image macOS can read"))
     }
 
     /// The frame at `frame_time`, with the track's rotation applied; the first frame if that fails.
@@ -250,7 +250,7 @@ mod macos {
 
     #[allow(deprecated)]
     fn video_at(src: &Path) -> Result<CFRetained<CGImage>, String> {
-        let url = NSURL::from_file_path(src).ok_or_else(|| format!("ongeldig pad: {}", src.display()))?;
+        let url = NSURL::from_file_path(src).ok_or_else(|| tr!("ongeldig pad: {}", "invalid path: {}", src.display()))?;
         unsafe {
             let asset = AVAsset::assetWithURL(&url);
             let generator = AVAssetImageGenerator::assetImageGeneratorWithAsset(&asset);
@@ -269,24 +269,24 @@ mod macos {
                     break;
                 }
             }
-            Err(format!("geen beeld uit de video: {error}"))
+            Err(tr!("geen beeld uit de video: {error}", "no image from the video: {error}"))
         }
     }
 
     /// The image in sRGB, scaled to at most `long` px; transparency becomes white.
     fn redraw(image: &CGImage, long: usize) -> Result<CFRetained<CGImage>, String> {
         let (w, h) = fit_long(CGImage::width(Some(image)), CGImage::height(Some(image)), long);
-        let srgb = CGColorSpace::with_name(Some(unsafe { kCGColorSpaceSRGB })).ok_or("geen sRGB-kleurruimte")?;
+        let srgb = CGColorSpace::with_name(Some(unsafe { kCGColorSpaceSRGB })).ok_or_else(|| tr!("geen sRGB-kleurruimte", "no sRGB color space"))?;
         let info = CGImageAlphaInfo::NoneSkipLast.0; // default byte order
         let ctx: CFRetained<CGContext> =
             unsafe { CGBitmapContextCreate(std::ptr::null_mut(), w, h, 8, 0, Some(&srgb), info) }
-                .ok_or("geen tekenvlak")?;
+                .ok_or_else(|| tr!("geen tekenvlak", "no drawing context"))?;
         let rect = CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(w as f64, h as f64));
         CGContext::set_interpolation_quality(Some(&ctx), CGInterpolationQuality::High);
         CGContext::set_rgb_fill_color(Some(&ctx), 1.0, 1.0, 1.0, 1.0);
         CGContext::fill_rect(Some(&ctx), rect);
         CGContext::draw_image(Some(&ctx), rect, Some(image));
-        CGBitmapContextCreateImage(Some(&ctx)).ok_or_else(|| "beeld niet getekend".into())
+        CGBitmapContextCreateImage(Some(&ctx)).ok_or_else(|| tr!("beeld niet getekend", "image not drawn"))
     }
 
     /// Quality 85 and only the metadata data contract 4 allows: the dates and `ColorSpace = sRGB`.
@@ -314,10 +314,10 @@ mod macos {
     fn write(image: &CGImage, props: &CFDictionary<CFString, CFType>, path: &Path) -> Result<(), String> {
         let jpeg = CFString::from_static_str("public.jpeg");
         let dest = unsafe { CGImageDestination::with_url(&*url(path)?, &jpeg, 1, None) }
-            .ok_or_else(|| format!("kan {} niet schrijven", path.display()))?;
+            .ok_or_else(|| tr!("kan {} niet schrijven", "cannot write {}", path.display()))?;
         unsafe {
             dest.add_image(image, Some(props.as_opaque()));
-            if dest.finalize() { Ok(()) } else { Err(format!("JPEG {} niet geschreven", path.display())) }
+            if dest.finalize() { Ok(()) } else { Err(tr!("JPEG {} niet geschreven", "JPEG {} not written", path.display())) }
         }
     }
 
