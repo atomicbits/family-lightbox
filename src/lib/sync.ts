@@ -115,7 +115,7 @@ export function syncLine(s: SyncState | null): SyncLine | null {
  * disk space, which asks for an action like the confirmation does (F016/S02). */
 export function fades(s: SyncState): boolean {
   if (s.phase === "done" || s.phase === "cancelled") return true;
-  return s.phase === "failed" && !(s.message ?? "").includes("tekort");
+  return s.phase === "failed" && !/tekort|short/.test(s.message ?? "");
 }
 
 export type Sync = {

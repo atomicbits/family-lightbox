@@ -278,7 +278,7 @@ fn stage(job: &mut Job, staging: &Path, progress: &mut dyn FnMut(&Progress)) -> 
         let to = staging.join(&f.target);
         let result = copy_with_time(Path::new(&f.src), &to).map_err(|e| format!("{}: {e}", f.src)).and_then(|_| {
             let h = hash::sha256_file(&to)?;
-            if h == f.hash { Ok(()) } else { Err(format!("{}: changed since the plan", f.src)) }
+            if h == f.hash { Ok(()) } else { Err(tr!("{}: veranderd sinds het plan", "{}: changed since the plan", f.src)) }
         });
         match result {
             Ok(()) => f.state = FileState::Staged,
@@ -532,7 +532,7 @@ mod tests {
         fs::write(f.drop.join("Cam/100/IMG_2.JPG"), b"changed").unwrap();
         run(&mut j, &env(&f, true), &mut |_| {}, None).unwrap();
         assert_eq!(j.count(FileState::Failed), 1);
-        assert!(j.problems[0].contains("changed since the plan"));
+        assert!(j.problems[0].contains("veranderd sinds het plan"));
         assert!(f.drop.join("Cam/100/IMG_2.JPG").exists() && !f.share.join("2016/02/Cam").exists());
         // with a problem the job's record stays, to look at
         assert!(Job::dir(&f.library, &j.id).join(JOB_FILE).is_file());

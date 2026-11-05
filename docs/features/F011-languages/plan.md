@@ -76,7 +76,7 @@ names and list names stay as they are.
 |---|---|---|---|
 | [S01](stories/S01-the-mechanism.md) | The mechanism: catalogs for English and Dutch, the language choice (system, setting), dates and numbers; the first screens moved | Built, to try in the app | — |
 | [S02](stories/S02-all-frontend-texts.md) | All frontend texts moved to the catalogs | Built, to try in the app | S01 |
-| [S03](stories/S03-messages-from-rust.md) | Messages from the Rust core: both languages in Rust with `tr!` | In progress | S01 |
+| [S03](stories/S03-messages-from-rust.md) | Messages from the Rust core: both languages in Rust with `tr!` | Built, to try in the app | S01 |
 | S04 | The bundle's languages, the docs and the conventions | Planned | S02, S03 |
 
 ## Decisions

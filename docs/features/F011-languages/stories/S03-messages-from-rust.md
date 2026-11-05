@@ -1,7 +1,7 @@
 # Story S03: Messages from the Rust core
 
 **Feature:** `F011-languages`
-**Status:** In progress
+**Status:** Built: to try in the app
 **Depends on:** S01
 
 ## The question
@@ -35,3 +35,17 @@ would live in two places, but each message in one.
 Peter: the macro in Rust. `src-tauri/src/i18n.rs`: `tr!(nl, en, args…)` (both literals, as
 `format!`), `set_language` (a command the window calls whenever its language changes),
 `in_english` for tests (per thread). Dutch until the window says otherwise.
+
+### [2026-11-05] Built
+
+- About 185 messages in 28 modules through `tr!`, done by three helpers in their own worktrees and
+  taken over one after the other; the Dutch is unchanged, so every existing test passes. Modules
+  that only wrap a path and an OS error (`"{}: {e}"`) and the data strings (device labels in
+  `devices.json`, stack colors, slugs) stay as they are.
+- The labels of the messages' sources (*synchronisatie* / *sync*, …) in both languages.
+- The export presets stay a `const` in Dutch; `label` and `what` are serialized through an English
+  table (`export::ENGLISH`), with a test that every preset has its entry.
+- `pull::gb` writes `29.1` in English; the window recognizes a refused update and a lack of space
+  in both languages (`update.ts`, `sync.ts`).
+- The window's own lines in *Meldingen* (`browse.log`) in both languages.
+- `cargo test` 232 (`tr!` and four messages in English), `pnpm test` 174, clippy, `tsc` clean.

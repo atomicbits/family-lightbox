@@ -167,7 +167,8 @@ fn statvfs_free(_: &Path) -> Option<u64> {
 /// "29,1" or "20" (a whole number without ",0").
 fn gb(bytes: u64) -> String {
     let s = format!("{:.1}", bytes as f64 / 1e9);
-    s.strip_suffix(".0").unwrap_or(&s).replace('.', ",")
+    let s = s.strip_suffix(".0").unwrap_or(&s);
+    if crate::i18n::english() { s.to_string() } else { s.replace('.', ",") }
 }
 
 /// Fits when `copy_bytes + 20 GB <= free`; otherwise the three numbers and the shortfall.
@@ -362,6 +363,7 @@ mod tests {
         assert!(space_check(1_000, Some(RESERVE + 999)).is_err());
         let msg = space_check(29_100_000_000, Some(35_200_000_000)).unwrap_err();
         assert_eq!(msg, "nodig 29,1 GB, vrij 35,2 GB, reserve 20 GB: 13,9 GB tekort");
+        assert_eq!(crate::i18n::in_english(|| gb(29_100_000_000)), "29.1");
         assert!(space_check(1, None).unwrap_err().contains("niet te bepalen"));
     }
 

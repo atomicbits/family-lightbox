@@ -49,8 +49,8 @@ settings.
 
 ### Languages (F011/S01) — not in 0.7.0: the next release, or `pnpm tauri dev`
 
-- [ ] *Instellingen → Algemeen → Taal*: *English* turns the whole window English at once (only
-      messages from the Rust core stay Dutch until S03); *Zoals de Mac* gives Dutch back; the
+- [ ] *Instellingen → Algemeen → Taal*: *English* turns the whole window English at once, messages
+      from the core included (S03); *Zoals de Mac* gives Dutch back; the
       choice stays after a restart.
 - [ ] Walk through in English: the grid and its menus, the Lightbox, lists (fetch, export,
       archive), import, every settings tab; note any text that reads oddly.
