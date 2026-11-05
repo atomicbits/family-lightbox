@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { count, gb } from "./sync";
+import { t } from "../i18n";
 
 export type FetchPlan = { files: { path: string; size: number; sidecar: boolean }[]; bytes: number; here: number; conflicts: string[]; unknown: string[]; fits: boolean | null };
 export type FetchProgress = { done: number; total: number; bytes_done: number; bytes_total: number };
@@ -15,25 +16,26 @@ export const BIG_FETCH = 5e9;
 /** "40 originelen ophalen (1,2 GB) · 3 staan er al", or why not. */
 export function fetchPlanText(p: FetchPlan): string {
   const originals = p.files.filter((f) => !f.sidecar).length;
+  const f = t().lists.fetch;
   const parts = [
-    originals ? `${count(originals)} ${originals === 1 ? "origineel" : "originelen"} ophalen (${gb(p.bytes)} GB)` : "niets op te halen",
-    p.here ? `${count(p.here)} ${p.here === 1 ? "staat" : "staan"} er al` : null,
-    p.conflicts.length ? `${count(p.conflicts.length)} met een andere grootte hier, die blijven zoals ze zijn` : null,
-    p.unknown.length ? `${count(p.unknown.length)} niet in een manifest` : null,
+    originals ? f.plan(f.originals(originals), gb(p.bytes)) : f.nothing,
+    p.here ? f.here(p.here) : null,
+    p.conflicts.length ? f.conflicts(p.conflicts.length) : null,
+    p.unknown.length ? f.unknown(p.unknown.length) : null,
   ];
   return parts.filter(Boolean).join(" · ");
 }
 
 /** The footer's text while fetching: "originelen ophalen 12/40". */
 export function fetchingText(p: FetchProgress): string {
-  return `originelen ophalen ${count(p.done)}/${count(p.total)}`;
+  return t().lists.fetch.fetching(count(p.done), count(p.total));
 }
 
 /** After a fetch: "40 originelen opgehaald", with what went wrong. */
 export function fetchDoneText(d: FetchDone): string {
-  if (d.error) return `originelen ophalen gestopt: ${d.error}`;
-  const n = `${count(d.fetched)} ${d.fetched === 1 ? "origineel" : "originelen"} opgehaald`;
-  return d.problems.length ? `${n} · ${count(d.problems.length)} niet (zie de meldingen)` : n;
+  if (d.error) return t().lists.fetch.stopped(d.error);
+  const n = t().lists.fetch.fetched(t().lists.fetch.originals(d.fetched));
+  return d.problems.length ? `${n} · ${t().lists.notDone(d.problems.length)}` : n;
 }
 
 export type Fetcher = {

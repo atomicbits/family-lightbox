@@ -8,6 +8,7 @@ import VideoIcon from "./VideoIcon";
 import LiveIcon from "./LiveIcon";
 import { liveTitle } from "../lib/live";
 import { allVariants, chosenVariant, variantLabel } from "../lib/variants";
+import { t } from "../i18n";
 
 type Props = {
   /** Fetch this original from the NAS (F009/S03). */
@@ -80,7 +81,7 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center text-neutral-400">
-            geen preview voor {fileName(item.path)}
+            {t().browse.lightbox.noPreview(fileName(item.path))}
           </div>
         )}
       </div>
@@ -95,22 +96,22 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
         <span className="text-neutral-400">{takenLabel(item.taken)}</span>
         {item.source && <span className="text-neutral-400">{item.source}</span>}
         {item.kind === "video" && (
-          <span className="flex items-center gap-1 text-neutral-400" title={liveTitle(item) ?? "video"}>
-            {item.live ? <><LiveIcon size={14} /> Live Photo</> : <><VideoIcon size={14} /> video</>}
+          <span className="flex items-center gap-1 text-neutral-400" title={liveTitle(item) ?? t().browse.video}>
+            {item.live ? <><LiveIcon size={14} /> {t().browse.live.label}</> : <><VideoIcon size={14} /> {t().browse.video}</>}
           </span>
         )}
         {!item.local && (
-          <span className="rounded bg-white/15 text-neutral-300 text-xs px-1.5 py-0.5" title="het origineel staat alleen op de NAS">
+          <span className="rounded bg-white/15 text-neutral-300 text-xs px-1.5 py-0.5" title={t().browse.lightbox.nasOnly}>
             NAS
           </span>
         )}
         {(item.variants?.length ?? 0) > 0 && (
-          <span className="flex items-center gap-1" title="versies uit Lightroom">
+          <span className="flex items-center gap-1" title={t().browse.lightbox.versions}>
             {allVariants(item.variants).map((v) => (
               <button
                 key={v}
                 className={"px-2 py-0.5 rounded text-xs " + (v === shown ? "bg-white/25" : "bg-white/5 hover:bg-white/15") + (v === chosen ? " ring-1 ring-white/50" : "")}
-                title={v === chosen ? "deze versie toont FamilyLightbox en gaat mee in een export" : "bekijken"}
+                title={v === chosen ? t().browse.lightbox.chosen : t().browse.lightbox.look}
                 onClick={() => setLooking(v)}
               >
                 {variantLabel(v)}
@@ -118,41 +119,41 @@ export default function Lightbox({ item, index, count, canPrev, canNext, onClose
             ))}
             {shown !== chosen && onChooseVariant && (
               <button className="px-2 py-0.5 rounded text-xs bg-blue-600 hover:bg-blue-500" onClick={() => onChooseVariant(shown)}>
-                Deze versie tonen
+                {t().browse.lightbox.showVersion}
               </button>
             )}
           </span>
         )}
         <span className="flex-1" />
         {message && <span className="text-amber-300">{message}</span>}
-        <span title={rating ? `${rating.stars} ${rating.stars === 1 ? "ster" : "sterren"} van ${rating.by}` : undefined}>{bar}</span>
+        <span title={rating ? t().browse.lightbox.rated(rating.stars, rating.by) : undefined}>{bar}</span>
         {heart && (
-          <span title={`hartje van ${heart.who.join(", ")}`}>
+          <span title={t().browse.lightbox.hearts(heart.who)}>
             <span className={heart.mine ? "text-red-500" : "text-white"}>♥</span>
             <span className="text-neutral-400"> {heart.who.join(", ")}</span>
           </span>
         )}
         {member && <span className="text-neutral-400">{addedText(member)}</span>}
         {!item.local && onFetch && (
-          <button className="px-2 py-1 rounded bg-white/10 hover:bg-white/20" title="het origineel van de NAS naar deze Mac halen" onClick={() => onFetch(item.path)}>
-            Origineel ophalen
+          <button className="px-2 py-1 rounded bg-white/10 hover:bg-white/20" title={t().browse.lightbox.fetchTitle} onClick={() => onFetch(item.path)}>
+            {t().browse.lightbox.fetch}
           </button>
         )}
         <button
           className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
           disabled={!item.local}
-          title={item.local ? "toon het origineel in de Finder" : "origineel alleen op de NAS"}
+          title={item.local ? t().browse.lightbox.revealTitle : t().browse.lightbox.originalNasOnly}
           onClick={() => run(() => api.reveal(item.path))}
         >
-          Toon in Finder
+          {t().browse.lightbox.reveal}
         </button>
         <button
           className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-40"
           disabled={!item.local}
-          title={item.local ? "open het origineel met het standaardprogramma" : "origineel alleen op de NAS"}
+          title={item.local ? t().browse.lightbox.openTitle : t().browse.lightbox.originalNasOnly}
           onClick={() => run(() => api.openOriginal(item.path))}
         >
-          Open origineel
+          {t().browse.lightbox.open}
         </button>
         <button className="px-2 py-1 rounded hover:bg-white/10" onClick={onClose} title="Esc">✕</button>
       </div>

@@ -2,6 +2,7 @@
 // filter the index with, and the same test for a list's photos in the frontend.
 import type { Item } from "./api";
 import type { MarksState } from "./marks";
+import { t } from "../i18n";
 
 export type StarsOp = "gte" | "eq" | "lte" | "none";
 export type Kind = "photo" | "video" | "live";
@@ -87,23 +88,23 @@ export function matches(item: Pick<Item, "hash" | "kind" | "live" | "camera"> & 
 }
 
 /** A camera's name in the menu; "" is unknown (S04). */
-export const cameraLabel = (c: string): string => c || "onbekend";
+export const cameraLabel = (c: string): string => c || t().lists.filter.unknown;
 
 /** The camera button: "Camera", the camera for one, "3 camera's" for more. */
 export function cameraButton(cameras: string[]): string {
-  if (cameras.length === 0) return "Camera";
-  if (cameras.length === 1) return cameras[0] || "camera onbekend";
-  return `${cameras.length} camera's`;
+  if (cameras.length === 0) return t().lists.filter.camera;
+  if (cameras.length === 1) return cameras[0] || t().lists.filter.cameraUnknown;
+  return t().lists.filter.cameras(cameras.length);
 }
 
 /** A source's name in the menu; "" is the files without one (S05). */
-export const sourceLabel = (s: string): string => s || "zonder bron";
+export const sourceLabel = (s: string): string => s || t().lists.filter.noSource;
 
 /** The source button: "Bron", the source for one, "3 bronnen" for more. */
 export function sourceButton(sources: string[]): string {
-  if (sources.length === 0) return "Bron";
+  if (sources.length === 0) return t().lists.filter.source;
   if (sources.length === 1) return sourceLabel(sources[0]);
-  return `${sources.length} bronnen`;
+  return t().lists.filter.sources(sources.length);
 }
 
 /** A camera or a source in its menu: name ("" unknown or none), photos and videos, latest `taken`
@@ -123,7 +124,7 @@ export function sortCameras(cameras: CameraCount[], order: CameraOrder): CameraC
 /** "okt 2026" for when a camera was last used; "" when unknown. */
 export function lastUsedLabel(last: string | null): string {
   const d = last ? new Date(last) : null;
-  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("nl-BE", { month: "short", year: "numeric" }) : "";
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString(t().lists.locale, { month: "short", year: "numeric" }) : "";
 }
 
 /** Ticks or unticks one camera or source; null is "Alle …", which clears the choice. */
@@ -133,15 +134,15 @@ export function toggleCamera(cameras: string[], c: string | null): string[] {
 }
 
 const OP: Record<StarsOp, string> = { gte: "≥", eq: "=", lte: "≤", none: "" };
-const KIND: Record<Kind, string> = { photo: "foto", video: "video", live: "Live Photo" };
 
 /** "★ ≥ 4 · ♥ lynn · foto, Live Photo", for the bar's tooltip and the toolbar. */
 export function filterText(f: FilterState): string {
+  const w = t().lists.filter;
   const parts: string[] = [];
-  if (f.stars) parts.push(f.stars.op === "none" ? "zonder sterren" : `★ ${OP[f.stars.op]} ${f.stars.n}`);
-  if (f.hearts) parts.push(f.hearts.anyone ? "♥ iemand" : `♥ ${f.hearts.people.join(", ")}`);
-  if (f.kinds.length) parts.push(f.kinds.map((k) => KIND[k]).join(", "));
-  if (f.cameras.length) parts.push(f.cameras.length === 1 ? f.cameras[0] || "camera onbekend" : `${f.cameras.length} camera's`);
+  if (f.stars) parts.push(f.stars.op === "none" ? w.noStars : `★ ${OP[f.stars.op]} ${f.stars.n}`);
+  if (f.hearts) parts.push(f.hearts.anyone ? w.heartAnyone : `♥ ${f.hearts.people.join(", ")}`);
+  if (f.kinds.length) parts.push(f.kinds.map((k) => w.kinds[k]).join(", "));
+  if (f.cameras.length) parts.push(f.cameras.length === 1 ? f.cameras[0] || w.cameraUnknown : w.cameras(f.cameras.length));
   if (f.sources.length) parts.push(sourceButton(f.sources));
   return parts.join(" · ");
 }
@@ -160,8 +161,9 @@ export function readFilter(v: unknown): FilterState {
 
 /** Why the grid is empty: still loading at start, nothing that passes the filter, an empty list. */
 export function gridEmptyText(loaded: boolean, filterOn: boolean, inList: boolean): string {
-  if (!loaded) return "foto's laden…";
-  if (filterOn) return "geen foto's die bij de filter passen";
-  if (inList) return "deze lijst is nog leeg";
-  return "niets om te tonen";
+  const w = t().lists.filter;
+  if (!loaded) return w.loading;
+  if (filterOn) return w.noMatch;
+  if (inList) return w.listEmpty;
+  return w.nothing;
 }

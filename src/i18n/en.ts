@@ -1,6 +1,11 @@
 // English, the reference catalog (F011): `nl.ts` has this type, so a text missing there fails
 // `tsc`. A text with numbers or names in it is a function.
 
+import { browse } from "./parts/browse.en";
+import { imports } from "./parts/imports.en";
+import { lists } from "./parts/lists.en";
+import { settings } from "./parts/settings.en";
+
 const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
 export const en = {
@@ -30,6 +35,11 @@ export const en = {
       return `${parts.join(" and ")}, and writes familylightbox.json next to them. Nothing is overwritten.`;
     },
   },
+
+  browse,
+  settings,
+  imports,
+  lists,
 
   welcome: {
     title: "Welcome to FamilyLightbox",

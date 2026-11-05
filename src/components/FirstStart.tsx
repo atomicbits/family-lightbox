@@ -1,4 +1,5 @@
 import type { Step } from "../lib/firststart";
+import { t } from "../i18n";
 
 const MARK: Record<Step["state"], { sign: string; tone: string }> = {
   done: { sign: "✓", tone: "text-green-600" },
@@ -13,8 +14,8 @@ export default function FirstStart({ steps }: { steps: Step[] }) {
   return (
     <div className="w-[26rem] max-w-full text-left space-y-3">
       <div>
-        <div className="font-medium text-neutral-700 dark:text-neutral-200">De bibliotheek van de NAS ophalen</div>
-        <div className="text-xs text-neutral-500">De eerste keer duurt dit even; de foto's verschijnen zodra de index klaar is.</div>
+        <div className="font-medium text-neutral-700 dark:text-neutral-200">{t().settings.firstStart.title}</div>
+        <div className="text-xs text-neutral-500">{t().settings.firstStart.hint}</div>
       </div>
       <ol className="space-y-2">
         {steps.map((s) => (

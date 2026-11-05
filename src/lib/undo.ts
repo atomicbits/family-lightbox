@@ -4,6 +4,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { ListDone, PhotoRef } from "./lists";
 import type { MarksState } from "./marks";
+import { t } from "../i18n";
 
 export type Step =
   | { kind: "stars"; text: string; after: number; before: Record<string, number> }
@@ -74,19 +75,12 @@ export function undoStack(step: Extract<Step, { kind: "stack" }>, s: MarksState)
 
 /** "reeks van 40 foto's gemaakt", "5 foto's aan de reeks toegevoegd", "1 foto uit de reeks gehaald". */
 export function stackText(kind: "make" | "add" | "out" | "dissolve", n: number): string {
-  const photos = n === 1 ? "1 foto" : `${n} foto's`;
-  switch (kind) {
-    case "make": return `reeks van ${photos} gemaakt`;
-    case "add": return `${photos} aan de reeks toegevoegd`;
-    case "out": return `${photos} uit de reeks gehaald`;
-    case "dissolve": return `reeks van ${photos} opgeheven`;
-  }
+  return t().browse.undo.stack(kind, n);
 }
 
 /** "20 foto's verborgen", "1 foto niet meer verborgen". */
 export function hideText(n: number, hidden: boolean): string {
-  const photos = n === 1 ? "1 foto" : `${n} foto's`;
-  return hidden ? `${photos} verborgen` : `${photos} niet meer verborgen`;
+  return t().browse.undo.hide(n, hidden);
 }
 
 /** The photos to take out again after an add, or put back after a remove: those still as left. */
@@ -98,14 +92,12 @@ export function undoList(done: ListDone, inList: (photo: string) => boolean): { 
 /** "1 foto intussen door lynn gewijzigd, niet teruggezet", or "". */
 export function skippedText(skipped: number, by: string[]): string {
   if (skipped === 0) return "";
-  const photos = skipped === 1 ? "1 foto" : `${skipped} foto's`;
-  return `${photos} intussen ${by.length ? `door ${by.join(" en ")} ` : ""}gewijzigd, niet teruggezet`;
+  return t().browse.undo.skipped(skipped, by);
 }
 
 /** "3 foto's toegevoegd aan Ski", "1 foto uit Ski gehaald". */
 export function listText(d: ListDone): string {
-  const photos = d.photos.length === 1 ? "1 foto" : `${d.photos.length} foto's`;
-  return d.op === "add" ? `${photos} toegevoegd aan ${d.name}` : `${photos} uit ${d.name} gehaald`;
+  return t().browse.undo.list(d.photos.length, d.name, d.op === "add");
 }
 
 export type Undo = {

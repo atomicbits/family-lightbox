@@ -75,8 +75,8 @@ names and list names stay as they are.
 | ID | Title | Status | Depends on |
 |---|---|---|---|
 | [S01](stories/S01-the-mechanism.md) | The mechanism: catalogs for English and Dutch, the language choice (system, setting), dates and numbers; the first screens moved | Built, to try in the app | — |
-| S02 | All frontend texts moved to the catalogs | Planned | S01 |
-| S03 | Messages from the Rust core: codes with parameters, translated in the UI | Planned | S01 |
+| [S02](stories/S02-all-frontend-texts.md) | All frontend texts moved to the catalogs | Built, to try in the app | S01 |
+| [S03](stories/S03-messages-from-rust.md) | Messages from the Rust core: codes with parameters, translated in the UI | Planned: decision 2 to revisit | S01 |
 | S04 | The bundle's languages, the docs and the conventions | Planned | S02, S03 |
 
 ## Decisions

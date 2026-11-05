@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Item } from "./api";
+import { t } from "../i18n";
 
 export type ListInfo = {
   id: string;
@@ -34,10 +35,10 @@ export const WATCH_MS = 15_000;
 
 /** Why the lists can't be changed now, or null. */
 export function changeBlocked(s: ListsState | null): string | null {
-  if (!s) return "lijsten laden…";
+  if (!s) return t().lists.loading;
   if (s.problem) return s.problem;
   // without the NAS a change waits on this Mac (F020); without even a local copy there is nothing
-  if (s.source === "none") return "nog geen lijsten op deze Mac: verbind eerst één keer met de NAS";
+  if (s.source === "none") return t().lists.noneHere;
   return null;
 }
 
@@ -66,8 +67,8 @@ export function addedText(m: Member): string {
   const d = new Date(m.added_at);
   const when = Number.isNaN(d.getTime())
     ? m.added_at
-    : d.toLocaleDateString("nl-BE", { day: "numeric", month: "short", year: "numeric" });
-  return `toegevoegd door ${m.added_by}, ${when}`;
+    : d.toLocaleDateString(t().lists.locale, { day: "numeric", month: "short", year: "numeric" });
+  return t().lists.added(m.added_by, when);
 }
 
 /** For several photos: add those not in the list, or remove all when all are in it already. */
@@ -79,7 +80,7 @@ export function manyChange(items: Item[], members: Map<string, Member>): { op: "
 
 /** "1 foto" or "12 foto's"; videos count as photos here. */
 export function photosText(n: number): string {
-  return n === 1 ? "1 foto" : `${n} foto's`;
+  return t().lists.photos(n);
 }
 
 export type Lists = {
@@ -214,7 +215,7 @@ export function useLists(): Lists {
     const inList = await membersOf(id);
     const unique = [...new Map(photos.map((p) => [p.photo, p])).values()];
     const missing = unique.filter((p) => !inList.has(p.photo));
-    if (missing.length === 0) { say(`${photosText(unique.length)} al in ${nameOf(id)}`, false); return null; }
+    if (missing.length === 0) { say(t().lists.alreadyIn(photosText(unique.length), nameOf(id)), false); return null; }
     if (!(await change("list_add", { id, photos: missing }))) return null;
     return { id, name: nameOf(id), op: "add", photos: missing };
   }, [blocked, membersOf, change, say, nameOf]);
@@ -224,7 +225,7 @@ export function useLists(): Lists {
     const inList = await membersOf(id);
     const there = [...new Map(photos.map((p) => [p.photo, { photo: p.photo, path: p.path ?? inList.get(p.photo)?.path ?? null }])).values()]
       .filter((p) => inList.has(p.photo));
-    if (there.length === 0) { say(`niet in ${nameOf(id)}`, false); return null; }
+    if (there.length === 0) { say(t().lists.notIn(nameOf(id)), false); return null; }
     if (!(await change("list_remove", { id, photos: there.map((p) => p.photo) }))) return null;
     return { id, name: nameOf(id), op: "remove", photos: there };
   }, [blocked, membersOf, change, say, nameOf]);

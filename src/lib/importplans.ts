@@ -6,6 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 import type { PlanProgress, SourcePlan } from "./importplan";
 import { importLine, type JobProgress } from "./importjob";
 import { fraction } from "./progress";
+import { t } from "../i18n";
 
 export type Plans = {
   plans: Record<string, SourcePlan>;
@@ -58,7 +59,7 @@ export function importActivity(
   if (paths.length === 0) return null;
   const p = busy[paths[0]];
   const more = paths.length > 1 ? ` (+${paths.length - 1})` : "";
-  if (p === true) return { text: `plan ${base(paths[0])}: bestanden zoeken…${more}`, done: null };
+  if (p === true) return { text: t().imports.activity.finding(base(paths[0]), more), done: null };
   const done = fraction(p.bytes_done, p.bytes_total);
-  return { text: `plan ${base(paths[0])}: ${Math.floor((done ?? 0) * 100)}%${more}`, done };
+  return { text: t().imports.activity.percent(base(paths[0]), Math.floor((done ?? 0) * 100), more), done };
 }

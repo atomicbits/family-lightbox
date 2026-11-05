@@ -1,5 +1,6 @@
 // Brug naar de Rust-kern. Alles wat hier binnenkomt volgt het datacontract (sectie 3, 4 en 7).
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { t } from "../i18n";
 
 export type MonthSummary = {
   month: string; // "2026/07", of een mapnaam zonder maand ("2012/scans Peter")
@@ -151,16 +152,16 @@ export type NasCheck = Record<keyof Shares, Access> & { registration: Registrati
 export function accessLabel(a: Access): string | null {
   if (!a.mounted) return null;
   if (a.problem) return a.problem;
-  return a.writable ? "leesbaar en schrijfbaar" : "leesbaar";
+  return a.writable ? t().settings.access.readWrite : t().settings.access.readable;
 }
 
 export function registrationLabel(r: Registration): string {
   switch (r.kind) {
-    case "registered": return "nu geregistreerd op de NAS";
-    case "already_registered": return "geregistreerd op de NAS";
-    case "refused": return `niet geregistreerd: ${r.message}`;
-    case "failed": return `registreren mislukt: ${r.message}`;
-    case "not_tried": return `nog niet geregistreerd: ${r.message}`;
+    case "registered": return t().settings.registration.registered;
+    case "already_registered": return t().settings.registration.already;
+    case "refused": return t().settings.registration.refused(r.message ?? "");
+    case "failed": return t().settings.registration.failed(r.message ?? "");
+    case "not_tried": return t().settings.registration.notTried(r.message ?? "");
   }
 }
 

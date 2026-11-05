@@ -1,15 +1,15 @@
 import type { Settings } from "./api";
+import { t } from "../i18n";
 
 /** The settings' tabs (F021/S01), in the order of the tab bar. */
-export const TABS = [
-  { id: "general", label: "Algemeen" },
-  { id: "nas", label: "NAS" },
-  { id: "import", label: "Importeren" },
-  { id: "library", label: "Index en previews" },
-  { id: "sources", label: "Bronnen" },
-] as const;
+export const TAB_IDS = ["general", "nas", "import", "library", "sources"] as const;
 
-export type TabId = (typeof TABS)[number]["id"];
+export type TabId = (typeof TAB_IDS)[number];
+
+/** The tabs with their labels in the language in use. */
+export function tabs(): { id: TabId; label: string }[] {
+  return TAB_IDS.map((id) => ({ id, label: t().settings.tabs[id] }));
+}
 
 const TAB_KEY = "settings-tab";
 
@@ -24,7 +24,7 @@ export function changedTabs(draft: Settings, saved: Settings): Set<TabId> {
 }
 
 export function readTab(v: unknown): TabId {
-  return TABS.find((t) => t.id === v)?.id ?? "general";
+  return TAB_IDS.find((id) => id === v) ?? "general";
 }
 
 /** The tab last open on this Mac; storage may be missing or blocked. */

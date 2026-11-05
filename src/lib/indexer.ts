@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Item } from "./api";
-import { count } from "./sync";
+import { decimal, t } from "../i18n";
 import type { Sel, Section } from "./timeline";
 
 export type BuildOutcome = {
@@ -34,21 +34,19 @@ export type IndexLine = { text: string; tone: "muted" | "amber"; title?: string 
 /** The header line: only while a build someone waits for runs, or when something is wrong. */
 export function indexLine(s: IndexState | null, waiting: boolean): IndexLine | null {
   if (!s) return null;
-  if (s.running && waiting) return { text: "index bijwerken…", tone: "muted" };
-  if (s.error) return { text: `index: ${s.error}`, tone: "amber" };
+  if (s.running && waiting) return { text: t().settings.indexer.updating, tone: "muted" };
+  if (s.error) return { text: t().settings.indexer.error(s.error), tone: "amber" };
   const broken = s.outcome?.broken ?? [];
   if (broken.length > 0) {
     const folders = broken.map((b) => b.split(": ")[0]).join(", ");
-    const what = broken.length === 1 ? "manifest onleesbaar" : "manifesten onleesbaar";
-    return { text: `index: ${broken.length} ${what}: ${folders}`, tone: "amber", title: broken.join("\n") };
+    return { text: t().settings.indexer.broken(broken.length, folders), tone: "amber", title: broken.join("\n") };
   }
   return null;
 }
 
 /** "124 837 items uit 364 manifesten · 1,3 s" for the settings panel. */
 export function outcomeText(o: BuildOutcome): string {
-  const secs = (o.millis / 1000).toFixed(1).replace(".", ",");
-  return `${count(o.items)} items uit ${count(o.manifests)} manifesten · ${secs} s`;
+  return t().settings.indexer.outcome(o.items, o.manifests, decimal(o.millis / 1000));
 }
 
 /** What was selected before a reload: its month, its position and, when known, its path. */

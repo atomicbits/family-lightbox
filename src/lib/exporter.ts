@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { count } from "./sync";
+import { t } from "../i18n";
 
 export type Preset = { id: string; label: string; what: string; long: number | null; quality: number; dpi: number | null; originals: boolean };
 /** An own setting (F024/S03): the long side, the quality 1–100, the DPI or none. */
@@ -11,15 +12,15 @@ export type Custom = { long: number; quality: number; dpi: number | null };
 
 /** Why an own setting can't be used, or null; the same bounds as the core. */
 export function customProblem(c: Custom): string | null {
-  if (!Number.isInteger(c.long) || c.long < 100 || c.long > 20000) return "de lange zijde: tussen 100 en 20 000 pixels";
-  if (!Number.isInteger(c.quality) || c.quality < 1 || c.quality > 100) return "de kwaliteit: tussen 1 en 100";
-  if (c.dpi !== null && (!Number.isInteger(c.dpi) || c.dpi < 72 || c.dpi > 1200)) return "de dpi: tussen 72 en 1 200";
+  if (!Number.isInteger(c.long) || c.long < 100 || c.long > 20000) return t().lists.export.longProblem;
+  if (!Number.isInteger(c.quality) || c.quality < 1 || c.quality > 100) return t().lists.export.qualityProblem;
+  if (c.dpi !== null && (!Number.isInteger(c.dpi) || c.dpi < 72 || c.dpi > 1200)) return t().lists.export.dpiProblem;
   return null;
 }
 
 /** "3 000 px, kwaliteit 90, 300 dpi". */
 export function customText(c: Custom): string {
-  return `${count(c.long)} px, kwaliteit ${c.quality}${c.dpi ? `, ${c.dpi} dpi` : ""}`;
+  return t().lists.export.custom(count(c.long), c.quality, c.dpi);
 }
 
 export type ExportPlan = { photos: number; videos: number; files: number; dest: string | null };
@@ -28,15 +29,14 @@ export type ExportDone = { files: number; dest: string; problems: string[]; erro
 
 /** "Fotoboek A4 · 3 508 px" for a preset's choice. */
 export function presetText(p: Preset): string {
-  if (p.originals) return `${p.label} · ongewijzigd`;
-  return `${p.label} · ${p.long ? `${count(p.long)} px` : "volle grootte"}`;
+  if (p.originals) return t().lists.export.unchanged(p.label);
+  return `${p.label} · ${p.long ? `${count(p.long)} px` : t().lists.export.fullSize}`;
 }
 
 /** "602 foto's als JPEG, 33 video's ongewijzigd". */
 export function exportPlanText(p: ExportPlan, preset: Preset): string {
-  const photos = `${count(p.photos)} ${p.photos === 1 ? "foto" : "foto's"}`;
-  const videos = p.videos ? `, ${count(p.videos)} ${p.videos === 1 ? "video" : "video's"} ongewijzigd` : "";
-  return preset.originals ? `${count(p.files)} bestanden: de originelen met hun sidecars` : `${photos} als JPEG${videos}`;
+  const e = t().lists.export;
+  return preset.originals ? e.originals(p.files) : e.asJpeg(e.photos(p.photos), p.videos ? e.videos(p.videos) : "");
 }
 
 /** The last two parts of a folder, for the dialog: "2026/2026-11-aosta-fotoboek-a4". */
@@ -45,9 +45,9 @@ export function shortFolder(path: string): string {
 }
 
 export function exportDoneText(d: ExportDone): string {
-  if (d.error) return `exporteren gestopt: ${d.error}`;
-  const n = `${count(d.files)} bestanden geëxporteerd naar ${shortFolder(d.dest)}`;
-  return d.problems.length ? `${n} · ${count(d.problems.length)} niet (zie de meldingen)` : n;
+  if (d.error) return t().lists.export.stopped(d.error);
+  const n = t().lists.export.done(d.files, shortFolder(d.dest));
+  return d.problems.length ? `${n} · ${t().lists.notDone(d.problems.length)}` : n;
 }
 
 export type Exporter = {

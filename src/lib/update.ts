@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
+import { t } from "../i18n";
+import { settings as nl } from "../i18n/parts/settings.nl";
 
 export type Offer = { version: string; notes: string };
 export type Progress = { done: number; total: number | null };
@@ -33,7 +35,8 @@ export const initial: UpdateState = {
   checking: false,
 };
 
-export const UP_TO_DATE = "Je hebt de nieuwste versie";
+/** The Dutch text, for the tests, which run in Dutch; the app uses the catalog. */
+export const UP_TO_DATE = nl.update.upToDate;
 
 export type UpdateLine = {
   text: string;
@@ -42,21 +45,22 @@ export type UpdateLine = {
 };
 
 function percent(p: Progress): string {
-  return p.total ? ` ${Math.min(100, Math.floor((p.done / p.total) * 100))} %` : "";
+  return p.total ? t().settings.update.percent(Math.min(100, Math.floor((p.done / p.total) * 100))) : "";
 }
 
 /** The header: nothing until there is a newer version, an install running, or an install failed. */
 export function updateLine(s: UpdateState, syncing: boolean): UpdateLine | null {
-  if (s.installing) return { text: `Bijwerken…${s.progress ? percent(s.progress) : ""}`, button: null, tone: "muted" };
+  const u = t().settings.update;
+  if (s.installing) return { text: u.installing(s.progress ? percent(s.progress) : ""), button: null, tone: "muted" };
   if (!s.offer) return s.installError ? { text: s.installError, button: null, tone: "red" } : null;
   // a failed download keeps the offer, so the button stays for another try
   return {
     // a grey button says why in words, not only in its tooltip
-    text: s.installError ?? `Versie ${s.offer.version} beschikbaar${syncing ? ", na de synchronisatie" : ""}`,
+    text: s.installError ?? u.available(s.offer.version, syncing),
     button: {
-      label: "Bijwerken",
+      label: u.button,
       disabled: syncing,
-      title: syncing ? "na de synchronisatie" : `FamilyLightbox ${s.offer.version} installeren en herstarten`,
+      title: syncing ? u.afterSync : u.installTitle(s.offer.version),
     },
     tone: s.installError ? "red" : "amber",
   };
@@ -64,7 +68,7 @@ export function updateLine(s: UpdateState, syncing: boolean): UpdateLine | null 
 
 /** What a check by hand reports. */
 export function checkedText(offer: Offer | null): string {
-  return offer ? `Versie ${offer.version} is beschikbaar` : UP_TO_DATE;
+  return offer ? t().settings.update.isAvailable(offer.version) : t().settings.update.upToDate;
 }
 
 export type Update = {

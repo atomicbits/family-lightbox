@@ -1,12 +1,14 @@
 // The import's sources in the settings (F018/S03): texts and small edits of the settings.
 import type { Import, Layout, SourceSettings } from "./api";
+import { t } from "../i18n";
 
 export const NO_IMPORT: Import = { drop_folders: [], synced: [], sources: {} };
 const NO_SOURCE: SourceSettings = { name: "", exclude: [], ignore: false, delete_imported: false, day: null };
 
 /** "met dagmap", "foto's en video's apart, met dagmap", "zonder dagmap". */
 export function layoutText(l: Layout): string {
-  const parts = [l.split ? "foto's en video's apart" : null, l.day ? "met dagmap" : "zonder dagmap"].filter(Boolean);
+  const tx = t().imports.sources;
+  const parts = [l.split ? tx.split : null, l.day ? tx.withDay : tx.withoutDay].filter(Boolean);
   return parts.join(", ");
 }
 
@@ -31,12 +33,11 @@ export function patterns(text: string): string[] {
 
 /** Under a synced folder's sources in the settings: what a source is and where its files go. */
 export function syncedHint(photos: string, videos: string): string {
-  const at = (src: string) => `<jaar>/<maand>/${src.trim()}/`;
-  const what = "Een bron is de map in de bibliotheek waarin de bestanden uit deze map komen, per maand";
-  if (!photos.trim() && !videos.trim()) return `${what}, bv. ${at("iPhone-photos")}. Foto's en video's mogen dezelfde bron hebben.`;
-  if (!photos.trim() || !videos.trim()) return `${what}. Geef ook de bron voor de ${photos.trim() ? "video's" : "foto's"}; dat mag dezelfde zijn.`;
-  if (photos.trim() === videos.trim()) return `Foto's en video's komen samen in ${at(photos)}.`;
-  return `Foto's komen in ${at(photos)}, video's in ${at(videos)}.`;
+  const tx = t().imports.sources;
+  if (!photos.trim() && !videos.trim()) return tx.hintExample("iPhone-photos");
+  if (!photos.trim() || !videos.trim()) return tx.hintMissing(!!photos.trim());
+  if (photos.trim() === videos.trim()) return tx.hintSame(photos.trim());
+  return tx.hintApart(photos.trim(), videos.trim());
 }
 
 /** The day-folder choice of a source's settings, for its menu: "last", "day" or "flat". */

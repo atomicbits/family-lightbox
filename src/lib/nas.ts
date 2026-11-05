@@ -2,6 +2,7 @@
 // both read it from useNas(), so neither calls the commands on its own.
 import { useCallback, useRef, useState } from "react";
 import { anyMissing, nas, type Attempt, type LayoutSource, type Location, type NasCheck, type NasMounts, type Shares } from "./api";
+import { t } from "../i18n";
 
 export type NasSummary = {
   state: "busy" | "connected" | "partial" | "disconnected" | "unreachable";
@@ -19,17 +20,17 @@ export function nasSummary(
   attempts: Attempt[],
   busy: boolean,
 ): NasSummary {
-  if (busy || mounts === null) return { state: "busy", label: "bezig…", tone: "grey", action: null };
-  if (mounts.host === "") return { state: "disconnected", label: "niet ingesteld", tone: "grey", action: null };
+  if (busy || mounts === null) return { state: "busy", label: t().settings.nas.busy, tone: "grey", action: null };
+  if (mounts.host === "") return { state: "disconnected", label: t().settings.nas.notSetUp, tone: "grey", action: null };
   if (attempts.some((a) => a.outcome.kind === "unreachable"))
-    return { state: "unreachable", label: "NAS niet bereikbaar", tone: "grey", action: "retry" };
+    return { state: "unreachable", label: t().settings.nas.unreachable, tone: "grey", action: "retry" };
   const mounted = KEYS.filter((k) => mounts[k].some((m) => m.chosen)).length;
-  if (mounted === 0) return { state: "disconnected", label: "niet verbonden", tone: "grey", action: "connect" };
+  if (mounted === 0) return { state: "disconnected", label: t().settings.nas.notConnected, tone: "grey", action: "connect" };
   const problem = check !== null && KEYS.some((k) => check[k].mounted && check[k].problem !== null);
   const listsWritable = check === null || check.lists.writable !== false;
   if (mounted === KEYS.length && !problem && listsWritable)
-    return { state: "connected", label: "verbonden", tone: "green", action: null };
-  return { state: "partial", label: "deels verbonden", tone: "amber", action: "connect" };
+    return { state: "connected", label: t().settings.nas.connected, tone: "green", action: null };
+  return { state: "partial", label: t().settings.nas.partial, tone: "amber", action: "connect" };
 }
 
 export type Nas = {
@@ -121,10 +122,10 @@ export function useNas(): Nas {
 /** Where the layout in use came from, for the settings (F019/S03). */
 export function layoutSourceText(source: LayoutSource | null): string {
   switch (source) {
-    case "nas": return "uit familylightbox.json op de NAS";
-    case "copy": return "uit de kopie van familylightbox.json (de NAS is niet verbonden)";
-    case "settings": return "de gedeelde mappen van deze Mac: er staat geen familylightbox.json op de NAS";
-    default: return "nog niet gelezen";
+    case "nas": return t().settings.nas.layoutNas;
+    case "copy": return t().settings.nas.layoutCopy;
+    case "settings": return t().settings.nas.layoutSettings;
+    default: return t().settings.nas.layoutUnread;
   }
 }
 

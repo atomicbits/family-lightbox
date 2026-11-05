@@ -4,6 +4,7 @@ import { lastUsedLabel, sourceLabel, type CameraCount } from "../lib/filter";
 import { renameSummary, toggleSource, type RenamePlan } from "../lib/rename";
 import Progress from "./Progress";
 import { renamingText, type Renamer } from "../lib/renamer";
+import { count, t } from "../i18n";
 
 const button = "px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-xs disabled:opacity-40";
 const small = "px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent text-xs font-mono";
@@ -32,7 +33,7 @@ export default function SourcesTab({ renamer }: { renamer: Renamer }) {
     if (!d) return;
     setPlan(null);
     setSnapshot(false);
-    setMessage(d.error ? { text: `hernoemen naar ${d.to} gestopt: ${d.error}`, error: true } : { text: `hernoemd naar ${d.to}`, error: false });
+    setMessage(d.error ? { text: t().settings.sources.renameStopped(d.to, d.error), error: true } : { text: t().settings.sources.renamed(d.to), error: false });
     if (!d.error) setChosen([]);
     load();
   }, [renamer.last]);
@@ -50,61 +51,59 @@ export default function SourcesTab({ renamer }: { renamer: Renamer }) {
     renamer.start(from, target, snapshot, plan?.months.length ?? 0).catch((e) => setMessage({ text: String(e), error: true }));
   };
 
+  const x = t().settings.sources;
   return (
     <section className="space-y-3 text-xs">
-      <p className="text-neutral-500">
-        Een bron is de map onder de maand waarin bestanden binnenkwamen. Vink er één of meer aan om ze een nieuwe naam te geven of samen te voegen.
-        Alleen de naam van de map verandert; dagmappen blijven zoals ze zijn. Eerst zie je het plan, er verandert dan nog niets.
-      </p>
+      <p className="text-neutral-500">{x.intro}</p>
       {pending && (
         <div className="rounded border border-amber-300 dark:border-amber-800 p-2 flex items-center gap-2">
-          <span className="flex-1">Een hernoeming naar <span className="font-mono">{pending[1]}</span> werd onderbroken.</span>
-          <label className="flex items-center gap-1"><input type="checkbox" checked={snapshot} onChange={(e) => setSnapshot(e.target.checked)} />snapshot van vandaag</label>
-          <button className={button} disabled={!snapshot || !!running} onClick={() => start(pending[0], pending[1])}>Doorgaan</button>
+          <span className="flex-1">{x.interruptedBefore}<span className="font-mono">{pending[1]}</span>{x.interruptedAfter}</span>
+          <label className="flex items-center gap-1"><input type="checkbox" checked={snapshot} onChange={(e) => setSnapshot(e.target.checked)} />{x.snapshotToday}</label>
+          <button className={button} disabled={!snapshot || !!running} onClick={() => start(pending[0], pending[1])}>{x.continue}</button>
         </div>
       )}
       <div className="max-h-56 overflow-y-auto rounded border border-neutral-200 dark:border-neutral-800">
-        {sources === null && <div className="p-2 text-neutral-400">bronnen laden…</div>}
+        {sources === null && <div className="p-2 text-neutral-400">{x.loading}</div>}
         {sources?.map(([name, n, last]) => (
           <label key={name} className="flex items-center gap-2 px-2 py-0.5 hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
             <input type="checkbox" checked={chosen.includes(name)} onChange={() => { setChosen(toggleSource(chosen, name)); setPlan(null); }} />
             <span className="font-mono flex-1">{sourceLabel(name)}</span>
             <span className="text-neutral-400 tabular-nums">{lastUsedLabel(last)}</span>
-            <span className="text-neutral-400 tabular-nums w-16 text-right">{n.toLocaleString("nl-BE")}</span>
+            <span className="text-neutral-400 tabular-nums w-16 text-right">{count(n)}</span>
           </label>
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-neutral-500">{chosen.length ? `${chosen.join(" + ")} →` : "vink eerst een bron aan"}</span>
-        <input className={`${small} w-44`} value={to} placeholder="nieuwe naam" onChange={(e) => { setTo(e.target.value); setPlan(null); }} />
+        <span className="text-neutral-500">{chosen.length ? `${chosen.join(" + ")} →` : x.chooseFirst}</span>
+        <input className={`${small} w-44`} value={to} placeholder={x.newName} onChange={(e) => { setTo(e.target.value); setPlan(null); }} />
         <button className={button} disabled={!chosen.length || !to.trim() || planning || !!running} onClick={() => makePlan(chosen, to.trim())}>
-          {planning ? "Plan maken…" : "Plan maken"}
+          {planning ? x.planning : x.makePlan}
         </button>
       </div>
-      {planning && <Progress text="het plan lezen van de NAS…" />}
+      {planning && <Progress text={x.readingPlan} />}
       {plan && (
         <div className="rounded border border-neutral-200 dark:border-neutral-800 p-2 space-y-1">
           <div>{renameSummary(plan)}</div>
-          <div className="text-neutral-500">Een back-up die bestanden per pad bijhoudt, ziet de verplaatste bestanden als nieuw en kopieert ze opnieuw.</div>
+          <div className="text-neutral-500">{x.backupNote}</div>
           <ul className="max-h-40 overflow-y-auto text-neutral-500 font-mono">
             {plan.months.map((m) => (
               <li key={m.month}>
-                {m.month}: {m.moves.length} bestanden{m.duplicates.length ? ` · ${m.duplicates.length} dubbel, blijft staan` : ""}{m.conflicts ? ` · ${m.conflicts} naamconflict` : ""}
+                {x.month(m.month, m.moves.length, m.duplicates.length, m.conflicts)}
               </li>
             ))}
           </ul>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <label className="flex items-center gap-1">
               <input type="checkbox" checked={snapshot} onChange={(e) => setSnapshot(e.target.checked)} />
-              er is vandaag een snapshot van de NAS gemaakt
+              {x.snapshotMade}
             </label>
             <span className="flex-1" />
-            <button className={button} disabled={!snapshot || !!running || plan.files === 0} onClick={() => start(plan.from, plan.to)}>Uitvoeren</button>
+            <button className={button} disabled={!snapshot || !!running || plan.files === 0} onClick={() => start(plan.from, plan.to)}>{x.run}</button>
           </div>
         </div>
       )}
       {running && (
-        <Progress text={`${renamingText(running)} · je mag dit venster sluiten en de app zelfs herstarten: het gaat verder, en onderbroken gaat het vanzelf verder`} done={running[0]} total={running[1]} />
+        <Progress text={x.running(renamingText(running))} done={running[0]} total={running[1]} />
       )}
       {message && <div className={message.error ? "text-red-600 whitespace-pre-wrap" : "text-green-700 dark:text-green-500"}>{message.text}</div>}
     </section>

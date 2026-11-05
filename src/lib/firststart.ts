@@ -1,6 +1,7 @@
 // What a new Mac shows while it has no index yet: the steps of the first sync and how far each
 // got, instead of one line that doesn't move (F007, on Peter's request when Lynn's Mac started).
-import { count, gb, type SyncState } from "./sync";
+import { gb, type SyncState } from "./sync";
+import { t } from "../i18n";
 import type { NasSummary } from "./nas";
 
 export type StepState = "done" | "busy" | "todo" | "waiting" | "problem";
@@ -16,32 +17,34 @@ export function firstStartSteps(sync: SyncState | null, indexRunning: boolean, n
   const step = (label: string, state: StepState, detail = "", fraction: number | null = null): Step => ({ label, state, detail, fraction });
   const at = (n: number): StepState => (stage > n ? "done" : stage === n && sync?.running ? "busy" : "todo");
 
+  const x = t().settings.firstStart;
+
   const steps = [
     nas === "busy"
-      ? step("Verbinden met de NAS", "busy")
+      ? step(x.connect, "busy")
       : connected
-        ? step("Verbinden met de NAS", "done")
-        : step("Verbinden met de NAS", "problem", "niet verbonden: onderaan op Verbinden"),
+        ? step(x.connect, "done")
+        : step(x.connect, "problem", x.notConnected),
     step(
-      "Overzicht van de bibliotheek ophalen",
+      x.overview,
       at(1),
-      phase === "manifests" ? (sync!.files_total > 0 ? `${count(sync!.files_done)} van ${count(sync!.files_total)} mappen` : `mappen zoeken… ${sync!.folder}`.trimEnd()) : "",
+      phase === "manifests" ? (sync!.files_total > 0 ? x.folders(sync!.files_done, sync!.files_total) : x.searching(sync!.folder).trimEnd()) : "",
       phase === "manifests" && sync!.files_total > 0 ? sync!.files_done / sync!.files_total : null,
     ),
-    step("Lijsten ophalen", at(2)),
-    step("De index bouwen", indexRunning ? "busy" : stage >= 3 ? "done" : "todo", indexRunning ? "de maanden verschijnen zodra hij klaar is" : ""),
+    step(x.lists, at(2)),
+    step(x.index, indexRunning ? "busy" : stage >= 3 ? "done" : "todo", indexRunning ? x.indexHint : ""),
   ];
   // the previews come after the index; while it is built they may already be counted
-  if (phase === "counting") steps.push(step("Previews tellen", "busy", `${count(sync!.files_done)} gevonden… ${sync!.folder.split("/").slice(0, 2).join("/")}`.trimEnd()));
-  if (phase === "awaiting_confirmation") steps.push(step("Previews ophalen", "waiting", "wacht op je bevestiging: onderaan op Previews ophalen"));
+  if (phase === "counting") steps.push(step(x.counting, "busy", x.found(sync!.files_done, sync!.folder.split("/").slice(0, 2).join("/")).trimEnd()));
+  if (phase === "awaiting_confirmation") steps.push(step(x.fetch, "waiting", x.waiting));
   if (phase === "copying") {
     const frac = sync!.bytes_total > 0 ? sync!.bytes_done / sync!.bytes_total : null;
-    steps.push(step("Previews ophalen", "busy", `${count(sync!.files_done)} van ${count(sync!.files_total)} · ${gb(sync!.bytes_done)} van ${gb(sync!.bytes_total)} GB`, frac));
+    steps.push(step(x.fetch, "busy", x.copying(sync!.files_done, sync!.files_total, gb(sync!.bytes_done), gb(sync!.bytes_total)), frac));
   }
   if (phase === "failed") {
     const i = steps.findIndex((s) => s.state !== "done");
     const where = i < 0 ? steps.length - 1 : i;
-    steps[where] = { ...steps[where], state: "problem", detail: sync!.message ?? "mislukt", fraction: null };
+    steps[where] = { ...steps[where], state: "problem", detail: sync!.message ?? x.failed, fraction: null };
   }
   return steps;
 }

@@ -47,11 +47,13 @@ settings.
 - [ ] A folder with this library's file: goes straight on.
 - [ ] A folder without write access: the welcome says so.
 
-### Languages (F011/S01)
+### Languages (F011/S01) — not in 0.7.0: the next release, or `pnpm tauri dev`
 
-- [ ] *Instellingen → Algemeen → Taal*: *English* turns the welcome texts, month names and numbers
-      English at once (the rest of the app is still Dutch until S02); *Zoals de Mac* gives Dutch
-      back; the choice stays after a restart.
+- [ ] *Instellingen → Algemeen → Taal*: *English* turns the whole window English at once (only
+      messages from the Rust core stay Dutch until S03); *Zoals de Mac* gives Dutch back; the
+      choice stays after a restart.
+- [ ] Walk through in English: the grid and its menus, the Lightbox, lists (fetch, export,
+      archive), import, every settings tab; note any text that reads oddly.
 
 ## On Lynn's Mac
 

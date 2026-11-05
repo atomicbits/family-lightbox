@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 /** The message at the bottom after a change, with Ongedaan maken (F013/S04). */
 export default function Toast({ text, onUndo, onClose }: { text: string; onUndo: (() => void) | null; onClose: () => void }) {
   return (
@@ -5,10 +7,10 @@ export default function Toast({ text, onUndo, onClose }: { text: string; onUndo:
       <span>{text}</span>
       {onUndo && (
         <button className="px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 font-medium" onClick={onUndo} title="⌘Z">
-          Ongedaan maken
+          {t().browse.undo.button}
         </button>
       )}
-      <button className="text-white/60 hover:text-white" onClick={onClose} title="sluiten">✕</button>
+      <button className="text-white/60 hover:text-white" onClick={onClose} title={t().browse.close}>✕</button>
     </div>
   );
 }

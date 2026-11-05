@@ -1,5 +1,6 @@
 // The import view's texts (F018/S04): what a plan of one source says.
 import { count, gb } from "./sync";
+import { t } from "../i18n";
 
 export type Action = { what: "new" } | { what: "duplicate"; of: string } | { what: "conflict"; existing: string };
 export type Planned = { src: string; target: string; size: number; hash: string; kind: string; taken: string; taken_from: string; action: Action };
@@ -27,10 +28,11 @@ export type PlanProgress = { files_done: number; files_total: number; bytes_done
 
 /** "82 nieuw (93,0 GB) · 71 al in de bibliotheek · 1 naamconflict" or "niets nieuw". */
 export function planSummary(p: SourcePlan): string {
+  const tx = t().imports.plan;
   const parts = [
-    p.copy_files > 0 ? `${count(p.copy_files)} nieuw (${gb(p.copy_bytes)} GB)` : "niets nieuw",
-    p.duplicates > 0 ? `${count(p.duplicates)} al in de bibliotheek` : null,
-    p.conflicts > 0 ? `${count(p.conflicts)} ${p.conflicts === 1 ? "naamconflict" : "naamconflicten"}` : null,
+    p.copy_files > 0 ? tx.newFiles(p.copy_files, gb(p.copy_bytes)) : tx.nothingNew,
+    p.duplicates > 0 ? tx.inLibrary(p.duplicates) : null,
+    p.conflicts > 0 ? tx.conflicts(p.conflicts) : null,
   ];
   return parts.filter(Boolean).join(" · ");
 }
@@ -40,34 +42,35 @@ export function monthsText(m: Record<string, number>): string {
   return Object.entries(m).map(([k, n]) => `${k} (${count(n)})`).join(" · ");
 }
 
-const WHY: Record<string, string> = { partner: "van het bijhorende bestand", name: "uit de bestandsnaam", mtime: "uit de wijzigingstijd" };
-
 /** "datum niet uit het bestand: 3 uit de wijzigingstijd, 1 uit de bestandsnaam", or "". */
 export function datesText(m: Record<string, number>): string {
-  const parts = Object.entries(m).map(([k, n]) => `${count(n)} ${WHY[k] ?? k}`);
-  return parts.length ? `datum niet uit het bestand: ${parts.join(", ")}` : "";
+  const tx = t().imports.plan;
+  const parts = Object.entries(m).map(([k, n]) => `${count(n)} ${tx.why[k] ?? k}`);
+  return parts.length ? tx.datesNotFromFile(parts.join(", ")) : "";
 }
 
 /** What happens to one file, short. */
 export function actionText(a: Action): string {
-  if (a.what === "new") return "nieuw";
-  if (a.what === "duplicate") return `al in de bibliotheek: ${a.of}`;
-  return `naam bestaat al (${a.existing}): hernoemd`;
+  const tx = t().imports.plan;
+  if (a.what === "new") return tx.actionNew;
+  if (a.what === "duplicate") return tx.actionDuplicate(a.of);
+  return tx.actionConflict(a.existing);
 }
 
 /** "1 234 / 5 000 bestanden · 1,2 / 93,0 GB". */
 export function progressText(p: PlanProgress): string {
-  return `${count(p.files_done)} / ${count(p.files_total)} bestanden · ${gb(p.bytes_done)} / ${gb(p.bytes_total)} GB`;
+  return t().imports.plan.progress(p.files_done, p.files_total, gb(p.bytes_done), gb(p.bytes_total));
 }
 
 /** For a synced folder (S06): "1 234 al eerder genomen · 3 456 ouder dan 2019/11 · 12 gelezen", or "". */
 export function syncedText(p: SourcePlan): string {
   if (!p.synced) return "";
+  const tx = t().imports.plan;
   const parts = [
-    p.taken_before ? `${count(p.taken_before)} al eerder genomen` : null,
-    p.older && p.from_month ? `${count(p.older)} ouder dan ${p.from_month}` : null,
-    p.live_skipped ? `${count(p.live_skipped)} Live Photo-clipjes overgeslagen` : null,
-    `${count(p.read ?? 0)} gelezen`,
+    p.taken_before ? tx.takenBefore(p.taken_before) : null,
+    p.older && p.from_month ? tx.older(p.older, p.from_month) : null,
+    p.live_skipped ? tx.liveSkipped(p.live_skipped) : null,
+    tx.read(p.read ?? 0),
   ];
   return parts.filter(Boolean).join(" · ");
 }

@@ -13,6 +13,7 @@ import { liveTitle } from "../lib/live";
 import { columnsFor, rowWidth } from "../lib/grid";
 import { fileName, monthLabel, yearOf } from "../lib/months";
 import { buildLayout, rowOf, sectionsInRange, type Section, type Sel } from "../lib/timeline";
+import { t } from "../i18n";
 
 type Props = {
   sections: Section[];
@@ -283,7 +284,7 @@ function Tile({ item, size, active, member, picked, rating, variant, hearts, me,
       onContextMenu={onContextMenu}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      title={[title, member && addedText(member), hidden && "verborgen"].filter(Boolean).join("\n")}
+      title={[title, member && addedText(member), hidden && t().browse.grid.hidden].filter(Boolean).join("\n")}
       className={
         "relative z-[3] rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 cursor-default " +
         (active ? "ring-3 ring-blue-500" : picked ? "ring-3 ring-blue-300" : "")
@@ -299,7 +300,7 @@ function Tile({ item, size, active, member, picked, rating, variant, hearts, me,
       {hidden && (
         <>
           <span className="absolute inset-0 bg-white/55 dark:bg-black/55 pointer-events-none" />
-          <span className="absolute inset-0 grid place-items-center pointer-events-none"><span className="rounded bg-black/60 text-white text-[10px] px-1">verborgen</span></span>
+          <span className="absolute inset-0 grid place-items-center pointer-events-none"><span className="rounded bg-black/60 text-white text-[10px] px-1">{t().browse.grid.hidden}</span></span>
         </>
       )}
       {item.preview ? (
@@ -313,23 +314,23 @@ function Tile({ item, size, active, member, picked, rating, variant, hearts, me,
         />
       ) : (
         <div className="w-full h-full grid place-items-center text-xs text-neutral-400 p-2 text-center">
-          geen preview
+          {t().browse.grid.noPreview}
         </div>
       )}
       {(item.kind === "video" || !item.local || variant) && (
         <span className="absolute top-1 left-1 flex items-center gap-1 leading-none">
           {item.kind === "video" && (
-            <span title={liveTitle(item) ?? "video"}>
+            <span title={liveTitle(item) ?? t().browse.video}>
               {item.live ? <LiveIcon size={Math.max(12, markSize(size))} /> : <VideoIcon size={Math.max(12, markSize(size))} />}
             </span>
           )}
           {variant && (
-            <span className="rounded bg-black/50 text-white text-[10px] px-1 py-px" title={`bewerkt in Lightroom: ${variantLabel(variant)}${(item.variants?.length ?? 0) > 1 ? ` (${item.variants!.length} versies)` : ""}`}>
+            <span className="rounded bg-black/50 text-white text-[10px] px-1 py-px" title={t().browse.grid.edited(variantLabel(variant), item.variants?.length ?? 0)}>
               LR
             </span>
           )}
           {!item.local && (
-            <span className="rounded bg-black/50 text-white text-[10px] px-1 py-px" title="origineel alleen op de NAS">
+            <span className="rounded bg-black/50 text-white text-[10px] px-1 py-px" title={t().browse.grid.nasOnly}>
               NAS
             </span>
           )}
@@ -340,7 +341,7 @@ function Tile({ item, size, active, member, picked, rating, variant, hearts, me,
         <button
           className="absolute top-1 right-1 rounded-md bg-white/90 dark:bg-neutral-900/90 p-0.5 shadow"
           style={{ color: stack.color.border }}
-          title={stack.open ? "reeks dichtklappen" : "reeks openklappen: alle foto's tonen"}
+          title={stack.open ? t().browse.grid.fold : t().browse.grid.unfold}
           onClick={(e) => { e.stopPropagation(); stack.onToggle(); }}
           onDoubleClick={(e) => e.stopPropagation()}
         >

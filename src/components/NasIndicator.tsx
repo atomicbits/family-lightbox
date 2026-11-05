@@ -1,4 +1,5 @@
 import { nasSummary, type Nas } from "../lib/nas";
+import { t } from "../i18n";
 
 type Props = { nas: Nas; onOpenSettings: () => void };
 
@@ -11,7 +12,7 @@ export default function NasIndicator({ nas, onOpenSettings }: Props) {
     <span className="flex items-center gap-2">
       <button
         className="flex items-center gap-1.5 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-        title="toon de gedeelde mappen"
+        title={t().browse.nas.showShares}
         onClick={onOpenSettings}
       >
         <span className={`inline-block w-2 h-2 rounded-full ${DOT[s.tone]}`} />
@@ -22,7 +23,7 @@ export default function NasIndicator({ nas, onOpenSettings }: Props) {
           className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
           onClick={() => nas.connect(true)}
         >
-          {s.action === "retry" ? "Opnieuw" : "Verbinden"}
+          {s.action === "retry" ? t().browse.nas.retry : t().browse.nas.connect}
         </button>
       )}
     </span>

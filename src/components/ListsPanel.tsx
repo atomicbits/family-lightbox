@@ -2,6 +2,7 @@ import { useState } from "react";
 import { defaultYear, groupLists, type ListInfo, type Lists } from "../lib/lists";
 import PhotoMenu from "./PhotoMenu";
 import ConfirmDialog from "./ConfirmDialog";
+import { t } from "../i18n";
 
 type Props = {
   lists: Lists;
@@ -33,6 +34,7 @@ export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fe
   const [showArchived, setShowArchived] = useState(false);
   const groups = groupLists(state?.lists ?? [], showArchived);
   const anyArchived = state?.lists.some((l) => l.archived) ?? false;
+  const w = t().lists.panel;
 
   const submitCreate = async () => {
     if (creating && (await lists.create(creating.name, creating.year))) setCreating(null);
@@ -73,13 +75,13 @@ export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fe
           onDragOver={(e) => { if (dragging && !l.archived) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setOver(l.id); } }}
           onDragLeave={() => setOver((o) => (o === l.id ? null : o))}
           onDrop={(e) => { e.preventDefault(); setOver(null); onDrop(l.id); }}
-          title={isActive ? "terug naar alle foto's" : "toon deze lijst; sleep foto's hierheen om ze toe te voegen"}
+          title={isActive ? w.backToAll : w.showList}
         >
           <span className={"truncate flex-1 " + (l.archived ? "italic opacity-70" : "")}>{l.name}</span>
           <span className={"text-xs tabular-nums mr-1 " + (isActive ? "text-blue-100" : "text-neutral-400")}>{l.count}</span>
           <button
             className={"px-1 rounded opacity-0 group-hover:opacity-100 " + (isActive ? "hover:bg-blue-500" : "hover:bg-neutral-300 dark:hover:bg-neutral-700")}
-            title="originelen ophalen, hernoemen, archiveren"
+            title={w.menuTip}
             onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setMenu({ list: l, x: r.left, y: r.bottom }); }}
           >
             ⋯
@@ -100,22 +102,22 @@ export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fe
       onClose={() => setMenu(null)}
       actions={[
         {
-          label: "Alle originelen ophalen",
+          label: w.fetchAll,
           disabled: fetching,
-          title: fetching ? "er worden al originelen opgehaald" : "naar deze Mac, voor Lightroom of een export",
+          title: fetching ? w.fetchingAlready : w.fetchAllTip,
           run: () => { setMenu(null); onFetch(menu.list.id, false); },
         },
         {
-          label: "Naar Lightroom…",
+          label: w.toLightroom,
           disabled: fetching,
-          title: "haalt de originelen op; klik daarna in Lightroom op Lijsten bijwerken",
+          title: w.toLightroomTip,
           run: () => { setMenu(null); onFetch(menu.list.id, true); },
         },
-        { label: "Exporteren…", title: "voor een fotoboek, afdrukken, een kalender: uit de originelen", run: () => { setMenu(null); onExport(menu.list); } },
-        { label: "Hernoemen…", disabled: !!blocked, title: blocked ?? undefined, run: () => { setMenu(null); setRenaming({ id: menu.list.id, name: menu.list.name }); } },
+        { label: w.export, title: w.exportTip, run: () => { setMenu(null); onExport(menu.list); } },
+        { label: w.rename, disabled: !!blocked, title: blocked ?? undefined, run: () => { setMenu(null); setRenaming({ id: menu.list.id, name: menu.list.name }); } },
         menu.list.archived
-          ? { label: "Terugzetten", disabled: !!blocked, title: blocked ?? undefined, run: () => { setMenu(null); lists.archive(menu.list.id, false); } }
-          : { label: "Archiveren…", disabled: !!blocked, title: blocked ?? "vraagt eerst een bevestiging", run: () => { setMenu(null); setArchiving(menu.list); } },
+          ? { label: w.restore, disabled: !!blocked, title: blocked ?? undefined, run: () => { setMenu(null); lists.archive(menu.list.id, false); } }
+          : { label: w.archive, disabled: !!blocked, title: blocked ?? w.archiveTip, run: () => { setMenu(null); setArchiving(menu.list); } },
       ]}
     />
   );
@@ -125,19 +127,19 @@ export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fe
       {listMenu}
       {archiving && (
         <ConfirmDialog
-          title={`${archiving.name} archiveren?`}
-          text="Een gearchiveerde lijst staat apart, onder de gearchiveerde lijsten, voor iedereen. Haar foto's blijven in de bibliotheek, maar hun originelen mogen dan weer van deze Mac verdwijnen als ze ouder zijn dan 18 maanden. Terugzetten kan altijd."
-          yes="Archiveren"
+          title={w.archiveTitle(archiving.name)}
+          text={w.archiveText}
+          yes={w.archiveYes}
           onNo={() => setArchiving(null)}
           onYes={() => { const id = archiving.id; setArchiving(null); lists.archive(id, true); }}
         />
       )}
       <div className="flex items-center px-3 py-1.5 font-semibold text-neutral-700 dark:text-neutral-200">
-        <span className="flex-1">Lijsten</span>
+        <span className="flex-1">{w.title}</span>
         <button
           className={button}
           disabled={!!blocked}
-          title={blocked ?? "nieuwe lijst"}
+          title={blocked ?? w.newList}
           onClick={() => setCreating({ name: "", year: defaultYear(month) })}
         >
           +
@@ -149,7 +151,7 @@ export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fe
             <input
               autoFocus
               className={input}
-              placeholder="naam"
+              placeholder={w.namePlaceholder}
               value={creating.name}
               onChange={(e) => setCreating({ ...creating, name: e.target.value })}
               onKeyDown={(e) => {
@@ -176,21 +178,21 @@ export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fe
           </div>
         ))}
         {state && state.lists.length === 0 && !creating && !state.problem && (
-          <div className="px-3 pb-2 text-xs text-neutral-400">{blocked ?? "nog geen lijsten: + maakt er een"}</div>
+          <div className="px-3 pb-2 text-xs text-neutral-400">{blocked ?? w.empty}</div>
         )}
         {anyArchived && (
           <label className="flex items-center gap-1.5 px-3 py-1 text-xs text-neutral-400">
             <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-            Gearchiveerd tonen
+            {w.showArchived}
           </label>
         )}
         {state?.problem && (
           <div className="px-3 pb-2 text-xs text-amber-600" title={state.problem}>
-            lijsten nu niet te lezen; de details staan in de meldingen (⚠)
+            {w.unreadable}
           </div>
         )}
         {state && state.source === "local" && state.lists.length > 0 && (
-          <div className="px-3 pb-2 text-xs text-neutral-400">zonder NAS: alleen bekijken</div>
+          <div className="px-3 pb-2 text-xs text-neutral-400">{w.withoutNas}</div>
         )}
       </div>
     </section>

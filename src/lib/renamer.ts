@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { t } from "../i18n";
 
 export type RenameDone = { to: string; error: string | null };
 
@@ -40,5 +41,5 @@ export function useRenamer(onDone: () => void): Renamer {
 
 /** The footer's text while a rename runs: "hernoemen: maand 2 van 4". */
 export function renamingText(r: [number, number]): string {
-  return r[1] ? `hernoemen: maand ${r[0]} van ${r[1]}` : "hernoemen…";
+  return r[1] ? t().settings.renamer.progress(r[0], r[1]) : t().settings.renamer.busy;
 }

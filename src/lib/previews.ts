@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Item, MonthSummary } from "./api";
 import { count } from "./sync";
+import { t } from "../i18n";
 
 export type MakeState = {
   running: boolean;
@@ -48,8 +49,8 @@ export function addToMonths(months: MonthSummary[], done: Done[]): MonthSummary[
 
 /** "85 874 foto's en video's zonder preview" or that all are there. */
 export function missingText(o: Overview): string {
-  if (o.missing === 0) return "alle foto's en video's hebben een preview";
-  return `${count(o.missing)} ${o.missing === 1 ? "foto of video" : "foto's en video's"} zonder preview`;
+  if (o.missing === 0) return t().settings.previews.allHave;
+  return t().settings.previews.missing(o.missing);
 }
 
 export type PreviewsLine = {
@@ -62,12 +63,10 @@ export type PreviewsLine = {
 export function previewsLine(s: MakeState | null): PreviewsLine | null {
   if (!s) return null;
   const progress = s.total > 0 ? `: ${count(s.done)} / ${count(s.total)}` : "";
-  if (s.paused) return { text: `Previews gepauzeerd${progress}`, tone: "muted", button: { label: "Hervatten", action: "resume" } };
-  if (s.running && s.total > 0) return { text: `Previews maken${progress}`, tone: "muted", button: { label: "Pauzeren", action: "pause" } };
-  if (!s.running && s.nas_failed > 0) {
-    const what = s.nas_failed === 1 ? "preview staat" : "previews staan";
-    return { text: `${count(s.nas_failed)} ${what} nog niet op de NAS`, tone: "amber", button: null };
-  }
+  const p = t().settings.previews;
+  if (s.paused) return { text: p.paused(progress), tone: "muted", button: { label: p.resume, action: "resume" } };
+  if (s.running && s.total > 0) return { text: p.making(progress), tone: "muted", button: { label: p.pause, action: "pause" } };
+  if (!s.running && s.nas_failed > 0) return { text: p.notOnNas(s.nas_failed), tone: "amber", button: null };
   return null;
 }
 

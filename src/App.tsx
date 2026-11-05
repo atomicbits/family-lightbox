@@ -48,6 +48,7 @@ import { listen } from "@tauri-apps/api/event";
 import { reselect, useIndex, type Anchor } from "./lib/indexer";
 import { ARROWS, TILE_MAX, TILE_MIN, clampTile, loadTile, saveTile } from "./lib/grid";
 import { moveAcross, parseKey, pickAfterClick, rangeBetween, sameSections, selKey, type Sel, type Section } from "./lib/timeline";
+import { t } from "./i18n";
 
 const toSections = (months: MonthSummary[]): Section[] =>
   months.map((m) => ({ month: m.month, count: shownCount(m) }));
@@ -127,9 +128,8 @@ export default function App() {
   // fetching originals from the NAS (F009/S03): asked with its plan first, kept by the app
   // after Naar Lightroom (F023/S03) the message says what to do in Lightroom
   const forLightroom = useRef(false);
-  const LR_NEXT = "klik in Lightroom op Bibliotheek → Plug-in-extra's → Lijsten bijwerken";
   const fetcher = useFetcher(useCallback((d) => {
-    showToast(forLightroom.current && !d.error ? `${fetchDoneText(d)}: ${LR_NEXT}` : fetchDoneText(d), false);
+    showToast(forLightroom.current && !d.error ? t().browse.app.fetchDone(fetchDoneText(d), t().browse.app.lrNext) : fetchDoneText(d), false);
     forLightroom.current = false;
   }, [showToast]));
   const [fetchAsk, setFetchAsk] = useState<{ plan: FetchPlan; paths: string[] } | null>(null);
@@ -614,12 +614,13 @@ export default function App() {
       .map((k) => { const { section, index } = parseKey(k); return itemsOf(sections[section]?.month)?.[index]; })
       .filter((x): x is Item => !!x);
     const away = items.filter((x) => !x.local).map((x) => x.path);
-    const busy = fetcher.running ? "er worden al originelen opgehaald" : null;
+    const tx = t().browse.app;
+    const busy = fetcher.running ? tx.fetching : null;
     return [
       {
-        label: away.length ? `Originelen ophalen (${away.length})` : "Originelen ophalen",
+        label: tx.fetch(away.length ? away.length : null),
         disabled: !away.length || !!busy,
-        title: busy ?? (away.length ? "van de NAS naar deze Mac, op hun plaats in de bibliotheek" : "ze staan al op deze Mac"),
+        title: busy ?? (away.length ? tx.fetchTitle : tx.allHere),
         run: () => askFetch(away),
       },
     ];
@@ -631,12 +632,13 @@ export default function App() {
       .filter((h): h is string => !!h);
     const hiddenOnes = hashes.filter((h) => h in marks.state.hidden).length;
     const common = { disabled: !!blockedMarks, title: blockedMarks ?? undefined };
+    const tx = t().browse.app;
     return [
       ...(hiddenOnes < hashes.length
-        ? [{ label: hiddenOnes ? `Verbergen (${hashes.length - hiddenOnes})` : "Verbergen", run: () => { applyHide(keys, true); }, ...common }]
+        ? [{ label: tx.hide(hiddenOnes ? hashes.length - hiddenOnes : null), run: () => { applyHide(keys, true); }, ...common }]
         : []),
       ...(hiddenOnes > 0
-        ? [{ label: hiddenOnes < hashes.length ? `Niet meer verbergen (${hiddenOnes})` : "Niet meer verbergen", run: () => { applyHide(keys, false); }, ...common }]
+        ? [{ label: tx.unhide(hiddenOnes < hashes.length ? hiddenOnes : null), run: () => { applyHide(keys, false); }, ...common }]
         : []),
     ];
   };
@@ -665,7 +667,7 @@ export default function App() {
     if (blockedMarks) return lists.say(blockedMarks);
     try {
       marks.change({ op: "color", stack, color });
-      const text = `reeks ${color} gemaakt`;
+      const text = t().browse.undo.color(color);
       undo.push({ kind: "color", text, stack, after: color, before });
       showToast(text, true);
     } catch (e) {
@@ -693,11 +695,12 @@ export default function App() {
     const a = stackActions(hashes, stackIds);
     const common = { disabled: !!blockedMarks, title: blockedMarks ?? undefined };
     const all = (id: string) => Object.keys(stackIds).filter((h) => stackIds[h] === id);
+    const tx = t().browse.app;
     return [
-      ...(a.make ? [{ label: `Reeks maken (${new Set(hashes).size})`, run: () => { changeStack("make", [...new Set(hashes)], null); }, ...common }] : []),
-      ...(a.addTo ? [{ label: `Aan de reeks toevoegen (${a.addTo.photos.length})`, run: () => { changeStack("add", a.addTo!.photos, a.addTo!.stack); }, ...common }] : []),
-      ...(a.takeOut.length ? [{ label: a.takeOut.length === 1 ? "Uit de reeks halen" : `Uit de reeks halen (${a.takeOut.length})`, run: () => { changeStack("out", a.takeOut, null); }, ...common }] : []),
-      ...(a.dissolve ? [{ label: "Reeks opheffen", run: () => { changeStack("dissolve", all(a.dissolve!), null); }, ...common }] : []),
+      ...(a.make ? [{ label: tx.makeStack(new Set(hashes).size), run: () => { changeStack("make", [...new Set(hashes)], null); }, ...common }] : []),
+      ...(a.addTo ? [{ label: tx.addToStack(a.addTo.photos.length), run: () => { changeStack("add", a.addTo!.photos, a.addTo!.stack); }, ...common }] : []),
+      ...(a.takeOut.length ? [{ label: tx.takeOut(a.takeOut.length === 1 ? null : a.takeOut.length), run: () => { changeStack("out", a.takeOut, null); }, ...common }] : []),
+      ...(a.dissolve ? [{ label: tx.dissolve, run: () => { changeStack("dissolve", all(a.dissolve!), null); }, ...common }] : []),
     ];
   };
 
@@ -709,7 +712,7 @@ export default function App() {
     const id = h ? stackIds[h] : undefined;
     if (!id) return [];
     const open = unfolded.has(id);
-    return [{ label: open ? "Reeks dichtklappen" : "Reeks openklappen", run: () => setUnfolded((u) => toggled(u, [id], !open)) }];
+    return [{ label: open ? t().browse.app.fold : t().browse.app.unfold, run: () => setUnfolded((u) => toggled(u, [id], !open)) }];
   };
 
   // Adding to and taking out of lists, with the message and an undo step.
@@ -738,7 +741,7 @@ export default function App() {
         const s = await marks.reload();
         const now = stackColor(step.stack, s.stack_colors[step.stack]).name;
         if (now === step.after) marks.change({ op: "color", stack: step.stack, color: step.before });
-        else skipped = "de kleur werd intussen gewijzigd, niet teruggezet";
+        else skipped = t().browse.undo.colorSkipped;
       } else if (step.kind === "list") {
         const inList = await lists.photosOf(step.done.id);
         const p = undoList(step.done, (h) => inList.has(h));
@@ -762,7 +765,7 @@ export default function App() {
         }
         skipped = skippedText(p.skipped, p.by);
       }
-      showToast(`ongedaan: ${step.text}${skipped ? ` · ${skipped}` : ""}`, false);
+      showToast(t().browse.undo.undone(step.text, skipped), false);
     } catch (e) {
       lists.say(String(e));
     }
@@ -846,7 +849,7 @@ export default function App() {
         e.preventDefault();
         listChange("remove", listId, selKeys);
       } else if ((e.key === "+" || e.key === "=") && !listId) {
-        lists.say("sleep de foto's naar een lijst, of klik rechts: Toevoegen aan", false);
+        lists.say(t().browse.app.plusHint, false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -941,14 +944,14 @@ export default function App() {
         <div className="flex items-center gap-3 min-w-0 overflow-hidden whitespace-nowrap">
           {listId && lists.active ? (
             <>
-              <button className="text-neutral-400 hover:text-neutral-600" title="terug naar alle foto's" onClick={() => lists.setActive(null)}>
-                ← Alle foto's
+              <button className="text-neutral-400 hover:text-neutral-600" title={t().browse.app.backTitle} onClick={() => lists.setActive(null)}>
+                {t().browse.app.back}
               </button>
               <span className="font-semibold">{lists.active.name}</span>
               <span className="text-neutral-400 truncate">
-                {listView ? photosText(listView.total) : "laden…"}
+                {listView ? photosText(listView.total) : t().browse.loading}
                 {topSection && ` · ${monthLabel(topSection.month)} ${yearOf(topSection.month)}`}
-                {listView && listView.missing > 0 && ` · ${listView.missing} nog niet op deze Mac`}
+                {listView && listView.missing > 0 && t().browse.app.missing(listView.missing)}
               </span>
             </>
           ) : (
@@ -964,11 +967,11 @@ export default function App() {
             cameras={cameras}
             sources={sources}
             people={[...new Set([...(me ? [me] : []), ...Object.values(marks.state.hearts).flatMap((h) => Object.keys(h))])].sort()}
-            count={filterOn ? `${sections.reduce((n, s) => n + s.count, 0).toLocaleString("nl-BE")} van ${months.reduce((n, m) => n + m.photos + m.videos, 0).toLocaleString("nl-BE")}` : null}
+            count={filterOn ? t().browse.app.filterCount(sections.reduce((n, s) => n + s.count, 0), months.reduce((n, m) => n + m.photos + m.videos, 0)) : null}
           />
         </div>
         <div className="flex items-center justify-end gap-2">
-          <label className="flex items-center gap-1.5 text-neutral-400" title="grootte van de miniaturen">
+          <label className="flex items-center gap-1.5 text-neutral-400" title={t().browse.app.tileSize}>
             <span className="text-xs">▫</span>
             <input
               type="range"
@@ -986,9 +989,9 @@ export default function App() {
           <button
             className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 disabled:opacity-30 disabled:hover:bg-transparent"
             disabled={!undo.top}
-            title={undo.top ? `Ongedaan maken: ${undo.top.text} (⌘Z)` : "niets om ongedaan te maken"}
+            title={undo.top ? t().browse.undo.title(undo.top.text) : t().browse.undo.nothing}
             onClick={doUndo}
-            aria-label="Ongedaan maken"
+            aria-label={t().browse.undo.button}
           >
             <UndoIcon />
           </button>
@@ -1025,7 +1028,7 @@ export default function App() {
                   invoke<{ items: Item[]; missing: number }>("list_items", { id })
                     .then((r) => {
                       const away = r.items.filter((x) => !x.local).map((x) => x.path);
-                      if (lr && away.length === 0) return showToast(`alle originelen staan al op deze Mac: ${LR_NEXT}`, false);
+                      if (lr && away.length === 0) return showToast(t().browse.app.allLocal(t().browse.app.lrNext), false);
                       forLightroom.current = lr;
                       askFetch(away);
                     })
@@ -1109,7 +1112,7 @@ export default function App() {
             />
           ) : (
             <div className="absolute inset-0 z-20 bg-black/95 grid place-items-center text-neutral-400" onClick={() => setOpen(false)}>
-              laden…
+              {t().browse.loading}
             </div>
           ))}
         </div>
@@ -1128,7 +1131,7 @@ export default function App() {
           )}
           {device?.error && (
             <button className="text-red-600" onClick={() => setShowSettings(true)}>
-              device.json klopt niet: zie instellingen
+              {t().browse.app.deviceBroken}
             </button>
           )}
           <UpdateLine update={update} syncing={!!sync.state?.running} />
@@ -1138,31 +1141,31 @@ export default function App() {
           {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
           <PreviewsLine previews={previews} />
           {exporter.running && (
-            <span className="text-blue-600 flex items-center gap-1.5" title="je mag de app sluiten: het gaat daarna verder">
-              <Spinner /> exporteren {exporter.running.done}/{exporter.running.total}
+            <span className="text-blue-600 flex items-center gap-1.5" title={t().browse.app.keepsGoing}>
+              <Spinner /> {t().browse.app.exporting(exporter.running.done, exporter.running.total)}
               <MiniBar done={exporter.running.total ? exporter.running.done / exporter.running.total : null} />
             </span>
           )}
           {fetcher.running && (
-            <span className="text-blue-600 flex items-center gap-1.5" title="je mag de app sluiten: het gaat daarna verder">
+            <span className="text-blue-600 flex items-center gap-1.5" title={t().browse.app.keepsGoing}>
               <Spinner /> {fetchingText(fetcher.running)}
               <MiniBar done={fetcher.running.bytes_total ? fetcher.running.bytes_done / fetcher.running.bytes_total : null} />
             </span>
           )}
           {renamer.running && (
-            <button className="text-blue-600 flex items-center gap-1.5" title="de bronnen in de instellingen openen" onClick={() => { saveTab("sources"); setShowSettings(true); }}>
+            <button className="text-blue-600 flex items-center gap-1.5" title={t().browse.app.renameTitle} onClick={() => { saveTab("sources"); setShowSettings(true); }}>
               <Spinner /> {renamingText(renamer.running)}
               <MiniBar done={renamer.running[1] ? renamer.running[0] / renamer.running[1] : null} />
             </button>
           )}
           {waitingText(waiting) && (
-            <span className="text-neutral-500" title="ze gaan vanzelf naar de NAS zodra die verbonden is">{waitingText(waiting)}</span>
+            <span className="text-neutral-500" title={t().browse.marks.waitingTitle}>{waitingText(waiting)}</span>
           )}
         </div>
         {messages.list.length > 0 && (
           <button
             className={"px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 " + (messages.unseen ? "text-amber-600" : "text-neutral-400")}
-            title={messages.unseen ? `${messages.unseen} nieuwe meldingen` : "meldingen"}
+            title={messages.unseen ? t().browse.messages.unseen(messages.unseen) : t().browse.messages.button}
             onClick={openMessages}
           >
             ⚠{messages.unseen ? ` ${messages.unseen}` : ""}
@@ -1172,10 +1175,10 @@ export default function App() {
         {hasDevice && (
           <button
             className={"px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 " + (activity ? "text-blue-600" : "text-neutral-500")}
-            title={activity ? `${activity.text}: klik om het importscherm te openen` : "nieuwe foto's binnenhalen"}
+            title={activity ? t().browse.app.importBusy(activity.text) : t().browse.app.importIdle}
             onClick={() => setShowImport(true)}
           >
-            {activity ? <Spinner /> : "⇣"} Importeren
+            {activity ? <Spinner /> : "⇣"} {t().browse.app.import}
             {activity && (
               <>
                 <span className="tabular-nums max-w-64 truncate">{activity.text}</span>
@@ -1186,10 +1189,10 @@ export default function App() {
         )}
         <button
           className="px-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
-          title="Instellingen"
+          title={t().browse.app.settings}
           onClick={() => setShowSettings(true)}
         >
-          ⚙ Instellingen
+          ⚙ {t().browse.app.settings}
         </button>
       </footer>
       {showKeys && <ShortcutsOverlay onClose={() => setShowKeys(false)} />}
@@ -1212,18 +1215,18 @@ export default function App() {
             onClose={() => setMonthMenu(null)}
             actions={[
               shown
-                ? { label: "Verborgen foto's weer verbergen", run: () => setRevealed((r) => toggled(r, keys, false)) }
+                ? { label: t().browse.app.hideAgain, run: () => setRevealed((r) => toggled(r, keys, false)) }
                 : {
-                    label: `Verborgen foto's tonen (${hidden})`,
+                    label: t().browse.app.reveal(hidden),
                     disabled: hidden === 0,
-                    title: hidden === 0 ? "hier is niets verborgen" : "tijdelijk, tot de app herstart",
+                    title: hidden === 0 ? t().browse.app.nothingHidden : t().browse.app.untilRestart,
                     run: () => setRevealed((r) => toggled(r, keys, true)),
                   },
               {
                 // a whole month or year from the NAS (F009/S04), with the plan first
-                label: `Originelen ophalen (${away})`,
+                label: t().browse.app.fetch(away),
                 disabled: away === 0 || !!fetcher.running,
-                title: fetcher.running ? "er worden al originelen opgehaald" : away === 0 ? "alles staat al op deze Mac" : "naar deze Mac, met eerst wat het inneemt",
+                title: fetcher.running ? t().browse.app.fetching : away === 0 ? t().browse.app.everythingHere : t().browse.app.monthFetchTitle,
                 run: () => {
                   setMonthMenu(null);
                   invoke<string[]>("not_local", { keys: [monthMenu.key] }).then(askFetch).catch((e) => showToast(String(e), false));
@@ -1243,10 +1246,10 @@ export default function App() {
           onAddTo={(id) => listChange("add", id, menu.keys)}
           onClose={() => setMenu(null)}
           actions={[
-            ...(menu.keys.length === 1 && !open ? [{ label: "Openen", run: () => { setSelected(parseKey(menu.keys[0])); setOpen(true); } }] : []),
+            ...(menu.keys.length === 1 && !open ? [{ label: t().browse.app.open, run: () => { setSelected(parseKey(menu.keys[0])); setOpen(true); } }] : []),
             ...(listId && lists.active
               ? [{
-                  label: `Uit ${lists.active.name} halen`,
+                  label: t().browse.app.removeFrom(lists.active.name),
                   disabled: !!lists.blocked,
                   title: lists.blocked ?? undefined,
                   run: () => { listChange("remove", listId, menu.keys); },

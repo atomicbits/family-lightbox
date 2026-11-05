@@ -1,5 +1,9 @@
 // Nederlands (F011): elke tekst van `en.ts`, met hetzelfde type.
 import type { Catalog } from "./en";
+import { browse } from "./parts/browse.nl";
+import { imports } from "./parts/imports.nl";
+import { lists } from "./parts/lists.nl";
+import { settings } from "./parts/settings.nl";
 
 const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} en ${xs[xs.length - 1]}`);
 
@@ -30,6 +34,11 @@ export const nl: Catalog = {
       return `${parts.join(" en ")}, en schrijft er familylightbox.json bij. Er wordt niets overschreven.`;
     },
   },
+
+  browse,
+  settings,
+  imports,
+  lists,
 
   welcome: {
     title: "Welkom bij FamilyLightbox",

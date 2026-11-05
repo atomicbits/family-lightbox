@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { count as i18nCount, decimal } from "../i18n";
+import { count as i18nCount, decimal, t } from "../i18n";
 
 export type SyncPhase =
   | "idle" | "manifests" | "lists" | "counting" | "awaiting_confirmation" | "copying" | "done" | "cancelled" | "failed";
@@ -54,13 +54,13 @@ export function gb(bytes: number): string {
 
 export function estimate(bytes: number): string {
   const minutes = Math.round(bytes / BYTES_PER_SECOND / 60);
-  if (minutes < 1) return "minder dan een minuut";
-  if (minutes === 1) return "ongeveer een minuut";
-  return `ongeveer ${minutes} minuten`;
+  if (minutes < 1) return t().settings.sync.lessThanMinute;
+  if (minutes === 1) return t().settings.sync.aboutMinute;
+  return t().settings.sync.aboutMinutes(minutes);
 }
 
 export function confirmText(s: PreviewsSummary): string {
-  return `${gb(s.copy_bytes)} GB previews ophalen (${count(s.copy_files)} bestanden)? Dat duurt ${estimate(s.copy_bytes)}.`;
+  return t().settings.sync.confirm(gb(s.copy_bytes), s.copy_files, estimate(s.copy_bytes));
 }
 
 export type SyncLine = {
@@ -75,35 +75,36 @@ export type SyncLine = {
 export function syncLine(s: SyncState | null): SyncLine | null {
   if (!s) return null;
   const base = { tone: "muted" as const, cancellable: false, confirm: false };
+  const x = t().settings.sync;
   switch (s.phase) {
     case "manifests":
-      return { ...base, text: s.files_total > 0 ? `manifesten ${count(s.files_done)}/${count(s.files_total)}` : `manifesten ${count(s.files_done)}`, cancellable: true };
+      return { ...base, text: s.files_total > 0 ? x.manifestsOf(s.files_done, s.files_total) : x.manifests(s.files_done), cancellable: true };
     case "lists":
-      return { ...base, text: "lijsten…", cancellable: true };
+      return { ...base, text: x.lists, cancellable: true };
     case "counting":
-      return { ...base, text: `previews tellen… ${s.folder.split("/").slice(0, 2).join("/")}`.trimEnd(), cancellable: true };
+      return { ...base, text: x.counting(s.folder.split("/").slice(0, 2).join("/")).trimEnd(), cancellable: true };
     case "copying":
       return {
         ...base,
-        text: `previews ${count(s.files_done)}/${count(s.files_total)} · ${gb(s.bytes_done)}/${gb(s.bytes_total)} GB`,
+        text: x.copying(s.files_done, s.files_total, gb(s.bytes_done), gb(s.bytes_total)),
         cancellable: true,
       };
     case "awaiting_confirmation":
       // a large first pass on this Mac waits for a click (F007/S04, over 5 GB since 2026-11-03)
-      return { ...base, text: s.summary ? `${gb(s.summary.copy_bytes)} GB previews klaar om op te halen` : "previews klaar om op te halen", confirm: true };
+      return { ...base, text: s.summary ? x.ready(gb(s.summary.copy_bytes)) : x.readyNoSize, confirm: true };
     case "failed":
-      return { ...base, tone: "amber", text: s.message ?? "synchroniseren mislukt" };
+      return { ...base, tone: "amber", text: s.message ?? x.failed };
     case "cancelled":
-      return { ...base, text: "geannuleerd" };
+      return { ...base, text: x.cancelled };
     case "done": {
       if (s.manifests_copied === 0 && s.lists_copied === 0 && s.previews_copied === 0 && s.failed_count === 0) return null;
-      const skipped = s.failed_count > 0 ? ` · ${count(s.failed_count)} overgeslagen` : "";
+      const skipped = s.failed_count > 0 ? ` · ${x.skipped(s.failed_count)}` : "";
       const parts = [
-        s.manifests_copied > 0 && `${count(s.manifests_copied)} ${s.manifests_copied === 1 ? "manifest" : "manifesten"}`,
-        s.lists_copied > 0 && "lijsten",
-        s.previews_copied > 0 && `${count(s.previews_copied)} previews`,
+        s.manifests_copied > 0 && x.manifestsCopied(s.manifests_copied),
+        s.lists_copied > 0 && x.listsCopied,
+        s.previews_copied > 0 && x.previewsCopied(s.previews_copied),
       ].filter(Boolean);
-      return { ...base, text: parts.length ? `bijgewerkt: ${parts.join(", ")}${skipped}` : `${count(s.failed_count)} overgeslagen` };
+      return { ...base, text: parts.length ? `${x.updated(parts.join(", "))}${skipped}` : x.skipped(s.failed_count) };
     }
     default:
       return null;

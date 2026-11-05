@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { t } from "../i18n";
 
 export type Message = { at: string; level: "info" | "warn" | "error"; source: string; text: string };
 
@@ -23,8 +24,9 @@ export function messagesText(list: Message[]): string {
 export function timeLabel(at: string, now = new Date()): string {
   const d = new Date(at);
   if (Number.isNaN(d.getTime())) return at;
-  const time = d.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" });
-  return d.toDateString() === now.toDateString() ? time : `${d.toLocaleDateString("nl-BE", { day: "numeric", month: "short" })} ${time}`;
+  const locale = t().browse.messages.locale;
+  const time = d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === now.toDateString() ? time : `${d.toLocaleDateString(locale, { day: "numeric", month: "short" })} ${time}`;
 }
 
 export type Messages = {

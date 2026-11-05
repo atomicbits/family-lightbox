@@ -1,6 +1,7 @@
 // Hidden photos (F014/S02): left out of the grid and the counts, except in a list, where they
 // are shown dimmed.
 import type { Item, MonthSummary } from "./api";
+import { t } from "../i18n";
 
 /** The months with how many of their photos are hidden. */
 export function withHidden(months: MonthSummary[], perMonth: Record<string, number>): MonthSummary[] {
@@ -39,8 +40,5 @@ export function visibleItems(items: Item[], hidden: Record<string, unknown>): It
 
 /** "312 foto's en video's, 20 verborgen, 2 reeksen". */
 export function countTitle(shown: number, hidden: number, stacks = 0): string {
-  const parts = [`${shown} ${shown === 1 ? "foto of video" : "foto's en video's"}`];
-  if (hidden > 0) parts.push(`${hidden} verborgen`);
-  if (stacks > 0) parts.push(`${stacks} ${stacks === 1 ? "reeks" : "reeksen"}`);
-  return parts.join(", ");
+  return t().browse.hidden.count(shown, hidden, stacks);
 }

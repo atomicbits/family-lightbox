@@ -28,3 +28,24 @@ describe("languages (F011/S01)", () => {
     expect(freeText(812e9)).toBe("812 GB vrij");
   });
 });
+
+describe("the four parts in English (F011/S02)", () => {
+  it("builds their texts", async () => {
+    setLanguage("en");
+    const { fetchPlanText } = await import("../lib/fetcher");
+    const { photosText } = await import("../lib/lists");
+    const { countTitle } = await import("../lib/hidden");
+    const { checkedText } = await import("../lib/update");
+    const { tabs } = await import("../lib/settingsTabs");
+    const out = [
+      fetchPlanText({ files: [{ path: "a", size: 1, sidecar: false }], bytes: 1.2e9, here: 3, conflicts: [], unknown: [], fits: true }),
+      photosText(1),
+      photosText(1234),
+      countTitle(10, 2),
+      checkedText(null),
+      tabs().map((x) => x.label).join(" "),
+    ];
+    for (const s of out) expect(s).not.toMatch(/\b(foto|originelen|verborgen|staan|Algemeen|bijgewerkt)\b/);
+    expect(out[2]).toContain("1,234");
+  });
+});

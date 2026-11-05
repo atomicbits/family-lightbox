@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { menuDirect, menuSearch, type ListInfo } from "../lib/lists";
+import { t } from "../i18n";
 
 export type MenuAction = { label: string; run: () => void; disabled?: boolean; title?: string };
 
@@ -52,12 +53,12 @@ export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo
         ))}
         {swatches && (
           <div className="flex items-center gap-1.5 px-3 py-1.5" title={blocked ?? undefined}>
-            <span className="text-xs text-neutral-400 mr-1">Kleur</span>
+            <span className="text-xs text-neutral-400 mr-1">{t().browse.menu.color}</span>
             {swatches.colors.map((c) => (
               <button
                 key={c.name}
                 disabled={!!blocked}
-                title={c.name}
+                title={t().browse.colors[c.name] ?? c.name}
                 className={"w-4 h-4 rounded-full disabled:opacity-40 " + (c.name === swatches.current ? "ring-2 ring-offset-1 ring-neutral-500 dark:ring-offset-neutral-900" : "")}
                 style={{ background: c.border }}
                 onClick={() => { swatches.onPick(c.name); onClose(); }}
@@ -68,15 +69,15 @@ export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo
         {lists.length > 0 && (
           <>
             <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
-            <div className="px-3 py-1 text-xs text-neutral-400">{more ? "Toevoegen aan (recent)" : "Toevoegen aan"}</div>
+            <div className="px-3 py-1 text-xs text-neutral-400">{more ? t().browse.menu.addToRecent : t().browse.menu.addTo}</div>
             {direct.map((l) => (
               <button key={l.id} className={item} disabled={!!blocked} title={blocked ?? undefined} onClick={() => { onAddTo(l.id); onClose(); }}>
                 {l.name} <span className="opacity-60">{l.year}</span>
               </button>
             ))}
             {more && !searching && (
-              <button className={item} disabled={!!blocked} title={blocked ?? "alle lijsten, met zoeken"} onClick={() => setSearching(true)}>
-                Andere lijst… ▸
+              <button className={item} disabled={!!blocked} title={blocked ?? t().browse.menu.otherListTitle} onClick={() => setSearching(true)}>
+                {t().browse.menu.otherList}
               </button>
             )}
             {searching && (
@@ -84,7 +85,7 @@ export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo
                 <input
                   autoFocus
                   className="w-full px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm"
-                  placeholder="zoek een lijst"
+                  placeholder={t().browse.menu.search}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => {
@@ -93,7 +94,7 @@ export default function PhotoMenu({ x, y, what, actions, lists, blocked, onAddTo
                   }}
                 />
                 <div className="max-h-64 overflow-y-auto">
-                  {found.length === 0 && <div className="px-1 py-1 text-xs text-neutral-400">geen lijst met die naam</div>}
+                  {found.length === 0 && <div className="px-1 py-1 text-xs text-neutral-400">{t().browse.menu.noList}</div>}
                   {found.map((g) => (
                     <div key={g.year}>
                       <div className="px-1 pt-1 text-xs text-neutral-400">{g.year}</div>

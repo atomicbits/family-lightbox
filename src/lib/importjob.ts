@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { count, gb } from "./sync";
+import { gb } from "./sync";
+import { t } from "../i18n";
 import type { PlanProgress } from "./importplan";
 
 export type Step = "stage" | "nas" | "local" | "source" | "done";
@@ -11,36 +12,32 @@ export type JobProgress = { step: string; done: number; total: number; bytes_don
 export type ImportDone = { id: string; name: string; step: Step; copied: number; duplicates: number; failed: number; problems: string[]; error: string | null };
 export type PendingJob = { id: string; name: string; source: string; step: Step; created: string };
 
-const STEP: Record<string, string> = {
-  stage: "kopiëren naar de tussenmap",
-  nas: "naar de NAS",
-  local: "in de werkkopie",
-  source: "opruimen naar _imported",
-  taken: "onthouden wat genomen is",
-};
+const step = (s: string) => t().imports.job.steps[s] ?? s;
 
 /** "Hero13: naar de NAS 2/5", or the planning while it reads the files. */
 export function importLine(name: string, p: JobProgress | null, plan: PlanProgress | null): string {
-  if (p?.bytes_total) return `importeren ${name}: ${STEP[p.step] ?? p.step} ${count(p.done)}/${count(p.total)} · ${gb(p.bytes_done ?? 0)}/${gb(p.bytes_total)} GB`;
-  if (p) return `importeren ${name}: ${STEP[p.step] ?? p.step} ${count(p.done)}/${count(p.total)}`;
-  if (plan) return `importeren ${name}: bestanden lezen ${count(plan.files_done)}/${count(plan.files_total)}`;
-  return `importeren ${name}…`;
+  const tx = t().imports.job;
+  if (p?.bytes_total) return tx.lineBytes(name, step(p.step), p.done, p.total, gb(p.bytes_done ?? 0), gb(p.bytes_total));
+  if (p) return tx.lineFiles(name, step(p.step), p.done, p.total);
+  if (plan) return tx.lineReading(name, plan.files_done, plan.files_total);
+  return tx.lineStarting(name);
 }
 
 /** "Hero13: 82 geïmporteerd · 71 al in de bibliotheek · 1 mislukt", or why it stopped. */
 export function doneText(d: ImportDone): string {
-  if (d.error) return `${d.name}: gestopt (${d.error})`;
+  const tx = t().imports.job;
+  if (d.error) return tx.stopped(d.name, d.error);
   const parts = [
-    `${count(d.copied)} geïmporteerd`,
-    d.duplicates > 0 ? `${count(d.duplicates)} al in de bibliotheek` : null,
-    d.failed > 0 ? `${count(d.failed)} mislukt` : null,
+    tx.imported(d.copied),
+    d.duplicates > 0 ? t().imports.plan.inLibrary(d.duplicates) : null,
+    d.failed > 0 ? tx.failed(d.failed) : null,
   ];
   return `${d.name}: ${parts.filter(Boolean).join(" · ")}`;
 }
 
 /** Where an unfinished import stopped. */
 export function pendingText(j: PendingJob): string {
-  return `${j.name}, gestopt bij: ${STEP[j.step] ?? j.step}`;
+  return t().imports.job.pending(j.name, step(j.step));
 }
 
 export type Importer = {

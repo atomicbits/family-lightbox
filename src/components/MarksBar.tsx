@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { heartAfterClick, heartState, markSize, sharedStars, starsAfterClick, type MarksState } from "../lib/marks";
+import { t } from "../i18n";
 
 type Props = {
   /** How many photos it applies to, shown on the tile when more than one (F013). */
@@ -24,12 +25,13 @@ export default function MarksBar({ count, hashes, marks, me, blocked, onRate, on
   const onTile = variant !== "lightbox";
   const px = onTile ? markSize(variant.tile) + 3 : 16;
   const muted = onTile ? "text-white/45" : "text-neutral-500";
-  const tip = (t: string) => blocked ?? t;
+  const tip = (text: string) => blocked ?? text;
+  const tx = t().browse.marks;
   // clicks here don't select, open or drag the tile
   const stop = { onClick: (e: React.MouseEvent) => e.stopPropagation(), onDoubleClick: (e: React.MouseEvent) => e.stopPropagation(), onMouseDown: (e: React.MouseEvent) => e.preventDefault() };
   const stars = (
     <span className="flex items-center" onMouseLeave={() => setHover(0)}>
-      {shared === null && <span className={`${muted} mr-0.5`} style={{ fontSize: px * 0.8 }} title="de gekozen foto's hebben verschillende sterren">–</span>}
+      {shared === null && <span className={`${muted} mr-0.5`} style={{ fontSize: px * 0.8 }} title={tx.differentStars}>–</span>}
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
@@ -40,7 +42,7 @@ export default function MarksBar({ count, hashes, marks, me, blocked, onRate, on
           }
           style={{ fontSize: px }}
           onMouseEnter={() => setHover(n)}
-          title={tip(shared === n ? "sterren weghalen (0)" : `${n} ${n === 1 ? "ster" : "sterren"} (${n})`)}
+          title={tip(shared === n ? tx.removeStars : tx.giveStars(n))}
           onClick={(e) => { e.stopPropagation(); onRate(starsAfterClick(shared, n)); }}
         >
           ★
@@ -53,7 +55,7 @@ export default function MarksBar({ count, hashes, marks, me, blocked, onRate, on
       disabled={!!blocked || !me}
       className={"px-0.5 leading-none disabled:opacity-40 " + (heart === "none" ? muted + " hover:text-red-400" : "text-red-500")}
       style={{ fontSize: px, ...(heart === "some" ? { opacity: 0.55 } : {}) }}
-      title={tip(heart === "all" ? "je hartje weghalen (H)" : heart === "some" ? "je hartje op alle gekozen foto's (H)" : "een hartje (H)")}
+      title={tip(heart === "all" ? tx.heartOff : heart === "some" ? tx.heartAll : tx.heartOn)}
       onClick={(e) => { e.stopPropagation(); onHeart(heartAfterClick(heart)); }}
     >
       {heart === "none" ? "♡" : "♥"}
@@ -66,7 +68,7 @@ export default function MarksBar({ count, hashes, marks, me, blocked, onRate, on
     <>
       {count > 1 && (
         <span className="absolute top-1 left-1 rounded bg-blue-600 text-white px-1 shadow" style={{ fontSize: Math.max(10, px * 0.65) }}>
-          {count} foto's
+          {tx.selected(count)}
         </span>
       )}
       <span

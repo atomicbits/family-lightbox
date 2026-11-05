@@ -13,16 +13,11 @@ import type { Renamer } from "../lib/renamer";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
 import { LANGUAGE_EVENT, t, type LangSetting } from "../i18n";
-import { TABS, changedTabs, loadTab, saveTab, type TabId } from "../lib/settingsTabs";
+import { changedTabs, loadTab, saveTab, tabs, type TabId } from "../lib/settingsTabs";
 
 type Props = { renamer: Renamer; device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; previews: Previews; onShowMessages: () => void; onClose: () => void };
 
-const SHARE_LABELS: [keyof Shares, string][] = [
-  ["library", "Originelen"],
-  ["previews", "Previews"],
-  ["lists", "Lijsten"],
-  ["exports", "Exports"],
-];
+const SHARE_KEYS: (keyof Shares)[] = ["library", "previews", "lists", "exports"];
 
 /** Settings panel (F021/S01): the topics on tabs, with one Bewaar for all of them. */
 export default function Settings({ renamer, device, nas, sync, index, update, previews, onShowMessages, onClose }: Props) {
@@ -42,7 +37,7 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
   useEffect(() => { nasApi.layout().then(setLayout).catch(() => {}); }, [nas.check]);
   const { mounts, attempts, check, busy: connecting } = nas;
   const [tab, setTabState] = useState<TabId>(loadTab);
-  const setTab = (t: TabId) => { setTabState(t); saveTab(t); };
+  const setTab = (id: TabId) => { setTabState(id); saveTab(id); };
 
   const load = () => config.settings().then((s) => { setState(s); setDraft(s.settings); });
   useEffect(() => { load(); nas.refresh(); }, []);
@@ -54,6 +49,7 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
   }, [onClose]);
 
   if (!state || !draft) return null;
+  const x = t().settings.panel;
 
   const problems = [hostProblem(draft.nas_host), draft.home_share ? shareProblem(draft.home_share) : null].filter(
     (p): p is string => p !== null,
@@ -64,7 +60,7 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
   const save = () =>
     config
       .saveSettings(draft)
-      .then(() => { setMessage("bewaard"); setSaves((n) => n + 1); return load().then(nas.refresh); })
+      .then(() => { setMessage(x.saved); setSaves((n) => n + 1); return load().then(nas.refresh); })
       .catch((e) => setMessage(String(e)));
 
   const connect = () => nas.connect(true);
@@ -78,18 +74,18 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 pt-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-          <h2 className="text-base font-semibold">Instellingen</h2>
+          <h2 className="text-base font-semibold">{x.title}</h2>
           <div className="flex gap-1 mt-3 -mb-px overflow-x-auto" role="tablist">
-            {TABS.map((t) => (
+            {tabs().map((b) => (
               <button
-                key={t.id}
+                key={b.id}
                 role="tab"
-                aria-selected={tab === t.id}
-                className={`px-3 py-1.5 whitespace-nowrap border-b-2 ${tab === t.id ? "border-neutral-900 dark:border-white font-medium" : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"}`}
-                onClick={() => setTab(t.id)}
+                aria-selected={tab === b.id}
+                className={`px-3 py-1.5 whitespace-nowrap border-b-2 ${tab === b.id ? "border-neutral-900 dark:border-white font-medium" : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"}`}
+                onClick={() => setTab(b.id)}
               >
-                {t.label}
-                {unsaved.has(t.id) && <span className="ml-1 text-amber-600" title="niet bewaard">●</span>}
+                {b.label}
+                {unsaved.has(b.id) && <span className="ml-1 text-amber-600" title={x.notSaved}>●</span>}
               </button>
             ))}
           </div>
@@ -98,14 +94,14 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
         {tab === "general" && (
           <>
             <section className="space-y-1">
-              <h3 className="font-medium">Dit toestel</h3>
+              <h3 className="font-medium">{x.thisDevice}</h3>
               {device?.device ? (
                 <div>
                   <span className="font-mono">{device.device.name}</span>
-                  <span className="text-neutral-500"> · van {device.device.owner}</span>
+                  <span className="text-neutral-500">{x.ofOwner(device.device.owner)}</span>
                 </div>
               ) : (
-                <div className="text-neutral-500">nog geen naam</div>
+                <div className="text-neutral-500">{x.noName}</div>
               )}
               {device?.error && <div className="text-red-600 whitespace-pre-wrap">{device.error}</div>}
               {check && device?.device && (
@@ -118,11 +114,11 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
 
             {folders && (
               <section className="space-y-1">
-                <h3 className="font-medium">Lokale kopieën</h3>
+                <h3 className="font-medium">{x.localCopies}</h3>
                 <div className="text-xs text-neutral-500 font-mono space-y-0.5 break-all">
-                  <div>originelen: {folders.library}</div>
-                  <div>previews: {folders.previews}</div>
-                  <div>lijsten: {folders.lists}</div>
+                  <div>{x.local.library}: {folders.library}</div>
+                  <div>{x.local.previews}: {folders.previews}</div>
+                  <div>{x.local.lists}: {folders.lists}</div>
                 </div>
               </section>
             )}
@@ -157,10 +153,10 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
 
             <section className="space-y-1">
               <div className="flex items-center gap-2">
-                <h3 className="font-medium">Over</h3>
+                <h3 className="font-medium">{x.about}</h3>
                 <span className="flex-1" />
                 <button className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700" onClick={onShowMessages}>
-                  Meldingen
+                  {x.messages}
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -169,10 +165,10 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
                 <button
                   className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
                   disabled={update.state.checking || update.state.installing}
-                  title="kijken of er een nieuwere versie is"
+                  title={x.checkTitle}
                   onClick={() => update.check(true)}
                 >
-                  {update.state.checking ? "Controleren…" : "Controleren op updates"}
+                  {update.state.checking ? x.checking : x.checkUpdates}
                 </button>
               </div>
               {/* a newer version is installed from here too, not only from the bar behind this panel */}
@@ -189,23 +185,23 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
         {tab === "nas" && (
           <>
             <section className="space-y-2">
-              <h3 className="font-medium">NAS</h3>
+              <h3 className="font-medium">{x.nas}</h3>
               {state.error && (
                 <div className="text-red-600 whitespace-pre-wrap">
                   {state.error}
-                  {"\n"}De standaardwaarden zijn in gebruik; het bestand wordt pas overschreven als je bewaart.
+                  {"\n"}{x.defaultsInUse}
                 </div>
               )}
               <label className="block space-y-1">
-                <span>Naam van de NAS</span>
+                <span>{x.nasName}</span>
                 <input className={input} value={draft.nas_host} onChange={(e) => setDraft({ ...draft, nas_host: e.target.value })} />
               </label>
               <label className="block space-y-1">
-                <span>Thuismap: de gedeelde map met <span className="font-mono">familylightbox.json</span></span>
+                <span>{x.homeShare}<span className="font-mono">familylightbox.json</span></span>
                 <input className={input} value={draft.home_share} placeholder={draft.shares.lists} onChange={(e) => setDraft({ ...draft, home_share: e.target.value.trim() })} />
               </label>
               <div className="text-xs text-neutral-500">
-                Indeling: {layoutSourceText(check?.layout_source ?? null)}
+                {x.layout}: {layoutSourceText(check?.layout_source ?? null)}
                 {layout?.name ? ` · ${layout.name}` : ""}
               </div>
               {check?.layout_problem && <div className="text-xs text-amber-600 whitespace-pre-wrap">{check.layout_problem}</div>}
@@ -215,26 +211,27 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
               {mounts && (
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-neutral-500">Gevonden op deze Mac</span>
+                    <span className="text-neutral-500">{x.foundHere}</span>
                     <span className="flex-1" />
                     <button
                       className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
                       disabled={connecting || changed || !anyMissing(mounts)}
-                      title={changed ? "bewaar eerst de instellingen" : "verbind de gedeelde mappen die nog ontbreken"}
+                      title={changed ? x.saveFirst : x.connectTitle}
                       onClick={connect}
                     >
-                      {connecting ? "Verbinden…" : "Verbinden"}
+                      {connecting ? x.connecting : x.connect}
                     </button>
                     <button
                       className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
                       disabled={sync.state?.running || !mounts.library.some((m) => m.chosen)}
-                      title="manifesten en previews van de NAS ophalen"
+                      title={x.syncTitle}
                       onClick={() => sync.start("all", false).catch(() => {})}
                     >
-                      {sync.state?.running ? "Synchroniseren…" : "Synchroniseren"}
+                      {sync.state?.running ? x.syncing : x.sync}
                     </button>
                   </div>
-                  {SHARE_LABELS.map(([k, label]) => {
+                  {SHARE_KEYS.map((k) => {
+                    const label = t().settings.shares[k];
                     const where = mountLabel(mounts[k]);
                     const attempt = attempts.find((a) => a.share === k);
                     const access = check ? accessLabel(check[k]) : null;
@@ -243,7 +240,7 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
                         <span className="w-24 shrink-0" title={layout ? locationText(layout[k]) : undefined}>{label}</span>
                         {layout && <span className="text-xs text-neutral-500 leading-5 w-32 shrink-0 truncate font-mono">{locationText(layout[k])}</span>}
                         <span className={where ? "font-mono text-xs leading-5 break-all min-w-0" : "text-neutral-400"}>
-                          {where ?? "niet verbonden"}
+                          {where ?? x.notConnected}
                           {mounts[k].length > 1 && ` (+${mounts[k].length - 1})`}
                         </span>
                         {access && (
@@ -275,15 +272,15 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
           <>
             <section className="space-y-1">
               <div className="flex items-center gap-2">
-                <h3 className="font-medium">Index</h3>
+                <h3 className="font-medium">{x.index}</h3>
                 <span className="flex-1" />
                 <button
                   className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
                   disabled={index.state?.running}
-                  title="de index opnieuw opbouwen uit de manifesten in de werkkopie"
+                  title={x.rebuildTitle}
                   onClick={() => index.rebuild({ visible: true, onlyIfStale: false }).catch(() => {})}
                 >
-                  {index.state?.running ? "Index bijwerken…" : "Index bijwerken"}
+                  {index.state?.running ? x.updatingIndex : x.updateIndex}
                 </button>
               </div>
               {index.state?.outcome && <div className="text-neutral-500">{outcomeText(index.state.outcome)}</div>}
@@ -292,22 +289,22 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
 
             <section className="space-y-1">
               <div className="flex items-center gap-2">
-                <h3 className="font-medium">Previews</h3>
+                <h3 className="font-medium">{x.previews}</h3>
                 <span className="flex-1" />
                 <button
                   className="px-2 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-40"
                   disabled={!overview || overview.failed.length === 0}
-                  title="de mislukte previews opnieuw proberen te maken"
+                  title={x.retryTitle}
                   onClick={() => previews.retry().then(loadOverview).catch((e) => setPreviewsError(String(e)))}
                 >
-                  Opnieuw proberen
+                  {x.retry}
                 </button>
               </div>
               {overview && <div className="text-neutral-500">{missingText(overview)}</div>}
               {previews.line && <div className="text-neutral-500">{previews.line.text}</div>}
               {overview && overview.failed.length > 0 && (
                 <>
-                  <div className="text-amber-600">{overview.failed.length} mislukt:</div>
+                  <div className="text-amber-600">{x.failed(overview.failed.length)}</div>
                   <ul className="max-h-32 overflow-auto text-xs font-mono text-neutral-500 space-y-0.5">
                     {overview.failed.map((f) => (
                       <li key={f.path} title={f.error} className="break-all">{f.path}: {f.error}</li>
@@ -325,14 +322,14 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
           {message && <span className="text-neutral-500 whitespace-pre-wrap">{message}</span>}
           <span className="flex-1" />
           <button className="px-3 py-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800" onClick={onClose}>
-            Sluiten
+            {x.close}
           </button>
           <button
             className="px-3 py-1.5 rounded bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40"
             disabled={(!changed && !state.error) || problems.length > 0}
             onClick={save}
           >
-            Bewaar
+            {x.save}
           </button>
         </div>
       </div>

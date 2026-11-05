@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { MonthSummary } from "../lib/api";
 import { groupByYear, monthLabel } from "../lib/months";
 import { countTitle, shownCount } from "../lib/hidden";
+import { t } from "../i18n";
 
 type Props = {
   months: MonthSummary[];
@@ -60,7 +61,7 @@ export default function MonthList({ months, selected, onSelect, onMenu }: Props)
                     // nothing here matches the filter (F002/S03)
                     (m.filtered === 0 && !active ? " opacity-40" : "")
                   }
-                  title={`${countTitle(shownCount(m), m.revealed ? 0 : m.hidden ?? 0, m.stacks ?? 0)}; ${m.previews} previews, ${m.local} originelen lokaal`}
+                  title={t().browse.months.title(countTitle(shownCount(m), m.revealed ? 0 : m.hidden ?? 0, m.stacks ?? 0), m.previews, m.local)}
                 >
                   <span className="truncate">
                     {monthLabel(m.month)}
@@ -81,7 +82,7 @@ export default function MonthList({ months, selected, onSelect, onMenu }: Props)
 /** A month (or a year with such a month) whose hidden photos are shown for now. */
 function RevealedMark() {
   return (
-    <span className="ml-1.5 text-[10px] align-middle text-amber-500" title="verborgen foto's worden getoond (klik rechts om ze weer te verbergen)">
+    <span className="ml-1.5 text-[10px] align-middle text-amber-500" title={t().browse.months.revealed}>
       ◉
     </span>
   );

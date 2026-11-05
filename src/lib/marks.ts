@@ -2,7 +2,7 @@
 // when the lists' watch sees a change on the share, and writing a rating or a heart.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { count } from "./sync";
+import { t } from "../i18n";
 
 export type Rating = { stars: number; by: string; at: string };
 
@@ -46,9 +46,9 @@ export function heartView(hearts: Record<string, string> | undefined, me: string
 /** The tooltip lines for a photo's marks: "4 sterren (lynn)", "hartje van lynn en peter". */
 export function marksLines(rating: Rating | undefined, hearts: Record<string, string> | undefined): string[] {
   const lines: string[] = [];
-  if (rating) lines.push(`${rating.stars} ${rating.stars === 1 ? "ster" : "sterren"} (${rating.by})`);
+  if (rating) lines.push(t().browse.marks.rated(rating.stars, rating.by));
   const who = Object.keys(hearts ?? {}).sort();
-  if (who.length) lines.push(`hartje van ${who.length === 1 ? who[0] : `${who.slice(0, -1).join(", ")} en ${who[who.length - 1]}`}`);
+  if (who.length) lines.push(t().browse.marks.hearts(who));
   return lines;
 }
 
@@ -74,19 +74,14 @@ export const heartAfterClick = (state: "all" | "some" | "none"): boolean => stat
 export function marksBlocked(s: MarksState, me: string | null): string | null {
   if (s.problem) return s.problem;
   // without the NAS a change waits on this Mac (F020)
-  if (s.source === "none") return "nog geen sterren en hartjes op deze Mac: verbind eerst één keer met de NAS";
-  if (!me) return "dit toestel heeft nog geen eigenaar";
+  if (s.source === "none") return t().browse.marks.noMarksYet;
+  if (!me) return t().browse.marks.noOwner;
   return null;
 }
 
 /** "12 foto's: 3 sterren", "1 foto: sterren weg", "hartje op 3 foto's", "hartje weg bij 1 foto". */
 export function changeText(n: number, change: { stars: number } | { heart: boolean }): string {
-  const photos = n === 1 ? "1 foto" : `${n} foto's`;
-  if ("stars" in change) {
-    if (change.stars === 0) return `${photos}: sterren weg`;
-    return `${photos}: ${change.stars} ${change.stars === 1 ? "ster" : "sterren"}`;
-  }
-  return change.heart ? `hartje op ${photos}` : `hartje weg bij ${photos}`;
+  return t().browse.marks.change(n, change);
 }
 
 export const NO_MARKS: MarksState = { source: "none", ratings: {}, hearts: {}, hidden: {}, stacks: {}, stack_colors: {}, ignored: 0, problem: null };
@@ -219,7 +214,7 @@ export function useMarks(version: number, me: string | null, onError: (message: 
         (e) => {
           pending.current--;
           if (pending.current === 0) reload().catch(() => {});
-          onError(`niet bewaard op de NAS, teruggezet: ${String(e)}`);
+          onError(t().browse.marks.notSaved(String(e)));
         },
       );
   }, [me, reload, onError]);
@@ -230,5 +225,5 @@ export function useMarks(version: number, me: string | null, onError: (message: 
 /** The footer's line while changes wait in the outbox (F020/S03), or null. */
 export function waitingText(n: number): string | null {
   if (n <= 0) return null;
-  return n === 1 ? "1 wijziging wacht op de NAS" : `${count(n)} wijzigingen wachten op de NAS`;
+  return t().browse.marks.waiting(n);
 }

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { modKey, shortcuts } from "../lib/shortcuts";
+import { t } from "../i18n";
 
 /** The keyboard shortcuts on a translucent overlay; Esc, ⌘? or a click closes it. */
 export default function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
@@ -13,8 +14,8 @@ export default function ShortcutsOverlay({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-8" onClick={onClose}>
       <div className="max-w-3xl w-full rounded-xl bg-neutral-900/85 text-white shadow-2xl p-6" onClick={onClose}>
         <div className="flex items-baseline mb-4">
-          <h2 className="text-lg font-semibold flex-1">Sneltoetsen</h2>
-          <span className="text-xs text-white/50">Esc of {mod}? sluit</span>
+          <h2 className="text-lg font-semibold flex-1">{t().browse.shortcuts.title}</h2>
+          <span className="text-xs text-white/50">{t().browse.shortcuts.close(mod)}</span>
         </div>
         <div className="grid grid-cols-2 gap-x-10 gap-y-5 text-sm">
           {shortcuts(mod).map((g) => (

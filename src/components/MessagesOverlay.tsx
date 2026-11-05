@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { messagesText, timeLabel, type Messages } from "../lib/messages";
+import { t } from "../i18n";
 
 const LEVEL = { error: "text-red-400", warn: "text-amber-300", info: "text-white/60" };
 
@@ -17,17 +18,17 @@ export default function MessagesOverlay({ messages, onClose }: { messages: Messa
     <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-8" onClick={onClose}>
       <div className="max-w-4xl w-full max-h-full flex flex-col rounded-xl bg-neutral-900/90 text-white shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-baseline gap-3 mb-3">
-          <h2 className="text-lg font-semibold flex-1">Meldingen</h2>
-          <button className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-sm disabled:opacity-40" disabled={messages.list.length === 0} onClick={copy} title="alle meldingen als tekst, om door te sturen">
-            {copied ? "Gekopieerd" : "Kopiëren"}
+          <h2 className="text-lg font-semibold flex-1">{t().browse.messages.title}</h2>
+          <button className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-sm disabled:opacity-40" disabled={messages.list.length === 0} onClick={copy} title={t().browse.messages.copyTitle}>
+            {copied ? t().browse.messages.copied : t().browse.messages.copy}
           </button>
           <button className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-sm disabled:opacity-40" disabled={messages.list.length === 0} onClick={messages.clear}>
-            Wissen
+            {t().browse.messages.clear}
           </button>
           <button className="text-white/60 hover:text-white" onClick={onClose} title="Esc">✕</button>
         </div>
         {messages.list.length === 0 ? (
-          <div className="text-white/50 text-sm py-6 text-center">geen meldingen sinds de app opende</div>
+          <div className="text-white/50 text-sm py-6 text-center">{t().browse.messages.none}</div>
         ) : (
           <ul className="overflow-auto min-h-0 text-xs font-mono space-y-1 select-text cursor-text">
             {messages.list.map((m, i) => (
@@ -39,7 +40,7 @@ export default function MessagesOverlay({ messages, onClose }: { messages: Messa
             ))}
           </ul>
         )}
-        {messages.logPath && <div className="mt-3 text-xs text-white/40">Alles staat ook in {messages.logPath}</div>}
+        {messages.logPath && <div className="mt-3 text-xs text-white/40">{t().browse.messages.logAt(messages.logPath)}</div>}
       </div>
     </div>
   );
