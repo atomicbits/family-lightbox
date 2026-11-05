@@ -1,6 +1,6 @@
 # Feature 25: Lightroom's edits visible in FamilyLightbox
 
-**Status:** In design (idea accepted 2026-11-04)
+**Status:** In progress (stories written 2026-11-05)
 **Depends on:** Feature 23 (the plug-in)
 **Folder:** `F025-lightroom-edits`
 
@@ -35,12 +35,30 @@ Taken with Peter on 2026-11-04:
    (feature 24) takes, chosen by hand (shared, like a stack's choice); by default the latest edited
    one. The choice is a mark of the photo (data contract 5.5), kept for both Macs.
 
-## Open points
+Taken with Peter on 2026-11-05:
 
-1. Every edited photo (Lightroom can find those by their develop history), or only those of lists?
-2. Renditions at preview size (2 048 px) only, or also at export size, so feature 24 can make
-   edited prints without Lightroom open?
+3. **Only the photos of lists**: the edited photos and virtual copies in the collections of
+   FamilyLightbox's lists (feature 23), not every edited photo in the catalog.
+4. **Two sizes**: a rendition at preview size (2 048 px) to show, and one at full size for
+   exports (feature 24), so an edited print needs no Lightroom open.
+
+Proposed with the stories (2026-11-05):
+
+5. **No publish service**: *Lijsten bijwerken* (feature 23) renders, after updating the lists, the
+   edited photos of the lists whose edit is newer than their rendition. One click as now; no
+   second place in Lightroom to look after.
+6. **Through a folder on the Mac**: the plug-in renders into `~/.config/media/lightroom-out/` with
+   a small JSON per rendition; the app puts them on the NAS (temporary name, rename) as it does
+   previews. Writing the contract's files stays in the app.
+7. **The full size stays on the NAS**: `Previews/<path>.lr.full.jpg` isn't copied to the Macs'
+   previews; an export reads it from the NAS, as it reads an original that isn't here.
 
 ## Stories
 
-To be written when the open points are decided.
+| ID | Title | Status | Depends on |
+|---|---|---|---|
+| [S01](stories/S01-the-contract.md) | The contract (1.7): renditions next to the previews, the chosen variant as a mark | Done | — |
+| [S02](stories/S02-rendering-in-lightroom.md) | The plug-in renders the edited photos and virtual copies of the lists, at two sizes, only what changed | Planned | S01 |
+| [S03](stories/S03-taken-in.md) | The app takes them in: to the NAS's `Previews`, the small one to the Mac, known to the index | Planned | S02 |
+| [S04](stories/S04-shown-and-chosen.md) | Shown in the grid and lists, variants folded like a stack, one chosen and kept for both Macs | Planned | S03 |
+| [S05](stories/S05-exported.md) | An export takes the chosen variant at full size | Planned | S04 |

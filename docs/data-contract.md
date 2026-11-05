@@ -1,6 +1,6 @@
 # Data contract
 
-*Version 1.6, 4 November 2026. This document sets down what the data shared by the CLI (`media`), the desktop app (FamilyLightbox) and the Lightroom plug-in looks like: folders, file names, manifests, previews, lists and local state. Everything stated here is binding for every component; anything not stated here is up to each component. Changes raise the version number and get a line in section 12.*
+*Version 1.7, 5 November 2026. This document sets down what the data shared by the CLI (`media`), the desktop app (FamilyLightbox) and the Lightroom plug-in looks like: folders, file names, manifests, previews, lists and local state. Everything stated here is binding for every component; anything not stated here is up to each component. Changes raise the version number and get a line in section 12.*
 
 *Moved into this repo, translated from Dutch, on 2026-10-26 (FamilyLightbox F007/S01). The section numbers are unchanged, so references such as "data contract 5.1" in code and documents stay valid. Operational details of the home network that a component doesn't need to follow the contract (SSH configuration, which account is denied which years, the name of the Drive mirror share) are kept in a private note outside this repo, `docs/nas-inrichting.md` in LibraryLocal.*
 
@@ -181,6 +181,21 @@ The original extension stays in the name so that `IMG_1.HEIC` and `IMG_1.JPG` ne
 
 Previews are derived and can be rebuilt; they have no manifest and don't go to Drive.
 
+**Renditions (1.7, FamilyLightbox F025).** A photo edited in Lightroom Classic, in a list, has *renditions* next to its preview, made only by Lightroom through FamilyLightbox's plug-in and put in `Previews` by the app:
+
+```
+Previews/2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3.lr.jpg              as edited, long side 2048 px
+Previews/2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3.lr.full.jpg         as edited, full size
+Previews/2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3.lr-zwart-wit.jpg    a virtual copy named "Zwart-wit"
+Previews/2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3.lr-zwart-wit.full.jpg
+```
+
+- The variant is `lr` for the photo itself and `lr-<copy>` for a virtual copy, `<copy>` its copy name as a slug (lowercase, `a-z0-9` and `-`, as a list's slug in 5.4); a copy without a name is `lr-copy`, a second one with the same slug gets `-2`, `-3`.
+- JPEG, sRGB, quality 90, upright; the size as Lightroom renders it (2048 px long side, or the edit's full size). The file's modification time is the time of the edit.
+- Replaced (temporary name, rename) when the edit changes; removed when the edit or the copy is gone from the catalog. A rename of the source (3.6) moves them with the previews.
+- The `.full.jpg` ones stay on the NAS: they aren't copied to a laptop's previews; an export reads them there.
+- A reader that doesn't know renditions finds the preview at `<path>.jpg` as before; it only sees more files.
+
 They are made on a laptop, by the CLI (`media previews`) or by FamilyLightbox (feature 12, natively with ImageIO and AVFoundation), not on the NAS: DSM's ImageMagick and ffmpeg don't read CR3, HEIC or HEVC and don't write JPEG. The CLI uses `sips` (macOS, hardware decoding), `exiftool` (embedded JPEG from RAW, metadata) and `ffmpeg` (video frame). Which preview belongs to which hash is recorded in the local index (`~/.config/media/index.sqlite`, table `previews`, not part of the contract): a preview that already exists without an index entry is adopted, not made again.
 
 ## 5. Lists
@@ -287,14 +302,15 @@ One file per device, next to `events/`, written only by that device, only by app
 | Field | Required | Meaning |
 |---|---|---|
 | `v`, `ts`, `dev`, `who` | yes | As in 5.2. |
-| `op` | yes | `rate`, `heart`, `unheart`, `hide`, `unhide`, `stack`, `unstack`, `color`. |
+| `op` | yes | `rate`, `heart`, `unheart`, `hide`, `unhide`, `stack`, `unstack`, `color`, `variant`. |
 | `photo` | yes, except with `color` | Content hash of the original. |
 | `stars` | with `rate` | 0 to 5; 0 removes the rating. |
 | `color` | with `color` | A stack's color: `blauw`, `amber`, `groen`, `roze`, `paars`, `turkoois`, `oranje` or `grijs`; with `stack`, the stack it colors. |
 | `stack` | with `stack` and `color` | The stack's id, made by the device that makes the stack: its name and the moment, `mbp-peter-20261030T211502123`. |
+| `variant` | with `variant` | The variant that shows for the photo (section 4, renditions): `""` the plain original, `lr`, or `lr-<copy>` (1.7). |
 | `path` | no | Last known path in `Library`, as a hint. |
 
-Merging: all lines of registered devices, sorted as in 5.3 (moment of `ts`, then `dev`, then line). For each photo the last `rate` gives its stars, with its `who` and `ts`; for each photo and `who` the last `heart` or `unheart` decides whether that person's heart is on it; for each photo the last `hide` or `unhide`, whoever wrote it, decides whether it is hidden; for each photo the last `stack` or `unstack` decides its stack. A stack is the photos whose last event names it; a stack of fewer than two photos counts as none. For each stack the last `color` gives its color; without one, a reader picks a color from the id. An `unheart` without a heart, or a rating of 0 without a rating, changes nothing.
+Merging: all lines of registered devices, sorted as in 5.3 (moment of `ts`, then `dev`, then line). For each photo the last `rate` gives its stars, with its `who` and `ts`; for each photo and `who` the last `heart` or `unheart` decides whether that person's heart is on it; for each photo the last `hide` or `unhide`, whoever wrote it, decides whether it is hidden; for each photo the last `stack` or `unstack` decides its stack. A stack is the photos whose last event names it; a stack of fewer than two photos counts as none. For each stack the last `color` gives its color; without one, a reader picks a color from the id. For each photo the last `variant` decides which variant shows and which an export takes; without one, or when the variant named has no rendition (any more), the rendition with the latest time, else the plain original. An `unheart` without a heart, or a rating of 0 without a rating, changes nothing.
 
 ### 5.6 Renames: `Lists/renames/<id>.json`
 
@@ -410,6 +426,7 @@ Drive       Pictures/Library/2026/10/EOSR/photos/2026-10-18/CO7A9410.CR3  via rc
 |---|---|---|
 | 1.2 (addition) | 2026-10-30 | Section 5.5: `color`, a stack's color, without a `photo` (FamilyLightbox F015/S05). |
 | 1.4 (addition) | 2026-11-03 | Section 3.1: a new source has no day folders; the sources with day folders keep them (FamilyLightbox F018, at Peter's request). |
+| 1.7 | 2026-11-05 | Section 4: renditions of photos edited in Lightroom (`<path>.lr.jpg`, `.lr.full.jpg`, virtual copies `lr-<copy>`), the full ones only on the NAS; section 5.5: the mark `variant` (FamilyLightbox F025). |
 | 1.6 | 2026-11-04 | Sections 3.6 and 5.6: renaming a source on the NAS, and its record in `Lists/renames/` that every device applies; section 1: a rename moves, it deletes nothing; section 8: Drive may repeat it as a move (FamilyLightbox F022, LibraryLocal F005/S01). |
 | 1.5 | 2026-11-04 | Section 5.2 and 5.5: a change made while the NAS can't be written to MAY be kept on the device and appended later with its original `ts`, in order, never twice; a list id taken meanwhile gets the next free one (FamilyLightbox F020). The format of the events doesn't change. |
 | 1.4 (addition) | 2026-11-04 | Section 1: files below a folder whose name starts with `.` aren't photos or videos for a reader (FamilyLightbox F012). |

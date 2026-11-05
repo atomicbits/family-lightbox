@@ -174,4 +174,4 @@ no folder yet.
 | 22 | [Renaming sources](F022-rename-sources/plan.md): rename a source or merge it into another, on the NAS, every Mac and in the manifests, to straighten out old names | In progress | 2, 8, 18, 19 |
 | 23 | [The lists in Lightroom Classic](F023-lightroom-plugin/plan.md): a plug-in keeps a collection per list, on a click, one way | Done | 3, 9 |
 | 24 | [Exporting a list](F024-export/plan.md) from its originals, at a preset for a photo book, prints or a calendar | Done | 3, 9 |
-| 25 | [Lightroom's edits in the app](F025-lightroom-edits/plan.md): renditions published by the plug-in, shown with the photo, virtual copies as variants | Planned (an idea) | 23 |
+| 25 | [Lightroom's edits in the app](F025-lightroom-edits/plan.md): renditions published by the plug-in, shown with the photo, virtual copies as variants | In progress (S01) | 23 |

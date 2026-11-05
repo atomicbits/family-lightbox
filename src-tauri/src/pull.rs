@@ -121,9 +121,16 @@ pub const RESERVE: u64 = 20_000_000_000;
 /// A counted plan is used for at most this long; after that, count again.
 pub const PLAN_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(30 * 60);
 
-/// A preview (`<original>.jpg`) or a thumbnail (`<original>.t.jpg`), at any depth.
+/// A preview (`<original>.jpg`), a thumbnail (`<original>.t.jpg`) or a small rendition
+/// (`<original>.lr.jpg`), at any depth; not a full-size rendition, which stays on the NAS
+/// (data contract 4, 1.7).
 pub fn is_preview(rel: &str) -> bool {
-    rel.ends_with(".jpg")
+    rel.ends_with(".jpg") && !is_full_rendition(rel)
+}
+
+/// `<original>.lr.full.jpg` or `<original>.lr-<copy>.full.jpg` (F025/S01).
+pub fn is_full_rendition(rel: &str) -> bool {
+    rel.strip_suffix(".full.jpg").and_then(|r| r.rsplit_once('.')).is_some_and(|(_, v)| v == "lr" || v.starts_with("lr-"))
 }
 
 /// The previews job: the chosen `Previews` mount to the local previews folder.
@@ -340,6 +347,10 @@ mod tests {
     fn which_paths_are_previews() {
         assert!(is_preview("2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3.jpg"));
         assert!(is_preview("2026/07/EOSR/photos/2026-07-30/CO7A9123.CR3.t.jpg"));
+        // renditions (F025/S01): the small ones come along, the full ones stay on the NAS
+        assert!(is_preview("2026/07/a/CO7A9123.CR3.lr.jpg") && is_preview("2026/07/a/CO7A9123.CR3.lr-zwart-wit.jpg"));
+        assert!(!is_preview("2026/07/a/CO7A9123.CR3.lr.full.jpg") && !is_preview("2026/07/a/CO7A9123.CR3.lr-zwart-wit.full.jpg"));
+        assert!(is_preview("2026/07/a/my.full.jpg.jpg") && is_preview("2026/07/a/IMG.full.jpg"));
         for no in ["2026/07/iPhone-photos/IMG_1.JPG", "2026/07/x.png", "2026/07/.manifest.json"] {
             assert!(!is_preview(no), "{no}");
         }
