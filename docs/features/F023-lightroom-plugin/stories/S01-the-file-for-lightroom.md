@@ -1,7 +1,7 @@
 # Story S01: The file for Lightroom
 
 **Feature:** `F023-lightroom-plugin`
-**Status:** In progress: built and tested
+**Status:** Done (2026-11-05)
 **Depends on:** —
 
 ## Goal

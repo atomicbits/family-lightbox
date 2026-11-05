@@ -1,7 +1,7 @@
 # Story S02: The plug-in in Lightroom
 
 **Feature:** `F023-lightroom-plugin`
-**Status:** In progress: built; to try in Lightroom
+**Status:** Done (2026-11-05)
 **Depends on:** S01
 
 ## Acceptance criteria
@@ -45,3 +45,11 @@ outside Lightroom.
 - The collections came, but empty: every `catalog:addPhoto` failed with *AgEventLoop.yieldToScheduler
   called when yielding is not allowed* (Lightroom's console), as it ran inside a plain `pcall`,
   which doesn't allow Lightroom to yield. All `pcall`s are `LrTasks.pcall` now.
+
+### [2026-11-05] It works; what it is doing, said
+
+- Peter's run: *2 lijsten, 1 bijgewerkt. 569 originelen aan de catalogus toegevoegd. 1456
+  originelen nog niet op deze Mac*; *2026 Aosta* shows its 602 photos in Lightroom. Adding took a
+  few minutes: Lightroom looks up each new photo's place (`AddressLookup` in its console).
+- The progress bar now says its step: *de lijsten lezen*, *toevoegen aan de catalogus: 120 van
+  569*, *de collecties vergelijken*, *de collecties bijwerken*.

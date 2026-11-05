@@ -56,6 +56,7 @@ LrTasks.startAsyncTask(function()
   local prefs = LrPrefs.prefsForPlugin()
   local known = prefs.collections or {}
   local progress = LrProgressScope { title = "FamilyLightbox: lijsten bijwerken" }
+  progress:setCaption("de lijsten lezen")
 
   -- 1. outside a write access: the collections known from earlier, and what is in the catalog
   local collections, toAdd, away = {}, {}, 0
@@ -85,7 +86,10 @@ LrTasks.startAsyncTask(function()
         catalog:createCollection(collectionName(list), list.archived and archivedSet or set, true)
       end
     end
-    for _, path in ipairs(toAdd) do
+    for n, path in ipairs(toAdd) do
+      -- adding is slow (Lightroom looks up each photo's place): say how far it is
+      progress:setCaption(string.format("toevoegen aan de catalogus: %d van %d", n, #toAdd))
+      progress:setPortionComplete(1 + n / #toAdd, 4)
       local ok, photo = LrTasks.pcall(function() return catalog:addPhoto(path) end)
       if ok and photo then added = added + 1 else log:warn("niet toegevoegd: " .. path .. " " .. tostring(photo)) end
     end
@@ -93,6 +97,7 @@ LrTasks.startAsyncTask(function()
   progress:setPortionComplete(2, 4)
 
   -- 3. outside again: the sets and the new collections found back by name, the photos by path
+  progress:setCaption("de collecties vergelijken")
   local set = childByName(catalog:getChildCollectionSets(), "FamilyLightbox")
   local archivedSet = set and childByName(set:getChildCollectionSets(), "Gearchiveerd")
   if not set or not archivedSet then
@@ -133,6 +138,7 @@ LrTasks.startAsyncTask(function()
   progress:setPortionComplete(3, 4)
 
   -- 4. a second write access: names, places and photos
+  progress:setCaption("de collecties bijwerken")
   local changed = 0
   catalog:withWriteAccessDo("FamilyLightbox: lijsten bijwerken", function()
     for _, w in ipairs(work) do

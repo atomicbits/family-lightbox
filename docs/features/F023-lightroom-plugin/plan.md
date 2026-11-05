@@ -62,6 +62,6 @@ the bridge goes one way.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-the-file-for-lightroom.md) | The file for Lightroom, written by the app: every list with its photos' paths in the working copy and whether they are here | Built | — |
-| [S02](stories/S02-the-plug-in.md) | The plug-in: the collection set, by list id, adding what is here, the message and the log | Built, to try in Lightroom | S01 |
+| [S01](stories/S01-the-file-for-lightroom.md) | The file for Lightroom, written by the app: every list with its photos' paths in the working copy and whether they are here | Done | — |
+| [S02](stories/S02-the-plug-in.md) | The plug-in: the collection set, by list id, adding what is here, the message and the log | Done | S01 |
 | [S03](stories/S03-from-the-app.md) | From the app: installing the plug-in, *Naar Lightroom* on a list | Planned | S02, feature 9 |
