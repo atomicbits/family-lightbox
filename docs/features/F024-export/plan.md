@@ -1,6 +1,6 @@
 # Feature 24: Exporting a list from its originals
 
-**Status:** In design
+**Status:** In progress (plan accepted 2026-11-04)
 **Depends on:** Feature 3 (lists), feature 9 (fetching originals)
 **Folder:** `F024-export`
 
@@ -57,6 +57,6 @@ Lightroom (feature 23) is the way, and the window says so.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | Rendering one original at a preset (sizes, sRGB, DPI, metadata), RAW and HEIC | Planned | — |
-| S02 | The export job: fetch, render, name, `export.json`, resumable, in the footer | Planned | S01, feature 9 |
-| S03 | In the window: *Exporteren…* on a list, the presets, the folder, the note about edits | Planned | S02 |
+| [S01](stories/S01-rendering.md) | Rendering one original at a preset (sizes, sRGB, DPI, metadata), RAW and HEIC | Built, to try in the app | — |
+| [S02](stories/S02-the-export-job.md) | The export job: fetch, render, name, `export.json`, resumable, in the footer | Built, to try in the app | S01, feature 9 |
+| [S03](stories/S03-in-the-window.md) | In the window: *Exporteren…* on a list, the presets, the folder, the note about edits | Built, to try in the app | S02 |

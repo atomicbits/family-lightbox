@@ -104,6 +104,21 @@ pub fn make(src: &Path, kind: Kind, taken: Option<&str>, out: &Path, thumb: &Pat
     result
 }
 
+/// An original exported at a preset (F024/S01): written to `<out>.tmp` and renamed when it worked;
+/// `taken` as the manifest has it. Never enlarged; `long` `None` keeps the full size.
+pub fn render(src: &Path, long: Option<usize>, quality: f64, dpi: Option<u32>, taken: Option<&str>, camera: Option<&str>, out: &Path) -> Result<(), String> {
+    if let Some(dir) = out.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("map {} niet aangemaakt: {e}", dir.display()))?;
+    }
+    let tmp = tmp(out);
+    let result = macos::render(src, long, quality, dpi, taken.and_then(exif_dates), camera, &tmp)
+        .and_then(|()| std::fs::rename(&tmp, out).map_err(|e| format!("export niet weggeschreven: {e}")));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
+}
+
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
@@ -140,6 +155,41 @@ mod macos {
         write(&small, &props, thumb)
     }
 
+    /// An export of one photo (F024/S01): at most `long` px, in sRGB, a JPEG at `quality`, with its
+    /// DPI, its date taken and its camera.
+    pub fn render(src: &Path, long: Option<usize>, quality: f64, dpi: Option<u32>, dates: Option<(String, Option<String>)>, camera: Option<&str>, out: &Path) -> Result<(), String> {
+        use objc2_image_io::{kCGImagePropertyDPIHeight, kCGImagePropertyDPIWidth, kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFModel};
+        let image = photo_at(src, long)?;
+        let side = CGImage::width(Some(&image)).max(CGImage::height(Some(&image)));
+        let image = redraw(&image, side)?;
+        let srgb = CFNumber::new_i32(1);
+        let (date, offset) = match &dates {
+            Some((d, o)) => (Some(CFString::from_str(d)), o.as_deref().map(CFString::from_str)),
+            None => (None, None),
+        };
+        let mut exif: Vec<(&CFString, &CFType)> = vec![(unsafe { kCGImagePropertyExifColorSpace }, &srgb)];
+        if let Some(d) = &date {
+            exif.push((unsafe { kCGImagePropertyExifDateTimeOriginal }, d));
+        }
+        if let Some(o) = &offset {
+            exif.push((unsafe { kCGImagePropertyExifOffsetTimeOriginal }, o));
+        }
+        let exif = dict(&exif);
+        let model = camera.map(CFString::from_str);
+        let tiff = model.as_ref().map(|m| dict(&[(unsafe { kCGImagePropertyTIFFModel }, &**m)]));
+        let q = CFNumber::new_f64(quality);
+        let d = dpi.map(|d| CFNumber::new_i32(d as i32));
+        let mut top: Vec<(&CFString, &CFType)> = vec![(unsafe { kCGImageDestinationLossyCompressionQuality }, &q), (unsafe { kCGImagePropertyExifDictionary }, &exif)];
+        if let Some(t) = &tiff {
+            top.push((unsafe { kCGImagePropertyTIFFDictionary }, t));
+        }
+        if let Some(d) = &d {
+            top.push((unsafe { kCGImagePropertyDPIWidth }, d));
+            top.push((unsafe { kCGImagePropertyDPIHeight }, d));
+        }
+        write(&image, &dict(&top), out)
+    }
+
     fn url(path: &Path) -> Result<CFRetained<CFURL>, String> {
         CFURL::from_file_path(path).ok_or_else(|| format!("ongeldig pad: {}", path.display()))
     }
@@ -158,6 +208,12 @@ mod macos {
     /// where it is large enough and decodes the RAW otherwise. `FromImageAlways`, because a JPEG's
     /// small EXIF thumbnail would otherwise be taken as it is.
     fn photo(src: &Path) -> Result<CFRetained<CGImage>, String> {
+        photo_at(src, Some(PREVIEW_LONG))
+    }
+
+    /// The upright image at most `limit` px on its long side, never enlarged; `None`: its full size
+    /// (F024/S01).
+    fn photo_at(src: &Path, limit: Option<usize>) -> Result<CFRetained<CGImage>, String> {
         let source = unsafe { CGImageSource::with_url(&*url(src)?, None) }
             .ok_or_else(|| format!("kan {} niet openen", src.display()))?;
         if unsafe { source.count() } == 0 {
@@ -167,7 +223,7 @@ mod macos {
         let long = props
             .as_deref()
             .and_then(|p| Some(number(p, unsafe { kCGImagePropertyPixelWidth })?.max(number(p, unsafe { kCGImagePropertyPixelHeight })?)))
-            .map_or(PREVIEW_LONG, |side| side.min(PREVIEW_LONG));
+            .map_or(limit.unwrap_or(100_000), |side| limit.map_or(side, |l| side.min(l)));
         let max = CFNumber::new_i64(long as i64);
         let options = dict(&[
             (unsafe { kCGImageSourceThumbnailMaxPixelSize }, &max),
@@ -437,6 +493,34 @@ mod macos {
             assert_eq!((p.width, p.height, t.width, t.height), (240, 320, 240, 320));
             assert!(p.exif.contains(&("DateTimeOriginal".to_string(), "2026:07:30 16:58:12".to_string())));
             assert!(!p.exif.iter().any(|(k, _)| k == "OffsetTimeOriginal"));
+        }
+
+        #[test]
+        fn an_export_at_a_preset_never_enlarged_with_dpi_date_and_camera() {
+            use objc2_image_io::{kCGImagePropertyDPIWidth, kCGImagePropertyTIFFDictionary, kCGImagePropertyTIFFModel};
+            let dir = tempfile::tempdir().unwrap();
+            let src = dir.path().join("big.jpg");
+            save(&image(400, 200, unsafe { kCGColorSpaceSRGB }, [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]), "public.jpeg", Some(6), &src);
+            let out = dir.path().join("001-big.jpg");
+            super::super::render(&src, Some(300), 0.92, Some(300), Some("2026-07-30T16:58:12+02:00"), Some("Canon EOS R"), &out).unwrap();
+            let r = read(&out);
+            // upright (a quarter turn): 200 × 400 at most 300 on the long side
+            assert_eq!((r.width, r.height, r.orientation.unwrap_or(1)), (150, 300, 1));
+            assert!(r.exif.contains(&("DateTimeOriginal".to_string(), "2026:07:30 16:58:12".to_string())));
+            assert!(r.exif.contains(&("OffsetTimeOriginal".to_string(), "+02:00".to_string())));
+            let source = unsafe { CGImageSource::with_url(&url(&out).unwrap(), None) }.unwrap();
+            let props = unsafe { source.properties_at_index(0, None) }.unwrap();
+            assert_eq!(number(&props, unsafe { kCGImagePropertyDPIWidth }), Some(300));
+            let all: &CFDictionary<CFString, CFType> = unsafe { props.cast_unchecked() };
+            let tiff = all.get(unsafe { kCGImagePropertyTIFFDictionary }).and_then(|t| t.downcast::<CFDictionary>().ok()).unwrap();
+            let tiff: &CFDictionary<CFString, CFType> = unsafe { tiff.cast_unchecked() };
+            assert_eq!(tiff.get(unsafe { kCGImagePropertyTIFFModel }).and_then(|m| m.downcast_ref::<CFString>().map(|s| s.to_string())).as_deref(), Some("Canon EOS R"));
+            // never enlarged, and the full size without a limit
+            super::super::render(&src, Some(5000), 0.92, None, None, None, &out).unwrap();
+            assert_eq!((read(&out).width, read(&out).height), (200, 400));
+            super::super::render(&src, None, 0.95, None, None, None, &out).unwrap();
+            assert_eq!(read(&out).height, 400);
+            assert!(!dir.path().join("001-big.jpg.tmp").exists());
         }
 
         #[test]

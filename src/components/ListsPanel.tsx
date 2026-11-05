@@ -14,13 +14,15 @@ type Props = {
   onFetch: (id: string, forLightroom: boolean) => void;
   /** Whether a fetch runs already. */
   fetching: boolean;
+  /** Export this list (F024/S03). */
+  onExport: (list: ListInfo) => void;
 };
 
 const button = "px-1.5 rounded hover:bg-neutral-200/60 dark:hover:bg-neutral-800 disabled:opacity-40";
 const input = "w-full px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950";
 
 /** The lists in the sidebar, per year (F003/S03): click to show one in the grid; + makes a new one. */
-export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fetching }: Props) {
+export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fetching, onExport }: Props) {
   const [over, setOver] = useState<string | null>(null);
   const { state, active, blocked } = lists;
   const [creating, setCreating] = useState<{ name: string; year: number } | null>(null);
@@ -109,6 +111,7 @@ export default function ListsPanel({ lists, month, dragging, onDrop, onFetch, fe
           title: "haalt de originelen op; klik daarna in Lightroom op Lijsten bijwerken",
           run: () => { setMenu(null); onFetch(menu.list.id, true); },
         },
+        { label: "Exporteren…", title: "voor een fotoboek, afdrukken, een kalender: uit de originelen", run: () => { setMenu(null); onExport(menu.list); } },
         { label: "Hernoemen…", disabled: !!blocked, title: blocked ?? undefined, run: () => { setMenu(null); setRenaming({ id: menu.list.id, name: menu.list.name }); } },
         menu.list.archived
           ? { label: "Terugzetten", disabled: !!blocked, title: blocked ?? undefined, run: () => { setMenu(null); lists.archive(menu.list.id, false); } }

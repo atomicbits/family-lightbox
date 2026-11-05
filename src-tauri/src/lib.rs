@@ -3,6 +3,7 @@
 
 pub mod capture;
 pub mod config;
+pub mod export;
 pub mod fetch;
 mod connect;
 pub mod db;
@@ -734,6 +735,138 @@ fn rename_start(from: Vec<String>, to: String, snapshot_today: bool, app: tauri:
         EventSink(app.clone()).rebuild_index();
     });
     Ok(())
+}
+
+/// One export at a time (F024/S02).
+#[derive(Default)]
+pub struct ExportRunner(std::sync::atomic::AtomicBool);
+
+#[tauri::command]
+fn export_presets() -> Vec<export::Preset> {
+    export::PRESETS.to_vec()
+}
+
+/// A list's photos and videos from the index, once each (a hash in several places gives its
+/// first), and the list's name and slug.
+fn list_media(paths: &Paths, id: &str) -> Result<(String, Vec<db::Item>), String> {
+    let (state, mut all) = load_lists(paths);
+    if let Some(p) = state.problem {
+        return Err(p);
+    }
+    let list = all.remove(id).ok_or_else(|| format!("onbekende lijst: {id}"))?;
+    let hashes: Vec<String> = list.photos.into_keys().collect();
+    let mut seen = std::collections::HashSet::new();
+    let items = Db::open(&paths.index())?.items_by_hash(&hashes)?.into_iter().map(|(_, i)| i).filter(|i| seen.insert(i.hash.clone())).collect();
+    Ok((list.name, items))
+}
+
+/// What an export of a list at a preset makes (F024/S03): its files, and the folder by default.
+#[derive(serde::Serialize)]
+pub struct ExportPlan {
+    pub photos: usize,
+    pub videos: usize,
+    pub files: usize,
+    /// `Exports/…` on the NAS, or none when it isn't connected.
+    pub dest: Option<String>,
+}
+
+#[tauri::command]
+async fn export_plan(list: String, preset: String, state: State<'_, Paths>) -> Result<ExportPlan, String> {
+    let p = state.inner().clone();
+    on_blocking(move || {
+        let pr = export::preset(&preset).ok_or("onbekende voorinstelling")?;
+        let (_, items) = list_media(&p, &list)?;
+        let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path));
+        Ok(ExportPlan {
+            photos: items.iter().filter(|i| i.kind == "photo").count(),
+            videos: items.iter().filter(|i| i.kind == "video" && i.live.is_none()).count(),
+            files: parts.len(),
+            dest: exports_folder(&p).map(|e| e.join(export::folder_name(list.rsplit('/').next().unwrap_or(&list), pr, &chrono::Local::now())).display().to_string()),
+        })
+    })
+    .await
+}
+
+/// The `Exports` folder on the NAS, from the layout.
+fn exports_folder(paths: &Paths) -> Option<PathBuf> {
+    let (settings, _) = config::load_settings(&paths.config);
+    let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+    mounts::NasMounts::chosen(&found.exports).map(|m| PathBuf::from(&m.mount_point))
+}
+
+/// An original's sidecars, from its month's manifest in the working copy.
+fn sidecars_of(paths: &Paths, path: &str) -> Vec<String> {
+    let mut it = path.splitn(3, '/');
+    let (Some(y), Some(m)) = (it.next(), it.next()) else { return vec![] };
+    let Some(man) = manifest::read(&paths.library.join(format!("{y}/{m}")).join(manifest::MANIFEST_NAME)) else { return vec![] };
+    man["files"].as_array().into_iter().flatten()
+        .find(|r| r["path"].as_str() == Some(path))
+        .map(|r| r["sidecars"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(str::to_string)).collect())
+        .unwrap_or_default()
+}
+
+/// How an export ended, for the window.
+#[derive(Clone, serde::Serialize)]
+pub struct ExportDone {
+    pub files: usize,
+    pub dest: String,
+    pub problems: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// Exports a list at a preset into `dest` (by default `Exports/…` on the NAS), or continues the
+/// export that was interrupted when `list` is empty (F024/S02). Originals not here are read from
+/// the NAS. Progress as `export-progress`, the end as `export-done`.
+#[tauri::command]
+fn export_start(list: String, preset: String, dest: Option<String>, app: tauri::AppHandle, runner: State<ExportRunner>) -> Result<(), String> {
+    if runner.0.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return Err("er loopt al een export".into());
+    }
+    std::thread::spawn(move || {
+        let p = app.state::<Paths>().inner().clone();
+        let mut dest_shown = String::new();
+        let result = (|| -> Result<(usize, Vec<String>), String> {
+            let mut job = match export::Job::pending(&p.config) {
+                Some(j) => j,
+                None if list.is_empty() => return Ok((0, vec![])),
+                None => {
+                    let pr = export::preset(&preset).ok_or("onbekende voorinstelling")?;
+                    let (name, items) = list_media(&p, &list)?;
+                    let folder = match dest.filter(|d| !d.trim().is_empty()) {
+                        Some(d) => PathBuf::from(d),
+                        None => exports_folder(&p).ok_or("Exports op de NAS is niet verbonden: kies een map")?.join(export::folder_name(list.rsplit('/').next().unwrap_or(&list), pr, &chrono::Local::now())),
+                    };
+                    let by = config::load_device(&p.config).ok().flatten().map(|d| d.owner).unwrap_or_default();
+                    let parts = export::parts(&items, pr, &|path| sidecars_of(&p, path));
+                    export::Job { id: chrono::Local::now().format("%Y%m%d-%H%M%S").to_string(), list: list.clone(), list_name: name, preset: pr.id.into(), dest: folder.display().to_string(), by, parts, problems: vec![] }
+                }
+            };
+            dest_shown = job.dest.clone();
+            let pr = *export::preset(&job.preset).ok_or("onbekende voorinstelling")?;
+            let (settings, _) = config::load_settings(&p.config);
+            let found = mounts::find_shares(&mounts::system_mounts(), &settings);
+            let nas = mounts::NasMounts::chosen(&found.library).map(|m| PathBuf::from(&m.mount_point));
+            let render = move |src: &Path, part: &export::Part, out: &Path| preview::render(src, pr.long, pr.quality, pr.dpi, part.taken.as_deref(), part.camera.as_deref(), out);
+            let emit = app.clone();
+            export::run(&mut job, &p.library, nas.as_deref(), &p.config, &render, &mut |pr| { let _ = emit.emit("export-progress", pr); })?;
+            Ok((job.parts.len(), job.problems))
+        })();
+        app.state::<ExportRunner>().0.store(false, std::sync::atomic::Ordering::SeqCst);
+        let done = match result {
+            Ok((files, problems)) => ExportDone { files, dest: dest_shown, problems, error: None },
+            Err(e) => ExportDone { files: 0, dest: dest_shown, problems: vec![], error: Some(e) },
+        };
+        for pr in done.problems.iter().chain(&done.error) {
+            report(&app, log::Level::Warn, "export", pr);
+        }
+        let _ = app.emit("export-done", done);
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn export_pending(paths: State<Paths>) -> bool {
+    export::Job::pending(&paths.config).is_some()
 }
 
 /// Whether the Lightroom plug-in is installed and the app's (F023/S03).
@@ -1555,6 +1688,7 @@ pub fn run() {
         .manage(runner::SyncRunner::default())
         .manage(ImportRunner::default())
         .manage(FetchRunner::default())
+        .manage(ExportRunner::default())
         .manage(index::IndexRunner::default())
         .manage(update::UpdateState::default())
         .manage(Summaries::default())
@@ -1567,7 +1701,7 @@ pub fn run() {
             nas_mounts, connect_nas, nas_check, sync_start, sync_cancel, sync_status, index_rebuild, index_status,
             update::update_check, update::update_install,
             log_message, log_path, get_filter, set_filter,
-            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, list_create, list_add, list_remove, list_rename, list_archive, list_items,
+            nas_whoami, nas_layout, layout_dry_check, import_sources, import_plan, import_start, import_pending, import_resume, local_folders, free_space, choose_local, relaunch, lists_state, lists_stamp, list_photos, marks_state, marks_rate, marks_heart, marks_hide, marks_stack, marks_unstack, marks_color, items_by_hash, months_filtered, items_filtered, count_per_month, cameras, sources, outbox_count, outbox_send, rename_plan, rename_start, rename_pending, fetch_plan, fetch_start, fetch_pending, lightroom_plugin_status, lightroom_plugin_install, export_presets, export_plan, export_start, export_pending, list_create, list_add, list_remove, list_rename, list_archive, list_items,
             previews_status, previews_pause, previews_resume, previews_focus, previews_overview, previews_retry,
         ])
         .run(tauri::generate_context!())

@@ -13,6 +13,8 @@ import { importActivity, usePlans } from "./lib/importplans";
 import { renamingText, useRenamer } from "./lib/renamer";
 import { fetchDoneText, fetchingText, useFetcher, type FetchPlan } from "./lib/fetcher";
 import FetchConfirm from "./components/FetchConfirm";
+import ExportDialog from "./components/ExportDialog";
+import { exportDoneText, useExporter } from "./lib/exporter";
 import { saveTab } from "./lib/settingsTabs";
 import { MiniBar, Spinner } from "./components/Progress";
 import { firstStartSteps } from "./lib/firststart";
@@ -131,6 +133,9 @@ export default function App() {
     forLightroom.current = false;
   }, [showToast]));
   const [fetchAsk, setFetchAsk] = useState<{ plan: FetchPlan; paths: string[] } | null>(null);
+  // exporting a list (F024/S03), kept by the app like a fetch
+  const exporter = useExporter(useCallback((d) => showToast(exportDoneText(d), false), [showToast]));
+  const [exporting, setExporting] = useState<{ id: string; name: string } | null>(null);
   const askFetch = useCallback((paths: string[]) => {
     fetcher.plan(paths).then((plan) => setFetchAsk({ plan, paths })).catch((e) => showToast(String(e), false));
   }, [fetcher.plan, showToast]);
@@ -187,6 +192,15 @@ export default function App() {
       .catch((e) => invoke("log_message", { level: "warn", source: "lijsten", text: `wachtende wijzigingen niet verzonden: ${e}` }).catch(() => {}));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice, listsUp, waiting, nas.mounts]);
+
+  // an interrupted export goes on by itself too (F024/S02)
+  const exportResumeTried = useRef(false);
+  useEffect(() => {
+    if (!hasDevice || exportResumeTried.current || !nas.mounts?.library.some((m) => m.chosen)) return;
+    exportResumeTried.current = true;
+    exporter.resume().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDevice, nas.mounts]);
 
   // an interrupted fetch of originals goes on by itself once the NAS is there (F009/S02)
   const fetchResumeTried = useRef(false);
@@ -999,6 +1013,7 @@ export default function App() {
                 month={topSection?.month ?? null}
                 dragging={dragging}
                 fetching={!!fetcher.running}
+                onExport={(l) => setExporting({ id: l.id, name: l.name })}
                 onFetch={(id, lr) => {
                   invoke<{ items: Item[]; missing: number }>("list_items", { id })
                     .then((r) => {
@@ -1113,6 +1128,12 @@ export default function App() {
           )}
           {hasDevice && <SyncLine sync={sync} onConfirm={() => setConfirming(true)} />}
           <PreviewsLine previews={previews} />
+          {exporter.running && (
+            <span className="text-blue-600 flex items-center gap-1.5" title="je mag de app sluiten: het gaat daarna verder">
+              <Spinner /> exporteren {exporter.running.done}/{exporter.running.total}
+              <MiniBar done={exporter.running.total ? exporter.running.done / exporter.running.total : null} />
+            </span>
+          )}
           {fetcher.running && (
             <span className="text-blue-600 flex items-center gap-1.5" title="je mag de app sluiten: het gaat daarna verder">
               <Spinner /> {fetchingText(fetcher.running)}
@@ -1225,6 +1246,13 @@ export default function App() {
       {showImport && <ImportView importer={importer} planner={planner} sync={sync} onClose={() => setShowImport(false)} onOpenSettings={() => { setShowImport(false); setShowSettings(true); }} />}
       {showSettings && (
         <Settings renamer={renamer} device={device} nas={nas} sync={sync} index={index} update={update} previews={previews} onShowMessages={() => { setShowSettings(false); openMessages(); }} onClose={() => { setShowSettings(false); nas.refresh(); }} />
+      )}
+      {exporting && (
+        <ExportDialog
+          list={exporting}
+          onClose={() => setExporting(null)}
+          onStart={(preset, dest) => { const id = exporting.id; setExporting(null); exporter.start(id, preset, dest).catch((e) => showToast(String(e), false)); }}
+        />
       )}
       {fetchAsk && (
         <FetchConfirm
