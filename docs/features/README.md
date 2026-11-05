@@ -159,7 +159,7 @@ no folder yet.
 | 7 | [Sync manifests and previews from the NAS](F007-sync-from-nas/plan.md) (replaces passes 1–2 of `media pull`; moves the data contract here) | Done | 6 |
 | 8 | [Native index](F008-native-index/plan.md): build the app's own index from the manifests (replaces `media index` for the app) | In progress | 7 |
 | 9 | [Fetching originals](F009-fetch-originals/plan.md) from the NAS: one photo, a selection or a list, into the working copy at their paths | In progress | 3, 6, 8 |
-| 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin, Drive upload status | Planned | 8 |
+| 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin (Peter, 2026-11-05: to be offered in the app later, as `media thin` does now), Drive upload status | Planned | 8 |
 | 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
 | 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (S01–S03 done, S04 built) | 6, 7, 8 |
 | 13 | [Ratings and hearts](F013-ratings-and-hearts/plan.md): 1–5 stars shared, a heart per person, on the tiles; undo with a message, a button and ⌘Z | Done | 3 |
@@ -172,6 +172,6 @@ no folder yet.
 | 20 | [Changes without the NAS](F020-offline-changes/plan.md): lists, stars, hearts, hiding and stacks changed offline, kept in an outbox and sent when the NAS is back | In progress | 3, 13, 14, 15 |
 | 21 | [The settings window](F021-settings-window/plan.md): wider, the topics on tabs | Done | 6, 18, 19 |
 | 22 | [Renaming sources](F022-rename-sources/plan.md): rename a source or merge it into another, on the NAS, every Mac and in the manifests, to straighten out old names | In progress | 2, 8, 18, 19 |
-| 23 | [The lists in Lightroom Classic](F023-lightroom-plugin/plan.md): a plug-in keeps a collection per list, on a click, one way | In design | 3, 9 |
+| 23 | [The lists in Lightroom Classic](F023-lightroom-plugin/plan.md): a plug-in keeps a collection per list, on a click, one way | In progress | 3, 9 |
 | 24 | [Exporting a list](F024-export/plan.md) from its originals, at a preset for a photo book, prints or a calendar | In design | 3, 9 |
 | 25 | [Lightroom's edits in the app](F025-lightroom-edits/plan.md): renditions published by the plug-in, shown with the photo, virtual copies as variants | Planned (an idea) | 23 |

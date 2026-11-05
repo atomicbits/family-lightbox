@@ -1,6 +1,6 @@
 # Feature 23: The lists in Lightroom Classic
 
-**Status:** In design
+**Status:** In progress (plan accepted 2026-11-04)
 **Depends on:** Feature 3 (lists and their summaries), feature 9 (fetching originals)
 **Folder:** `F023-lightroom-plugin`
 
@@ -14,7 +14,9 @@ the bridge goes one way.
 ## Background
 
 - Every list has a summary, `Lists/<year>/<slug>.json`, with each photo's path in the library;
-  the sync keeps a copy of `Lists` on every Mac (data contract 5.4, 8).
+  the sync keeps a copy of `Lists` on every Mac (data contract 5.4, 8). The plug-in reads a file
+  the app writes instead (S01), with the paths in the working copy and whether each original is
+  here: there is no Lua on this Mac to test a plug-in outside Lightroom, so its logic is in Rust.
 - Lightroom finds a photo by its path. The catalog has to point at the working copy first:
   that is a one-off fix of the catalog outside this repo (LibraryLocal). After it, the paths in
   the summaries are the paths in the catalog.
@@ -60,6 +62,6 @@ the bridge goes one way.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | The plug-in's plan: from the summaries to the collections' changes, tested outside Lightroom | Planned | — |
-| S02 | In Lightroom: the collection set, adding what is here, the message and the log | Planned | S01 |
-| S03 | From the app: installing the plug-in, *Naar Lightroom* on a list | Planned | S02, feature 9 |
+| [S01](stories/S01-the-file-for-lightroom.md) | The file for Lightroom, written by the app: every list with its photos' paths in the working copy and whether they are here | Built | — |
+| [S02](stories/S02-the-plug-in.md) | The plug-in: the collection set, by list id, adding what is here, the message and the log | Built, to try in Lightroom | S01 |
+| [S03](stories/S03-from-the-app.md) | From the app: installing the plug-in, *Naar Lightroom* on a list | Planned | S02, feature 9 |

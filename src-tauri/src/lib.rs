@@ -12,6 +12,7 @@ pub mod hash;
 pub mod import_job;
 pub mod import_plan;
 pub mod layout;
+pub mod lightroom;
 pub mod lists;
 pub mod log;
 pub mod manifest;
@@ -818,9 +819,22 @@ impl EventSink {
     }
 }
 
+/// The file the Lightroom plug-in reads (F023/S01), after the lists or the index changed; a
+/// failure only means the plug-in reads the previous one.
+fn write_lightroom(paths: &Paths) {
+    let (_, merged) = load_lists(paths);
+    let path_of: std::collections::HashMap<String, String> = Db::open(&paths.index())
+        .and_then(|db| db.path_hashes())
+        .map(|m| m.into_iter().map(|(path, hash)| (hash, path)).collect())
+        .unwrap_or_default();
+    let file = lightroom::build(&merged, &paths.library, &path_of, &lists::now());
+    let _ = lightroom::write(&paths.config, &file);
+}
+
 impl index::IndexSink for EventSink {
     fn done(&self, state: &index::IndexState) {
         let _ = self.0.emit("index-done", state);
+        write_lightroom(&self.0.state::<Paths>());
         if let Some(e) = &state.error {
             report(&self.0, log::Level::Error, "index", e);
         }
@@ -1073,6 +1087,7 @@ async fn outbox_send(app: tauri::AppHandle) -> Result<usize, String> {
             p.extend(touched);
         }
         write_summaries(&app);
+        write_lightroom(&paths);
         Ok(outbox::count(&paths.config))
     })
     .await
@@ -1300,6 +1315,7 @@ fn change_list(app: &tauri::AppHandle, make: impl FnOnce(&std::collections::BTre
         std::thread::sleep(SUMMARY_DELAY);
         write_summaries(&later);
     });
+    write_lightroom(&paths);
     Ok(ListChanged { id, state: load_lists(&paths).0 })
 }
 
