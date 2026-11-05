@@ -4,16 +4,12 @@ import { config, nas as nasApi, type Device, type Home, type LocalFolders, type 
 import { deviceNameProblem, freeText, hostProblem, ownerProblem, parentOf, pathProblem, people, setUpText, shareProblem, takenBy } from "../lib/device";
 import type { Nas } from "../lib/nas";
 import { NO_IMPORT } from "../lib/sources";
+import { t } from "../i18n";
 
 /** `device`: this Mac has one already, and only the local folder is still to choose (F006/S07). */
 type Props = { nas: Nas; device: Device | null; onDone: (d: Device) => void };
 
-const LOCATIONS: { key: keyof Shares; label: string }[] = [
-  { key: "library", label: "originelen" },
-  { key: "previews", label: "previews" },
-  { key: "lists", label: "lijsten" },
-  { key: "exports", label: "exports" },
-];
+const LOCATIONS: (keyof Shares)[] = ["library", "previews", "lists", "exports"];
 
 const field = "px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent";
 const button = "px-3 py-1.5 rounded bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 disabled:opacity-40";
@@ -69,7 +65,7 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
   const afterConnect = async () => {
     const h = await nasApi.home();
     setHome(h);
-    if (!h.connected) return setError(`de gedeelde map '${h.share}' is niet verbonden: kijk de naam van de NAS, de map en je account na, en probeer opnieuw`);
+    if (!h.connected) return setError(t().welcome.notConnected(h.share));
     if (h.found) return toWho();
     if (h.problem) return setError(h.problem);
     setStep("library");
@@ -100,7 +96,7 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
   }, [folder]);
 
   const pickFolder = async () => {
-    const f = await open({ directory: true, defaultPath: folder || undefined, title: "Map voor de lokale kopieën" });
+    const f = await open({ directory: true, defaultPath: folder || undefined, title: t().welcome.folderTitle });
     if (typeof f === "string") setFolder(f);
   };
 
@@ -139,28 +135,28 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
     }
   };
 
-  const hostErr = host.trim() ? hostProblem(host.trim()) : "geef de naam of het adres van je NAS";
-  const homeErr = homeShare.trim() ? shareProblem(homeShare.trim()) : "geef de gedeelde map van de bibliotheek";
+  const hostErr = host.trim() ? hostProblem(host.trim()) : t().welcome.hostMissing;
+  const homeErr = homeShare.trim() ? shareProblem(homeShare.trim()) : t().welcome.homeMissing;
   const pointedErr = pointed
-    ? LOCATIONS.map((l) => shareProblem(pointed[l.key].share.trim()) ?? pathProblem(pointed[l.key].path.trim())).find((x) => x) ?? null
+    ? LOCATIONS.map((l) => shareProblem(pointed[l].share.trim()) ?? pathProblem(pointed[l].path.trim())).find((x) => x) ?? null
     : null;
   const known = who?.known ?? [];
   const ownerErr = ownerProblem(owner);
   const taken = takenBy(name, owner, known);
-  const nameErr = deviceNameProblem(name) ?? (taken ? `deze naam is op de NAS al van ${taken}` : null);
+  const nameErr = deviceNameProblem(name) ?? (taken ? t().welcome.nameTaken(taken) : null);
   const pickOwner = (o: string) => {
     setOwner(o);
     if (!nameEdited && !who?.device) setName(o ? `${o}-mac` : "");
   };
   const folderPicker = (
     <div className="space-y-1">
-      <span>Map voor de lokale kopieën</span>
+      <span>{t().welcome.folderTitle}</span>
       <div className="flex gap-2 items-center">
         <input className={`flex-1 ${field} font-mono text-xs`} value={folder} onChange={(e) => setFolder(e.target.value)} />
-        <button className="px-2 py-1 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700" onClick={pickFolder}>Kies…</button>
+        <button className="px-2 py-1 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700" onClick={pickFolder}>{t().welcome.choose}</button>
       </div>
       <div className="text-xs text-neutral-500">
-        previews, lijsten en de foto's die je lokaal houdt{free !== null ? ` · ${freeText(free)}` : ""}
+        {t().welcome.folderHint}{free !== null ? ` · ${freeText(free)}` : ""}
       </div>
     </div>
   );
@@ -169,23 +165,23 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
   return (
     <div className="absolute inset-0 z-30 bg-black/40 flex items-center justify-center p-4">
       <div className="w-[28rem] rounded-lg max-h-full overflow-y-auto bg-white dark:bg-neutral-900 shadow-xl p-5 text-sm space-y-4">
-        <h2 className="text-base font-semibold">Welkom bij FamilyLightbox</h2>
-        {step === null && <p className="text-neutral-500">even kijken…</p>}
+        <h2 className="text-base font-semibold">{t().welcome.title}</h2>
+        {step === null && <p className="text-neutral-500">{t().welcome.looking}</p>}
 
         {step === "nas" && (
           <>
             <p className="text-neutral-500">
-              Eerst je NAS en de gedeelde map waar de foto's en de lijsten staan. Bij <em>Verbinden</em> vraagt macOS je account op de NAS.
+              {t().welcome.nasIntro}
             </p>
             <label className="block space-y-1">
-              <span>Naam of adres van de NAS</span>
-              <input className={`w-full ${field} font-mono`} value={host} placeholder="bv. mijnnas of 192.168.1.20" autoFocus onChange={(e) => setHost(e.target.value)} />
+              <span>{t().welcome.host}</span>
+              <input className={`w-full ${field} font-mono`} value={host} placeholder={t().welcome.hostPlaceholder} autoFocus onChange={(e) => setHost(e.target.value)} />
               {host.trim() && hostErr && <div className="text-amber-600">{hostErr}</div>}
             </label>
             <label className="block space-y-1">
-              <span>Gedeelde map van de bibliotheek</span>
-              <input className={`w-full ${field} font-mono`} value={homeShare} placeholder="bv. FamilyLightbox" onChange={(e) => setHomeShare(e.target.value)} />
-              <div className="text-xs text-neutral-500">daar staat de bibliotheek, of daar wordt een nieuwe ingericht</div>
+              <span>{t().welcome.home}</span>
+              <input className={`w-full ${field} font-mono`} value={homeShare} placeholder={t().welcome.homePlaceholder} onChange={(e) => setHomeShare(e.target.value)} />
+              <div className="text-xs text-neutral-500">{t().welcome.homeHint}</div>
               {homeShare.trim() && homeErr && <div className="text-amber-600">{homeErr}</div>}
             </label>
             {error && <div className="text-red-600 whitespace-pre-wrap">{error}</div>}
@@ -194,10 +190,10 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
             ))}
             <div className="flex justify-between items-center">
               <button className="text-xs text-neutral-500 hover:underline" disabled={busy} onClick={() => toWho().catch((e) => setError(String(e)))}>
-                zonder NAS verder
+                {t().welcome.withoutNas}
               </button>
               <button className={button} disabled={busy || !!hostErr || !!homeErr} onClick={connect}>
-                {busy ? "verbinden…" : "Verbinden"}
+                {busy ? t().welcome.connecting : t().welcome.connect}
               </button>
             </div>
           </>
@@ -206,11 +202,11 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
         {step === "library" && home && (
           <>
             <p className="text-neutral-500">
-              In <span className="font-mono">{home.share}</span> staat nog geen bibliotheek.
+              {t().welcome.noLibrary} <span className="font-mono">{home.share}</span>.
             </p>
             <label className="block space-y-1">
-              <span>Naam van de bibliotheek</span>
-              <input className={`w-full ${field}`} value={libName} placeholder="bv. Onze foto's" onChange={(e) => setLibName(e.target.value)} />
+              <span>{t().welcome.libraryName}</span>
+              <input className={`w-full ${field}`} value={libName} placeholder={t().welcome.libraryNamePlaceholder} onChange={(e) => setLibName(e.target.value)} />
             </label>
             {!pointed ? (
               <>
@@ -222,25 +218,25 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
                     setPointed({ library: { share: s.library, path: "" }, previews: { share: s.previews, path: "" }, lists: { share: s.lists, path: "" }, exports: { share: s.exports, path: "" } });
                   }}
                 >
-                  ▸ de bibliotheek staat elders: bestaande mappen aanwijzen
+                  ▸ {t().welcome.pointOpen}
                 </button>
               </>
             ) : (
               <div className="space-y-2">
                 <div className="text-xs text-neutral-500">
-                  Per onderdeel een gedeelde map en een map daarin (leeg: de gedeelde map zelf). Dit komt in familylightbox.json in{" "}
+                  {t().welcome.pointHint}{" "}
                   <span className="font-mono">{home.share}</span>.
                 </div>
                 {LOCATIONS.map((l) => (
-                  <div key={l.key} className="grid grid-cols-[5rem_1fr_1fr] gap-2 items-center">
-                    <span className="text-xs text-neutral-500">{l.label}</span>
-                    <input className={`${field} font-mono`} value={pointed[l.key].share} onChange={(e) => setPointed({ ...pointed, [l.key]: { ...pointed[l.key], share: e.target.value } })} />
-                    <input className={`${field} font-mono`} value={pointed[l.key].path} placeholder="map" onChange={(e) => setPointed({ ...pointed, [l.key]: { ...pointed[l.key], path: e.target.value } })} />
+                  <div key={l} className="grid grid-cols-[5rem_1fr_1fr] gap-2 items-center">
+                    <span className="text-xs text-neutral-500">{t().welcome.locations[l]}</span>
+                    <input className={`${field} font-mono`} value={pointed[l].share} onChange={(e) => setPointed({ ...pointed, [l]: { ...pointed[l], share: e.target.value } })} />
+                    <input className={`${field} font-mono`} value={pointed[l].path} placeholder={t().welcome.pathPlaceholder} onChange={(e) => setPointed({ ...pointed, [l]: { ...pointed[l], path: e.target.value } })} />
                   </div>
                 ))}
                 {pointedErr && <div className="text-amber-600">{pointedErr}</div>}
                 <button className="text-xs text-neutral-500 hover:underline" onClick={() => setPointed(null)}>
-                  ▾ toch een nieuwe bibliotheek
+                  ▾ {t().welcome.pointClose}
                 </button>
               </div>
             )}
@@ -250,15 +246,15 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
             ))}
             <div className="flex justify-between items-center">
               <button className="text-xs text-neutral-500 hover:underline" disabled={busy} onClick={() => { setError(null); setStep("nas"); }}>
-                ‹ NAS
+                {t().welcome.back}
               </button>
               {pointed ? (
                 <button className={button} disabled={busy || !!pointedErr} onClick={() => setUp(pointedLayout())}>
-                  {busy ? "bewaren…" : "Mappen aanwijzen"}
+                  {busy ? t().welcome.saving : t().welcome.point}
                 </button>
               ) : (
                 <button className={button} disabled={busy} onClick={() => setUp(null)}>
-                  {busy ? "inrichten…" : "Hier een nieuwe bibliotheek inrichten"}
+                  {busy ? t().welcome.settingUp : t().welcome.setUp}
                 </button>
               )}
             </div>
@@ -268,13 +264,13 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
         {step === "folder" && (
           <>
             <p className="text-neutral-500">
-              Kies waar FamilyLightbox op deze laptop zijn kopieën bewaart. Daarna start de app opnieuw.
+              {t().welcome.folderIntro}
             </p>
             {folderPicker}
             {error && <div className="text-red-600 whitespace-pre-wrap">{error}</div>}
             <div className="flex justify-end">
               <button className={button} disabled={busy || !folder.trim()} onClick={save}>
-                Bewaar
+                {t().welcome.save}
               </button>
             </div>
           </>
@@ -283,18 +279,18 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
         {step === "who" && (
           <>
             <p className="text-neutral-500">
-              {who?.user ? <>Verbonden als <span className="font-mono">{who.user}</span>. </> : null}
-              Wie gebruikt deze laptop? De lijsten, sterren en hartjes onthouden wie wat koos.
+              {who?.user ? <>{t().welcome.connectedAs} <span className="font-mono">{who.user}</span>. </> : null}
+              {t().welcome.whoIntro}
             </p>
             {known.length > 0 && (
               <div className="space-y-1">
-                <div className="text-xs text-neutral-500">al bekend op de NAS</div>
+                <div className="text-xs text-neutral-500">{t().welcome.knownOnNas}</div>
                 <div className="flex flex-wrap gap-1.5">
                   {people(known).map((p) => (
                     <button
                       key={p.owner}
                       className={"px-2 py-0.5 rounded border text-xs " + (owner === p.owner ? "border-blue-500 bg-blue-50 dark:bg-blue-950" : "border-neutral-300 dark:border-neutral-700")}
-                      title={`toestellen: ${p.devices.join(", ")}`}
+                      title={t().welcome.devicesOf(p.devices)}
                       onClick={() => pickOwner(p.owner)}
                     >
                       {p.owner}
@@ -304,12 +300,12 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
               </div>
             )}
             <label className="block space-y-1">
-              <span>Jouw naam</span>
-              <input className={`w-full ${field} font-mono`} value={owner} placeholder="korte naam, kleine letters" onChange={(e) => pickOwner(e.target.value)} />
+              <span>{t().welcome.yourName}</span>
+              <input className={`w-full ${field} font-mono`} value={owner} placeholder={t().welcome.ownerPlaceholder} onChange={(e) => pickOwner(e.target.value)} />
               {owner && ownerErr && <div className="text-amber-600">{ownerErr}</div>}
             </label>
             <label className="block space-y-1">
-              <span>Naam van deze laptop{who?.computer ? <span className="text-neutral-400"> ({who.computer})</span> : null}</span>
+              <span>{t().welcome.deviceName}{who?.computer ? <span className="text-neutral-400"> ({who.computer})</span> : null}</span>
               <input className={`w-full ${field} font-mono`} value={name} onChange={(e) => { setName(e.target.value); setNameEdited(true); }} />
               {name && nameErr && <div className="text-amber-600">{nameErr}</div>}
             </label>
@@ -317,10 +313,10 @@ export default function DeviceSetup({ nas, device, onDone }: Props) {
             {error && <div className="text-red-600 whitespace-pre-wrap">{error}</div>}
             <div className="flex justify-between items-center">
               <button className="text-xs text-neutral-500 hover:underline" disabled={busy} onClick={() => { setError(null); setStep("nas"); }}>
-                ‹ NAS
+                {t().welcome.back}
               </button>
               <button className={button} disabled={busy || !!ownerErr || !!nameErr || (local !== null && !local.chosen && !folder.trim())} onClick={save}>
-                Bewaar
+                {t().welcome.save}
               </button>
             </div>
           </>

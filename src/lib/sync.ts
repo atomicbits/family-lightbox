@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { count as i18nCount, decimal } from "../i18n";
 
 export type SyncPhase =
   | "idle" | "manifests" | "lists" | "counting" | "awaiting_confirmation" | "copying" | "done" | "cancelled" | "failed";
@@ -43,12 +44,12 @@ const BYTES_PER_SECOND = 6_000_000;
 
 /** 13076 → "13 076". */
 export function count(n: number): string {
-  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return i18nCount(n);
 }
 
-/** 4_990_000_000 → "5,0". */
+/** 4_990_000_000 → "5.0" / "5,0". */
 export function gb(bytes: number): string {
-  return (bytes / 1e9).toFixed(1).replace(".", ",");
+  return decimal(bytes / 1e9);
 }
 
 export function estimate(bytes: number): string {

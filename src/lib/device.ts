@@ -1,5 +1,6 @@
 // Device and settings rules for instant feedback in the UI. Rust checks again on save and is the
-// authority (src-tauri/src/config.rs); keep both in step.
+// authority (src-tauri/src/config.rs); keep both in step. Texts from the catalog (F011).
+import { decimal, t } from "../i18n";
 
 const lower = (c: string) => c >= "a" && c <= "z";
 const digit = (c: string) => c >= "0" && c <= "9";
@@ -7,13 +8,13 @@ const digit = (c: string) => c >= "0" && c <= "9";
 /** `^[a-z][a-z0-9-]{1,31}$` (data contract 1); null when fine, otherwise the reason. */
 export function deviceNameProblem(name: string): string | null {
   const ok = name.length >= 2 && name.length <= 32 && lower(name[0]) && [...name].every((c) => lower(c) || digit(c) || c === "-");
-  return ok ? null : "2 tot 32 tekens: kleine letters, cijfers en '-', beginnend met een letter";
+  return ok ? null : t().device.nameRule;
 }
 
 /** `^[a-z][a-z0-9]{1,31}$`: a short lowercase name such as `anna`. */
 export function ownerProblem(owner: string): string | null {
   const ok = owner.length >= 2 && owner.length <= 32 && lower(owner[0]) && [...owner].every((c) => lower(c) || digit(c));
-  return ok ? null : "2 tot 32 tekens: kleine letters en cijfers, beginnend met een letter";
+  return ok ? null : t().device.ownerRule;
 }
 
 /** The device name is taken on the NAS by someone else: their name, or null. */
@@ -28,11 +29,11 @@ export function people(known: { name: string; owner: string }[]): { owner: strin
   return [...by].map(([owner, devices]) => ({ owner, devices })).sort((a, b) => a.owner.localeCompare(b.owner));
 }
 
-/** "812 GB vrij", "1,2 TB vrij", or "" when unknown. */
+/** "812 GB free", "1.2 TB free", or "" when unknown. */
 export function freeText(bytes: number | null): string {
   if (bytes === null) return "";
-  if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(1).replace(".", ",")} TB vrij`;
-  return `${Math.floor(bytes / 1e9)} GB vrij`;
+  if (bytes >= 1e12) return t().device.freeTB(decimal(bytes / 1e12));
+  return t().device.freeGB(Math.floor(bytes / 1e9));
 }
 
 /** The folder that holds the three local folders, if they share one. */
@@ -44,33 +45,28 @@ export function parentOf(l: { library: string; previews: string; lists: string }
 
 /** Same rule as `host_problem` in Rust. */
 export function hostProblem(host: string): string | null {
-  if (host === "") return "de naam van de NAS is leeg";
+  if (host === "") return t().device.hostEmpty;
   const scheme = host.indexOf("://");
-  if (scheme >= 0) return `geef alleen de naam van de NAS, zonder '${host.slice(0, scheme + 3)}'`;
-  if (/[\s/]/.test(host)) return "de naam van de NAS mag geen '/' of spaties bevatten";
+  if (scheme >= 0) return t().device.hostScheme(host.slice(0, scheme + 3));
+  if (/[\s/]/.test(host)) return t().device.hostChars;
   return null;
 }
 
 /** Same rule as `share_problem` in Rust. */
 export function shareProblem(share: string): string | null {
-  if (share === "") return "de naam van een gedeelde map is leeg";
-  if (share.includes("/")) return `'${share}': een gedeelde map mag geen '/' bevatten`;
+  if (share === "") return t().device.shareEmpty;
+  if (share.includes("/")) return t().device.shareSlash(share);
   return null;
 }
 
 /** A folder inside a share (F019): relative, with '/', not leaving it. As `location_problem` in layout.rs. */
 export function pathProblem(path: string): string | null {
-  if (path.startsWith("/") || path.includes("\\") || path.split("/").includes("..")) return `'${path}': het pad moet binnen de gedeelde map blijven, met '/'`;
+  if (path.startsWith("/") || path.includes("\\") || path.split("/").includes("..")) return t().device.pathInside(path);
   return null;
 }
 
 /** What setting up a new library in `share` will do, given the folders that are there (F019/S02). */
 export function setUpText(share: string, existing: string[]): string {
   const all = ["Library", "Previews", "Lists", "Exports"];
-  const make = all.filter((f) => !existing.includes(f));
-  const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} en ${xs[xs.length - 1]}`);
-  const parts = [];
-  if (make.length) parts.push(`maakt in '${share}' de map${make.length > 1 ? "pen" : ""} ${list(make)}`);
-  if (existing.length) parts.push(`gebruikt ${list(existing)} die er al ${existing.length > 1 ? "zijn" : "is"}`);
-  return `${parts.join(" en ")}, en schrijft er familylightbox.json bij. Er wordt niets overschreven.`.replace(/^./, (c) => c.toUpperCase());
+  return t().device.setUp(share, all.filter((f) => !existing.includes(f)), existing);
 }

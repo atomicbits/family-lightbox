@@ -80,7 +80,7 @@ export type Found = {
   ignore: boolean;
   problem: string | null;
 };
-export type Settings = { nas_host: string; home_share: string; shares: Shares; local: Local; import: Import };
+export type Settings = { nas_host: string; home_share: string; shares: Shares; local: Local; import: Import; language?: "" | "en" | "nl" };
 /** Where the four are (F019): a share and a folder inside it. */
 export type Location = { share: string; path: string };
 /** What a move to the file in a share would find (F019/S04). */

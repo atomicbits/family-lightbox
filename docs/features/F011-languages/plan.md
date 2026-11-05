@@ -1,6 +1,6 @@
 # Feature 11: Languages: English by default, Dutch for us
 
-**Status:** Planned (plan accepted 2026-10-27; after feature 4)
+**Status:** In progress (S01)
 **Depends on:** —
 **Folder:** `F011-languages`
 
@@ -74,7 +74,7 @@ names and list names stay as they are.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| S01 | The mechanism: catalogs for English and Dutch, the language choice (system, setting), dates and numbers; the first screens moved | Planned | — |
+| [S01](stories/S01-the-mechanism.md) | The mechanism: catalogs for English and Dutch, the language choice (system, setting), dates and numbers; the first screens moved | Built, to try in the app | — |
 | S02 | All frontend texts moved to the catalogs | Planned | S01 |
 | S03 | Messages from the Rust core: codes with parameters, translated in the UI | Planned | S01 |
 | S04 | The bundle's languages, the docs and the conventions | Planned | S02, S03 |

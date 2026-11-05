@@ -1,12 +1,11 @@
 import type { MonthSummary } from "./api";
 
-const MAANDEN = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus",
-  "september", "oktober", "november", "december"];
+import { monthName } from "../i18n";
 
 /** "2026/07" → "juli"; een mapnaam zonder maand ("2012/scans Peter") → "scans Peter". */
 export function monthLabel(month: string): string {
   const m = /^(\d{4})\/(\d{2})$/.exec(month);
-  if (m) return MAANDEN[Number(m[2]) - 1] ?? month;
+  if (m) return Number(m[2]) >= 1 && Number(m[2]) <= 12 ? monthName(Number(m[2])) : month;
   return month.replace(/^\d{4}\//, "");
 }
 
@@ -37,7 +36,7 @@ export function takenLabel(taken: string | null): string {
   if (!taken) return "";
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(taken);
   if (!m) return taken;
-  return `${Number(m[3])} ${MAANDEN[Number(m[2]) - 1]} ${m[1]}, ${m[4]}:${m[5]}`;
+  return `${Number(m[3])} ${monthName(Number(m[2]))} ${m[1]}, ${m[4]}:${m[5]}`;
 }
 
 export function fileName(path: string): string {

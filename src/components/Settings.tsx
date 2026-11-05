@@ -12,6 +12,7 @@ import LightroomSection from "./LightroomSection";
 import type { Renamer } from "../lib/renamer";
 import type { Update } from "../lib/update";
 import { missingText, type Overview, type Previews } from "../lib/previews";
+import { LANGUAGE_EVENT, t, type LangSetting } from "../i18n";
 import { TABS, changedTabs, loadTab, saveTab, type TabId } from "../lib/settingsTabs";
 
 type Props = { renamer: Renamer; device: DeviceState | null; nas: Nas; sync: Sync; index: Index; update: Update; previews: Previews; onShowMessages: () => void; onClose: () => void };
@@ -126,6 +127,31 @@ export default function Settings({ renamer, device, nas, sync, index, update, pr
               </section>
             )}
 
+
+            <section className="space-y-1">
+              <h3 className="font-medium">{t().language.title}</h3>
+              <select
+                className="px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700 bg-transparent"
+                value={state.settings.language ?? ""}
+                onChange={(e) => {
+                  // saved and used at once, apart from the other settings (F011/S01)
+                  const language = e.target.value as LangSetting;
+                  config
+                    .saveSettings({ ...state.settings, language })
+                    .then(() => {
+                      setState({ ...state, settings: { ...state.settings, language } });
+                      setDraft({ ...draft, language });
+                      window.dispatchEvent(new CustomEvent(LANGUAGE_EVENT, { detail: language }));
+                    })
+                    .catch((err) => setMessage(String(err)));
+                }}
+              >
+                <option value="">{t().language.system}</option>
+                <option value="en">English</option>
+                <option value="nl">Nederlands</option>
+              </select>
+              <div className="text-xs text-neutral-500">{t().language.hint}</div>
+            </section>
 
             <LightroomSection />
 

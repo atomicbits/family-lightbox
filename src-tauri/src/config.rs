@@ -45,6 +45,8 @@ pub struct Settings {
     pub local: Local,
     /// Where new photos come from on this Mac (F018/S03).
     pub import: Import,
+    /// The app's language (F011/S01): empty follows the Mac, or `en`, `nl`.
+    pub language: String,
 }
 
 /// The import's sources on this Mac (F018/S03).
@@ -215,6 +217,9 @@ pub fn share_problem(share: &str) -> Option<String> {
 pub fn save_settings(dir: &Path, s: &Settings) -> Result<(), String> {
     if let Some(p) = host_problem(&s.nas_host) {
         return Err(p);
+    }
+    if !["", "en", "nl"].contains(&s.language.as_str()) {
+        return Err(format!("onbekende taal: {}", s.language));
     }
     let sh = &s.shares;
     for name in [&sh.library, &sh.previews, &sh.lists, &sh.exports] {

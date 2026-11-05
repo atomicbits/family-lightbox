@@ -19,7 +19,7 @@ export function changedTabs(draft: Settings, saved: Settings): Set<TabId> {
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   if (draft.nas_host !== saved.nas_host || draft.home_share !== saved.home_share || !same(draft.shares, saved.shares)) out.add("nas");
   if (!same(draft.import, saved.import)) out.add("import");
-  if (!same(draft.local, saved.local)) out.add("general");
+  if (!same(draft.local, saved.local) || (draft.language ?? "") !== (saved.language ?? "")) out.add("general");
   return out;
 }
 

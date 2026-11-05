@@ -47,6 +47,12 @@ settings.
 - [ ] A folder with this library's file: goes straight on.
 - [ ] A folder without write access: the welcome says so.
 
+### Languages (F011/S01)
+
+- [ ] *Instellingen → Algemeen → Taal*: *English* turns the welcome texts, month names and numbers
+      English at once (the rest of the app is still Dutch until S02); *Zoals de Mac* gives Dutch
+      back; the choice stays after a restart.
+
 ## On Lynn's Mac
 
 After the update to 0.7.0 arrives (*Bijwerken* in the header).
