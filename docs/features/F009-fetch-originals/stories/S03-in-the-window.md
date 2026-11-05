@@ -1,7 +1,7 @@
 # Story S03: In the window
 
 **Feature:** `F009-fetch-originals`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S02
 
 ## Acceptance criteria
@@ -42,3 +42,7 @@
 Peter: confirm when a fetch is a lot of data. Above 5 GB (`BIG_FETCH`) the plan says so in amber,
 with how long it takes and that it takes that much room on this Mac, and the button reads *Toch
 ophalen (12,3 GB)*. `pnpm test` 162 passed (2 new).
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

@@ -1,7 +1,7 @@
 # Story S06: Synced folders
 
 **Feature:** `F018-import`
-**Status:** In progress: built and tested; the first plan on real data still to make
+**Status:** Done (2026-11-05)
 **Depends on:** S05
 
 ## Goal
@@ -127,3 +127,7 @@ check by name and size, `Recents` left out, the first month, and recording what 
 - `copy_with_time` copies only the content into a new file and sets its time; a test with a
   read-only, locked source. The 436 are recorded as taken; a new plan reads the 1 223 again, from
   Drive's local copies and the hash cache.
+
+### [2026-11-05] Done
+
+Peter: used for the imports of Max2, Flowtrack and both iPhones, checked on the NAS.

@@ -1,7 +1,7 @@
 # Story S02: The grid and the counts without hidden photos
 
 **Feature:** `F014-hide-photos`
-**Status:** In progress: built and tested; to see in the app once S03 can hide photos
+**Status:** Done (2026-11-05)
 **Depends on:** S01
 
 ## Goal
@@ -47,3 +47,7 @@ Hidden photos don't appear: not as tiles, not in the counts of the month list an
   (the same array when nothing is hidden), the tooltip text; 80 tests. `tsc` and `pnpm build`
   clean.
 - Nothing is hidden on the share yet; S03 adds hiding from the right-click menu.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

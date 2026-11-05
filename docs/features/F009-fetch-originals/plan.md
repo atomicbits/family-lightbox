@@ -1,6 +1,6 @@
 # Feature 9: Fetching originals from the NAS
 
-**Status:** In progress (plan accepted 2026-11-05)
+**Status:** Done (2026-11-05)
 **Depends on:** Feature 6 (the NAS), feature 8 (the index), feature 3 (lists)
 **Folder:** `F009-fetch-originals`
 
@@ -51,6 +51,6 @@ on the NAS only.
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-the-plan.md) | The plan: what to fetch, what is here already, sidecars, the space needed | Built, to try in the app | — |
-| [S02](stories/S02-fetching.md) | Fetching: copy, verify, the month's manifest, resumable, in the footer | Built, to try in the app | S01 |
-| [S03](stories/S03-in-the-window.md) | In the window: the right-click menu, a list's command, opening an original that isn't here | Built, to try in the app | S02 |
+| [S01](stories/S01-the-plan.md) | The plan: what to fetch, what is here already, sidecars, the space needed | Done | — |
+| [S02](stories/S02-fetching.md) | Fetching: copy, verify, the month's manifest, resumable, in the footer | Done | S01 |
+| [S03](stories/S03-in-the-window.md) | In the window: the right-click menu, a list's command, opening an original that isn't here | Done | S02 |

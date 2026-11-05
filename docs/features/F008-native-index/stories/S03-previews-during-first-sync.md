@@ -1,7 +1,7 @@
 # Story S03: Previews appear during a long sync, folder by folder
 
 **Feature:** `F008-native-index`
-**Status:** In progress: built and tested, checked end to end on real previews; the grid in the app still to check
+**Status:** Done (2026-11-05)
 **Depends on:** S02
 
 ## Goal
@@ -55,3 +55,7 @@ ends, the photos appear month by month while they arrive.
 - Still to check by hand in the app: with empty `MEDIA_PREVIEWS` and `MEDIA_CONFIG`, previews
   appearing in the grid while a sync of several years runs. On Peter's Mac a full first sync is
   29 GB, so that check fits best on Lynn's Mac (feature 4).
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

@@ -1,7 +1,7 @@
 # Story S02: The app reads its own index and keeps it current
 
 **Feature:** `F008-native-index`
-**Status:** In progress: built and tested, index built by the running app on real data; *Index bijwerken* checked by Peter; the reload keeping the selection and the focus check still to check
+**Status:** Done (2026-11-05)
 **Depends on:** S01
 
 ## Goal
@@ -112,3 +112,7 @@ after a sync, when Peter comes back from the CLI, and by hand. The `./media inde
   which still had the old frontend).
 - Still to check: the selection and the top month staying after a rebuild, and a touched
   manifest rebuilding on focus.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

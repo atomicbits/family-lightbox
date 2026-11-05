@@ -1,7 +1,7 @@
 # Story S01: Rendering one original at a preset
 
 **Feature:** `F024-export`
-**Status:** In progress: built and tested
+**Status:** Done (2026-11-05)
 **Depends on:** —
 
 ## Acceptance criteria
@@ -25,3 +25,7 @@ with its offset, the camera as TIFF `Model`; through a temporary name. `export::
 presets of the plan. Test: a rotated original, 300 px with 300 dpi, date and camera, never enlarged,
 full size. By hand on Peter's files: a CR3 and a JPG at *Fotoboek A4*, 3 508 px, 300 dpi, about
 half a second each. `examples/render-one.rs` for that.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

@@ -1,7 +1,7 @@
 # Story S02: Sending the outbox once the NAS is there
 
 **Feature:** `F020-offline-changes`
-**Status:** In progress: built and tested; to check in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S01
 
 ## Goal
@@ -42,3 +42,7 @@ line lost or written twice, and a list made offline stays a list of its own.
   every line. `outbox_send` (command) sends when the share is there and writes the summaries of
   the lists it touched; `write_change` sends first too.
 - Tested in `outbox.rs` (see S01).
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

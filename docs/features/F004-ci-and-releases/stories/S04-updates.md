@@ -1,7 +1,7 @@
 # Story S04: Updates: the Tauri updater with its own key, `latest.json` on GitHub Releases, *Bijwerken* in the app
 
 **Feature:** `F004-ci-and-releases`
-**Status:** In progress
+**Status:** Done (2026-11-05)
 **Depends on:** S03
 
 ## Goal
@@ -224,3 +224,7 @@ confirmation only for a first pass over 5 GB in a quiet line, and an import leav
 it went well. Pushed over HTTPS with `gh`'s token while GitHub refused the SSH keys during its
 outage that day; all three jobs green; the release has the `.dmg`, the update payload and
 `latest.json` 0.6.1. F020 (changes without the NAS) came after the tag and isn't in it.
+
+### [2026-11-05] Done
+
+Peter: updates worked from v0.5.0 to v0.6.0 and v0.6.1 on Lynn's Mac.

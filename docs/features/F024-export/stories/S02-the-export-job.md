@@ -1,7 +1,7 @@
 # Story S02: The export job
 
 **Feature:** `F024-export`
-**Status:** In progress: built and tested
+**Status:** Done (2026-11-05)
 **Depends on:** S01, feature 9
 
 ## Acceptance criteria
@@ -29,3 +29,7 @@
 - `lib.rs`: `export_presets`, `export_plan`, `export_start` (one at a time; by default
   `Exports/…` on the NAS from the layout), `export_pending`; `export-progress`, `export-done`.
 - `cargo test` 220 passed (3 new), `cargo clippy --all-targets` clean.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

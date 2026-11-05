@@ -1,7 +1,7 @@
 # Story S05: Choosing a stack's color
 
 **Feature:** `F015-stacks`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S04
 
 ## Goal
@@ -40,3 +40,7 @@ of a stack shows the eight colors; a click gives the stack that color, for every
 - One Rust test (the last color wins, an unknown one refused and ignored), the chosen color over
   the one from the id in `pnpm test`; 130 Rust and 96 vitest tests, clippy, `tsc` and
   `pnpm build` clean. Data contract 5.5 extended.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

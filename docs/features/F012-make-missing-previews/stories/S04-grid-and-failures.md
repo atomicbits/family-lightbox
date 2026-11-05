@@ -1,7 +1,7 @@
 # Story S04: The grid shows new previews as they are made; failures in the settings
 
 **Feature:** `F012-make-missing-previews`
-**Status:** In progress: tiles checked during the real run; the settings section still to look at
+**Status:** Done (2026-11-05)
 **Depends on:** S03
 
 ## Goal
@@ -90,3 +90,7 @@ his Mac:
 - 2 are empty `CR3` files (0 bytes) and 9 are `MOV`s macOS can't open: they stay as failures.
 
 `cargo test` 201 passed (2 new), `cargo clippy --all-targets` clean.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

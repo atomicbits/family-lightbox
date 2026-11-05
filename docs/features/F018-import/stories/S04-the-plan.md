@@ -1,7 +1,7 @@
 # Story S04: The plan and the import screen
 
 **Feature:** `F018-import`
-**Status:** Built (2026-10-31); to check in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S01, S03
 
 ## Goal
@@ -79,3 +79,7 @@ Before anything is copied, the app shows per source what an import would do, and
   the view's state, so a plan made meanwhile was lost and *Plan maken* was free to start a second
   one. `usePlans` (`importplans.ts`) keeps the plans, their progress and errors in the app, like
   the running import; the view shows them, so closing and opening it again changes nothing.
+
+### [2026-11-05] Done
+
+Peter: used for the imports of Max2, Flowtrack and both iPhones, checked on the NAS.

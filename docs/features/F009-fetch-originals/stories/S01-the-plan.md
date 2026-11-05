@@ -1,7 +1,7 @@
 # Story S01: What to fetch
 
 **Feature:** `F009-fetch-originals`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** —
 
 ## Acceptance criteria
@@ -26,3 +26,7 @@ old `MM.<name>` folders), here with the manifest's size → skipped, another siz
 missing → fetched with its sidecars but `lrv` and `thm`; a path in no manifest reported; the
 bytes, and whether they fit with the 20 GB reserve. Test: here, not here, a conflict, the THM
 left out, a path in no manifest, the reserve.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

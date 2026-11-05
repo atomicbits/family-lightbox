@@ -1,7 +1,7 @@
 # Story S03: Sources and their settings; the name proposed from the library
 
 **Feature:** `F018-import`
-**Status:** Built (2026-10-31); to check in the app
+**Status:** Done (2026-11-05)
 **Depends on:** —
 
 ## Goal
@@ -103,3 +103,7 @@ folders, and cards or devices with `DCIM/`; each with a source name and its few 
   it by the source's name in the library and `discover` applies it.
 - Data contract 3.1 (1.4 addition): a source may have months with and months without day folders.
 - `cargo test` 197 passed (1 new), `pnpm test` 146 passed (2 new).
+
+### [2026-11-05] Done
+
+Peter: used for the imports of Max2, Flowtrack and both iPhones, checked on the NAS.

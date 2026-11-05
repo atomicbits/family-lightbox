@@ -1,7 +1,7 @@
 # Story S02: The ⚠ in the footer, the overlay, and lines that fade
 
 **Feature:** `F016-messages`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S01
 
 ## Goal
@@ -59,3 +59,7 @@ On Lynn's Mac the text in *Meldingen* couldn't be copied: the app turns text sel
 everywhere (`index.css`), and right-click is off too. The list is selectable now (`select-text`),
 so ⌘C works, and *Kopiëren* puts all messages on the clipboard as the log's lines, oldest first
 (`messagesText`), to send on.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

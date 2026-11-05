@@ -1,7 +1,7 @@
 # Story S04: Showing hidden photos per month or year, until a restart
 
 **Feature:** `F014-hide-photos`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S03
 
 ## Goal
@@ -43,3 +43,7 @@ place, and hides them again; only on this Mac and only until the app restarts.
 
 - `pnpm test`: a shown month counting its hidden photos again, showing and hiding months a year
   at a time; 83 tests. `tsc` and `pnpm build` clean.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

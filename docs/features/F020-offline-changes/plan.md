@@ -1,6 +1,6 @@
 # Feature 20: Changes without the NAS
 
-**Status:** In progress (plan accepted 2026-11-04)
+**Status:** Done (2026-11-05)
 **Depends on:** Feature 3 (lists), feature 13 (stars and hearts), feature 14 (hiding), feature 15
 (stacks)
 **Folder:** `F020-offline-changes`
@@ -73,9 +73,9 @@ wijzigen kan alleen met de NAS*, *sterren en hartjes wijzigen kan alleen met de 
 
 | ID | Title | Status | Depends on |
 |---|---|---|---|
-| [S01](stories/S01-the-outbox.md) | The outbox: writing a change there when the share isn't connected, and reading the lists and marks with it | Built, to check in the app | — |
-| [S02](stories/S02-sending.md) | Sending the outbox: on connect, in order, read back, without duplicates; the id of a list taken meanwhile | Built, to check in the app | S01 |
-| [S03](stories/S03-in-the-window.md) | In the window: no refusal offline, *wijzigingen wachten op de NAS* in the footer, a message when sending fails | Built, to check in the app | S01 |
+| [S01](stories/S01-the-outbox.md) | The outbox: writing a change there when the share isn't connected, and reading the lists and marks with it | Done | — |
+| [S02](stories/S02-sending.md) | Sending the outbox: on connect, in order, read back, without duplicates; the id of a list taken meanwhile | Done | S01 |
+| [S03](stories/S03-in-the-window.md) | In the window: no refusal offline, *wijzigingen wachten op de NAS* in the footer, a message when sending fails | Done | S01 |
 | [S04](stories/S04-data-contract.md) | The data contract: writing later with the original moment (5.2, 5.5), version 1.5 | Done | S02 |
 
 ## Decisions

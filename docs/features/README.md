@@ -155,23 +155,23 @@ no folder yet.
 | 3 | [Lists](F003-lists/plan.md): create and fill lists together, native (data contract section 5) | In progress (S01–S03 and S05 done, S04 built; to check with Lynn's Mac) | 6, 8 |
 | 4 | [CI and signed releases](F004-ci-and-releases/plan.md), macOS first (reusing Atomic Bits' signing from `wikai`) | In progress (S01–S03 done; S04 built, v0.2.0 released) | 1 |
 | 5 | Start imports from the app via the CLI's `--json` output | Dropped: imports move into the app natively (D13), see 10 | — |
-| 6 | [Connect to the NAS](F006-nas-connection/plan.md): find or mount the shares (macOS first), register the device | Done on Peter's Mac; Lynn's Mac deferred | 1 |
+| 6 | [Connect to the NAS](F006-nas-connection/plan.md): find or mount the shares (macOS first), register the device | Done | 1 |
 | 7 | [Sync manifests and previews from the NAS](F007-sync-from-nas/plan.md) (replaces passes 1–2 of `media pull`; moves the data contract here) | Done | 6 |
-| 8 | [Native index](F008-native-index/plan.md): build the app's own index from the manifests (replaces `media index` for the app) | In progress | 7 |
-| 9 | [Fetching originals](F009-fetch-originals/plan.md) from the NAS: one photo, a selection or a list, into the working copy at their paths | In progress | 3, 6, 8 |
+| 8 | [Native index](F008-native-index/plan.md): build the app's own index from the manifests (replaces `media index` for the app) | Done | 7 |
+| 9 | [Fetching originals](F009-fetch-originals/plan.md) from the NAS: one photo, a selection or a list, into the working copy at their paths | Done | 3, 6, 8 |
 | 10 | Peter's workflow in the app, one feature per part when it is picked up: import, push, previews, doctor, thin (Peter, 2026-11-05: to be offered in the app later, as `media thin` does now), Drive upload status | Planned | 8 |
 | 11 | [Languages](F011-languages/plan.md): English by default, Dutch for us; every UI text in both | Planned (after 4) | — |
-| 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | In progress (S01–S03 done, S04 built) | 6, 7, 8 |
+| 12 | [Make missing previews](F012-make-missing-previews/plan.md) in the app, natively, from the local copy or the NAS, also onto the NAS (the first part of 10) | Done | 6, 7, 8 |
 | 13 | [Ratings and hearts](F013-ratings-and-hearts/plan.md): 1–5 stars shared, a heart per person, on the tiles; undo with a message, a button and ⌘Z | Done | 3 |
-| 14 | [Hiding photos](F014-hide-photos/plan.md): hide practical photos for both of us, from the right-click menu, with undo; show them per month or year until a restart | In progress (S01 done, S02–S04 built) | 13 |
-| 15 | [Stacks](F015-stacks/plan.md): near-identical photos in a stack, folded to the ones that matter, unfolded with a click; shared | In progress (S01 done, S02–S04 built) | 13, 14 |
-| 16 | [Messages and a log](F016-messages/plan.md): warnings and errors in a list behind a ⚠ in the footer and in a log file; footer lines fade | In progress (S01 done, S02 built) | 7, 12, 13 |
+| 14 | [Hiding photos](F014-hide-photos/plan.md): hide practical photos for both of us, from the right-click menu, with undo; show them per month or year until a restart | Done | 13 |
+| 15 | [Stacks](F015-stacks/plan.md): near-identical photos in a stack, folded to the ones that matter, unfolded with a click; shared | Done | 13, 14 |
+| 16 | [Messages and a log](F016-messages/plan.md): warnings and errors in a list behind a ⚠ in the footer and in a log file; footer lines fade | Done | 7, 12, 13 |
 | 17 | [Live Photos](F017-live-photos/plan.md): recognize the short videos of Live Photos and give them a symbol of their own | Done | 8 |
 | 18 | [Import](F018-import/plan.md): from a drop folder, a synced folder or a card, into the right month and source on the NAS, verified, with previews (the import and push part of 10) | In progress | 6, 8, 12 |
 | 19 | [The NAS layout in one file](F019-nas-layout/plan.md): where the library, previews, lists and exports are, in `familylightbox.json` on the NAS for all Macs; one share by default | In progress | 6, 7, 18 |
-| 20 | [Changes without the NAS](F020-offline-changes/plan.md): lists, stars, hearts, hiding and stacks changed offline, kept in an outbox and sent when the NAS is back | In progress | 3, 13, 14, 15 |
+| 20 | [Changes without the NAS](F020-offline-changes/plan.md): lists, stars, hearts, hiding and stacks changed offline, kept in an outbox and sent when the NAS is back | Done | 3, 13, 14, 15 |
 | 21 | [The settings window](F021-settings-window/plan.md): wider, the topics on tabs | Done | 6, 18, 19 |
 | 22 | [Renaming sources](F022-rename-sources/plan.md): rename a source or merge it into another, on the NAS, every Mac and in the manifests, to straighten out old names | In progress | 2, 8, 18, 19 |
-| 23 | [The lists in Lightroom Classic](F023-lightroom-plugin/plan.md): a plug-in keeps a collection per list, on a click, one way | In progress | 3, 9 |
-| 24 | [Exporting a list](F024-export/plan.md) from its originals, at a preset for a photo book, prints or a calendar | In progress | 3, 9 |
+| 23 | [The lists in Lightroom Classic](F023-lightroom-plugin/plan.md): a plug-in keeps a collection per list, on a click, one way | Done | 3, 9 |
+| 24 | [Exporting a list](F024-export/plan.md) from its originals, at a preset for a photo book, prints or a calendar | Done | 3, 9 |
 | 25 | [Lightroom's edits in the app](F025-lightroom-edits/plan.md): renditions published by the plug-in, shown with the photo, virtual copies as variants | Planned (an idea) | 23 |

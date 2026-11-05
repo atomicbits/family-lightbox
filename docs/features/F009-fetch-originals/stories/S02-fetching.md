@@ -1,7 +1,7 @@
 # Story S02: Fetching
 
 **Feature:** `F009-fetch-originals`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S01
 
 ## Acceptance criteria
@@ -26,3 +26,7 @@ from the layout; the index rebuilt afterwards), `fetch_pending`; `fetch-progress
 `fetch-done`. Tests: a whole fetch resumed after its first file, sidecars, no temporary file left;
 a file whose content on the NAS differs from the manifest isn't kept. `cargo test` 213 passed,
 `cargo clippy --all-targets` clean.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

@@ -1,7 +1,7 @@
 # Story S03: From the app
 
 **Feature:** `F023-lightroom-plugin`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S02, feature 9
 
 ## Acceptance criteria
@@ -29,3 +29,7 @@
   so at once.
 - `cargo test` 216 passed (1 new), `pnpm test` 163 passed (1 new), `tsc`, `vite build` and
   `cargo clippy --all-targets` clean.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

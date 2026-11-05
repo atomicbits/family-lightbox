@@ -1,7 +1,7 @@
 # Story S03: In the window: no refusal offline, and the changes that wait
 
 **Feature:** `F020-offline-changes`
-**Status:** In progress: built and tested; to check in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S01
 
 ## Goal
@@ -28,3 +28,7 @@ says what waits.
 - `App.tsx`: the count (`outbox_count`) after every change of the lists or marks; `outbox_send`
   when the `Lists` share is there and something waits, once per mounts; the line in the footer.
 - `pnpm test` 154 passed (1 new, 2 changed), `tsc` and `vite build` clean.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

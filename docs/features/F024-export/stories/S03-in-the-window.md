@@ -1,7 +1,7 @@
 # Story S03: In the window
 
 **Feature:** `F024-export`
-**Status:** In progress: built; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S02
 
 ## Acceptance criteria
@@ -30,3 +30,7 @@
 - `export::Custom` (`preset()` checks it), `export_plan` and `export_start` take it;
   `customProblem`, `customText` in `exporter.ts`. `cargo test` 220 passed (the presets' test
   extended), `pnpm test` 166 passed (1 new).
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

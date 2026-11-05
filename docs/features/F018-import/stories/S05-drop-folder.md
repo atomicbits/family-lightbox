@@ -1,7 +1,7 @@
 # Story S05: Importing from a drop folder
 
 **Feature:** `F018-import`
-**Status:** Built (2026-10-31); the first real import waits for Peter
+**Status:** Done (2026-11-05)
 **Depends on:** S02, S04
 
 ## Goal
@@ -125,3 +125,7 @@ folder's new files onto the NAS, verified, with previews, and tidies up after it
   the one with a changed file keeps its record.
 - On Peter's Mac the four records of finished imports were removed; the one of Lynn's first,
   failed attempt (fixed since) stays as such a record.
+
+### [2026-11-05] Done
+
+Peter: used for the imports of Max2, Flowtrack and both iPhones, checked on the NAS.

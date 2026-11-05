@@ -1,7 +1,7 @@
 # Story S01: The outbox: changes kept on this Mac, and read with the lists and marks
 
 **Feature:** `F020-offline-changes`
-**Status:** In progress: built and tested; to check in the app
+**Status:** Done (2026-11-05)
 **Depends on:** —
 
 ## Goal
@@ -48,3 +48,7 @@ own state; no extra warning about the other Mac.
 - `cargo test` 206 passed (5 new: kept and read after the device's file, sending, a send that
   stopped, an id taken meanwhile, an unregistered device; and a change without the NAS through the
   app's own function).
+
+### [2026-11-05] Done
+
+Peter: checked in the app.

@@ -1,7 +1,7 @@
 # Story S03: Hiding and unhiding from the right-click menu, with undo
 
 **Feature:** `F014-hide-photos`
-**Status:** In progress: built and tested; to try in the app
+**Status:** Done (2026-11-05)
 **Depends on:** S02
 
 ## Goal
@@ -48,3 +48,7 @@ hidden photo that is shown undoes it. Both get the message with undo, like stars
 - Peter: with a photo open after a double-click, right-click on it should offer hiding too. The
   lightbox now opens the same menu for the photo shown (without *Openen*); after hiding, the
   lightbox moves on to the next shown photo.
+
+### [2026-11-05] Done
+
+Peter: checked in the app.
