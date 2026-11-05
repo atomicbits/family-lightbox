@@ -234,4 +234,14 @@ export const browse: typeof En = {
     everythingHere: "alles staat al op deze Mac",
     monthFetchTitle: "naar deze Mac, met eerst wat het inneemt",
   },
+  log: {
+    marks: "sterren en reeksen",
+    lists: "lijsten",
+    sources: "bronnen",
+    filter: "filter",
+    outboxNotSent: (e) => `wachtende wijzigingen niet verzonden: ${e}`,
+    renameNotResumed: (e) => `hernoeming niet hervat: ${e}`,
+    camerasNotRead: (e) => `camera's niet gelezen: ${e}`,
+    sourcesNotRead: (e) => `bronnen niet gelezen: ${e}`,
+  },
 };

@@ -113,7 +113,7 @@ export default function App() {
   }, [indexProblem]);
   const sayError = useCallback((m: string) => {
     lists.say(m);
-    invoke("log_message", { level: "warn", source: "sterren en reeksen", text: m }).catch(() => {});
+    invoke("log_message", { level: "warn", source: t().browse.log.marks, text: m }).catch(() => {});
   }, [lists.say]);
   // stars, hearts, hiding and stacks show at once; the NAS is written in the background
   const marks = useMarks(lists.version, device?.device?.owner ?? null, sayError);
@@ -189,7 +189,7 @@ export default function App() {
     sentWith.current = nas.mounts;
     invoke<number>("outbox_send")
       .then((left) => { setWaiting(left); lists.refresh(); marks.reload().catch(() => {}); })
-      .catch((e) => invoke("log_message", { level: "warn", source: "lijsten", text: `wachtende wijzigingen niet verzonden: ${e}` }).catch(() => {}));
+      .catch((e) => invoke("log_message", { level: "warn", source: t().browse.log.lists, text: t().browse.log.outboxNotSent(String(e)) }).catch(() => {}));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice, listsUp, waiting, nas.mounts]);
 
@@ -216,7 +216,7 @@ export default function App() {
   useEffect(() => {
     if (!hasDevice || resumeTried.current || !nas.mounts?.library.some((m) => m.chosen)) return;
     resumeTried.current = true;
-    renamer.resume().catch((e) => invoke("log_message", { level: "warn", source: "bronnen", text: `hernoeming niet hervat: ${e}` }).catch(() => {}));
+    renamer.resume().catch((e) => invoke("log_message", { level: "warn", source: t().browse.log.sources, text: t().browse.log.renameNotResumed(String(e)) }).catch(() => {}));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasDevice, nas.mounts]);
 
@@ -259,10 +259,10 @@ export default function App() {
     if (!months.length) return;
     invoke<CameraCount[]>("cameras")
       .then(setCameras)
-      .catch((e) => invoke("log_message", { level: "warn", source: "filter", text: `camera's niet gelezen: ${e}` }).catch(() => {}));
+      .catch((e) => invoke("log_message", { level: "warn", source: t().browse.log.filter, text: t().browse.log.camerasNotRead(String(e)) }).catch(() => {}));
     invoke<CameraCount[]>("sources")
       .then(setSources)
-      .catch((e) => invoke("log_message", { level: "warn", source: "filter", text: `bronnen niet gelezen: ${e}` }).catch(() => {}));
+      .catch((e) => invoke("log_message", { level: "warn", source: t().browse.log.filter, text: t().browse.log.sourcesNotRead(String(e)) }).catch(() => {}));
   }, [months]);
 
   // At start: show the index there is, and rebuild it in the background (F008/S02). Without an

@@ -125,7 +125,7 @@ export function useLists(): Lists {
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const say = useCallback((text: string, error = true) => {
-    if (error) invoke("log_message", { level: "warn", source: "lijsten", text }).catch(() => {});
+    if (error) invoke("log_message", { level: "warn", source: t().browse.log.lists, text }).catch(() => {});
     const m = { text, error };
     setMessage(m);
     setTimeout(() => setMessage((cur) => (cur === m ? null : cur)), 6000);
@@ -149,7 +149,7 @@ export function useLists(): Lists {
   // a problem reading the lists goes to the log and the messages once (F016)
   const problem = state?.problem ?? null;
   useEffect(() => {
-    if (problem) invoke("log_message", { level: "warn", source: "lijsten", text: problem }).catch(() => {});
+    if (problem) invoke("log_message", { level: "warn", source: t().browse.log.lists, text: problem }).catch(() => {});
   }, [problem]);
 
   // The other Mac's changes (F003/S04): while the window has focus, and when it gets it back,

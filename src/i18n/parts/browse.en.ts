@@ -235,4 +235,15 @@ export const browse = {
     everythingHere: "everything is on this Mac already",
     monthFetchTitle: "to this Mac, first showing how much it takes",
   },
+  /** What the window writes into the messages (F011/S03): the source and the text. */
+  log: {
+    marks: "stars and stacks",
+    lists: "lists",
+    sources: "sources",
+    filter: "filter",
+    outboxNotSent: (e: string) => `waiting changes not sent: ${e}`,
+    renameNotResumed: (e: string) => `rename not resumed: ${e}`,
+    camerasNotRead: (e: string) => `cameras not read: ${e}`,
+    sourcesNotRead: (e: string) => `sources not read: ${e}`,
+  },
 };
